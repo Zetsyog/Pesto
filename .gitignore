@@ -1,0 +1,44 @@
+# Compiled object files
+*.o
+
+# Executables
+*.exe
+*.out
+
+# Libraries
+*.a
+*.so
+*.so.*
+*.la
+*.lo
+
+# Build directories
+build/
+dist/
+
+# Generated files
+Makefile
+configure
+config.log
+config.status
+attila.sh
+attila
+
+# Editor/IDE specific files
+.vscode/
+.idea/
+
+# Dependency files
+.deps/
+
+# autoconf
+aclocal.m4
+autom4te.cache/
+autoconf/
+configure
+config.log
+config.status
+Makefile.in
+configure~
+configure.ac~
+libtool
