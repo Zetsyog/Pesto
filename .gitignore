@@ -22,7 +22,7 @@ configure
 config.log
 config.status
 attila.sh
-attila
+./attila
 
 # Editor/IDE specific files
 .vscode/
@@ -30,6 +30,7 @@ attila
 
 # Dependency files
 .deps/
+.libs/
 
 # autoconf
 aclocal.m4
