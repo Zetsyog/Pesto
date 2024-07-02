@@ -7,7 +7,9 @@ OpenScopOptimizer::~OpenScopOptimizer() {}
 
 void OpenScopOptimizer::runPasses(PolyProgram &prog) {
 	for (auto &pass : this->passes) {
+		int nestCount = prog.getScopNests().size();
 		std::cerr << "[attila-optimizer] Running pass " << pass->getUUID()
+				  << " on " << std::to_string(nestCount) << " loop nests "
 				  << std::endl;
 		pass->run(prog);
 	}

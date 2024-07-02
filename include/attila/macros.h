@@ -1,0 +1,4 @@
+#ifndef ATTILA_MACROS_H
+#define ATTILA_MACROS_H
+
+#endif // ATTILA_MACROS_H

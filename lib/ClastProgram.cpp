@@ -32,32 +32,37 @@ ClastProgram *ClastProgramBuilder::build() {
 	return program;
 }
 
-void ClastProgramBuilder::addNest(ScopNest &nest) {
-	ClastNest *clastNest = new ClastNest();
-
+ClastProgramBuilder &ClastProgramBuilder::addNest(ScopNest &nest) {
 	osl_scop_p scop = nest.getScop();
+
+	ClastNest *clastNest = new ClastNest();
+	clastNest->getCloogOptions()->f = -1;
+	clastNest->getCloogOptions()->l = 1;
+	clastNest->getCloogOptions()->compilable = 1;
+	clastNest->getCloogOptions()->esp = 1;
+	clastNest->getCloogOptions()->strides = 1;
+	// clastNest->getCloogOptions()->sh = 1;
+	clastNest->getCloogOptions()->backtrack = 1;
+
 	CloogInput *input =
 		cloog_input_from_osl_scop(clastNest->getCloogState(), scop);
 	struct clast_stmt *root =
 		cloog_clast_create_from_input(input, clastNest->getCloogOptions());
 
 	clastNest->setClastRoot(root);
-	clastNest->getCloogOptions()->f = -1;
-	clastNest->getCloogOptions()->l = -1;
-	clastNest->getCloogOptions()->compilable = 0;
-	clastNest->getCloogOptions()->esp = 1;
-	clastNest->getCloogOptions()->strides = 1;
-	clastNest->getCloogOptions()->sh = 1;
-	clastNest->getCloogOptions()->backtrack = 0;
 
 	this->program->addNest(clastNest);
+
+	return *this;
 }
 
-void ClastProgramBuilder::fromPolyProgram(PolyProgram *program) {
+ClastProgramBuilder &
+ClastProgramBuilder::fromPolyProgram(PolyProgram *program) {
 	std::vector<ScopNest> nests = program->getScopNests();
 	for (auto &nest : nests) {
 		this->addNest(nest);
 	}
+	return *this;
 }
 
 void ClastProgramBuilder::reset() {

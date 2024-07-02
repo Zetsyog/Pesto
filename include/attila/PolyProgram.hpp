@@ -25,7 +25,7 @@ class PolyProgramBuilder {
 
 	PolyProgram *build();
 
-	void addScop(osl_scop_p scop);
+	PolyProgramBuilder &addScop(osl_scop_p scop);
 
 	void reset();
 

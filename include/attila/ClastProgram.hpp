@@ -25,8 +25,8 @@ class ClastProgramBuilder {
 
 	ClastProgram *build();
 
-	void addNest(ScopNest &nest);
-	void fromPolyProgram(PolyProgram *program);
+	ClastProgramBuilder &addNest(ScopNest &nest);
+	ClastProgramBuilder &fromPolyProgram(PolyProgram *program);
 
 	void reset();
 

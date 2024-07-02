@@ -24,9 +24,11 @@ PolyProgram *PolyProgramBuilder::build() {
 	return program;
 }
 
-void PolyProgramBuilder::addScop(osl_scop_p scop) {
+PolyProgramBuilder &PolyProgramBuilder::addScop(osl_scop_p scop) {
 	ScopNest nest(scop);
 	this->program->addScopNest(nest);
+
+	return *this;
 }
 
 void PolyProgramBuilder::reset() {

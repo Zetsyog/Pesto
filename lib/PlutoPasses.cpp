@@ -25,7 +25,6 @@ void PlutoAutoTransformPass::runSingleNest(ScopNest &nest) {
 	options->parallel = 0;
 	options->prevector = 0;
 	options->unrolljam = 0;
-	options->codegen_context = 0;
 	options->isldep = 1;
 	options->candldep = 0;
 
@@ -41,9 +40,9 @@ void PlutoAutoTransformPass::runSingleNest(ScopNest &nest) {
 		osl_int_set_long(scop->context->precision,
 						 &scop->context->m[scop->context->nb_rows - 1][1 + i],
 						 1);
-		osl_int_set_long(
-			scop->context->precision,
-			&scop->context->m[scop->context->nb_rows - 1][1 + nparam], -1);
+		// osl_int_set_long(
+		// 	scop->context->precision,
+		// 	&scop->context->m[scop->context->nb_rows - 1][1 + nparam], -1);
 	}
 }
 

@@ -22,17 +22,17 @@ int main(int argc, char **argv) {
 	fclose(in);
 
 	// create Polyhedral Program
-	PolyProgramBuilder polyBuilder;
-	polyBuilder.addScop(scop);
-	PolyProgram *polyProgram = polyBuilder.build();
+	PolyProgram *polyProgram = PolyProgramBuilder().addScop(scop).build();
 
 	OpenScopOptimizer optimizer;
 
 	// register passes
 	PlutoAutoTransformPass *auto_transform_pass = new PlutoAutoTransformPass();
+	SplitNestedLoopsPass *split_nested_loops_pass = new SplitNestedLoopsPass();
 
 	// order matter
 	optimizer.addPass(auto_transform_pass);
+	optimizer.addPass(split_nested_loops_pass);
 
 	// define the scop we are working on
 
@@ -44,7 +44,7 @@ int main(int argc, char **argv) {
 	std::vector<ScopNest> nests = polyProgram->getScopNests();
 
 	for (auto it = nests.begin(); it != nests.end(); ++it) {
-		int iteration = std::distance(nests.begin(), it) + 1;
+		int iteration = std::distance(nests.begin(), it);
 		osl_scop_p scop = it->getScop();
 
 		std::string output_file_path =
@@ -55,15 +55,15 @@ int main(int argc, char **argv) {
 	}
 
 	std::cerr << "[attila] Building Clast Program" << std::endl;
-	ClastProgramBuilder clastBuilder;
-	clastBuilder.fromPolyProgram(polyProgram);
-	ClastProgram *clastProgram = clastBuilder.build();
+	ClastProgram *clastProgram =
+		ClastProgramBuilder().fromPolyProgram(polyProgram).build();
+
+	delete polyProgram;
 
 	std::cerr << "[attila] Generating code" << std::endl;
 	ClastCodegen codegen;
 	codegen.generateCode(*clastProgram, "output_");
 
-	delete polyProgram;
 	delete clastProgram;
 
 	std::cerr << "[attila] Done" << std::endl;

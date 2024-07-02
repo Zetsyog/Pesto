@@ -33,8 +33,10 @@ libattila_la_SOURCES = \
    isl_support.c \
 	libattila.cpp \
    OpenScopOptimizer.cpp \
+   osl_support.c \
    PlutoPasses.cpp \
    PolyhedralPass.cpp \
+   PolyPasses.cpp \
    PolyProgram.cpp \
    ScopNest.cpp 
 
