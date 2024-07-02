@@ -77,9 +77,9 @@ AM_CONDITIONAL(EXTERNAL_PLUTO, test x$external_pluto = xtrue)
 AC_OUTPUT
 
 echo " /*-----------------------------------------------*"
-echo "  *          ATTILA configuration is OK          *"
+echo "  *            PESTO configuration is OK          *"
 echo "  *-----------------------------------------------*/"
-echo "Your system is ready to compile ATTILA"
+echo "Your system is ready to compile PESTO"
 echo "Run 'make' next to compile"
 # echo "Then, run 'make test' to check if everything is working correctly"
 echo "Use atiling (see README)"

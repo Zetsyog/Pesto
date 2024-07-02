@@ -1,5 +1,5 @@
-#ifndef ATTILA_CLAST_NEST_H
-#define ATTILA_CLAST_NEST_H
+#ifndef PESTO_CLAST_NEST_H
+#define PESTO_CLAST_NEST_H
 
 #include <cloog/cloog.h>
 
@@ -20,4 +20,4 @@ class ClastNest {
 	struct clast_stmt *root;
 };
 
-#endif // ATTILA_CLAST_NEST_H
+#endif // PESTO_CLAST_NEST_H

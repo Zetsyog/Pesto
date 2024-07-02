@@ -21,9 +21,9 @@ Makefile
 configure
 config.log
 config.status
-attila.sh
-./attila
-tool/attila
+pesto.sh
+./pesto
+tool/pesto
 
 # Editor/IDE specific files
 .vscode/

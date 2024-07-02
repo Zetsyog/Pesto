@@ -1,10 +1,10 @@
-#ifndef ATTILA_OPENSCOP_OPTIMIZER_H
-#define ATTILA_OPENSCOP_OPTIMIZER_H
+#ifndef PESTO_OPENSCOP_OPTIMIZER_H
+#define PESTO_OPENSCOP_OPTIMIZER_H
 
-#include <attila/PolyProgram.hpp>
-#include <attila/PolyhedralPass.hpp>
-#include <attila/ScopNest.hpp>
 #include <osl/osl.h>
+#include <pesto/PolyProgram.hpp>
+#include <pesto/PolyhedralPass.hpp>
+#include <pesto/ScopNest.hpp>
 #include <vector>
 
 /**
@@ -35,4 +35,4 @@ class OpenScopOptimizer {
 	std::vector<IPolyhedralPass *> passes;
 };
 
-#endif // ATTILA_OPENSCOP_OPTIMIZER_H
+#endif // PESTO_OPENSCOP_OPTIMIZER_H

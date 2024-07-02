@@ -1,0 +1,4 @@
+#ifndef PESTO_MACROS_H
+#define PESTO_MACROS_H
+
+#endif // PESTO_MACROS_H

@@ -1,8 +1,8 @@
-#ifndef ATTILA_POLYHEDRAL_PASS_H
-#define ATTILA_POLYHEDRAL_PASS_H
+#ifndef PESTO_POLYHEDRAL_PASS_H
+#define PESTO_POLYHEDRAL_PASS_H
 
-#include <attila/PolyProgram.hpp>
-#include <attila/ScopNest.hpp>
+#include <pesto/PolyProgram.hpp>
+#include <pesto/ScopNest.hpp>
 #include <string>
 #include <vector>
 
@@ -41,4 +41,4 @@ class SplitNestedLoopsPass : public IPolyhedralPass {
 	virtual std::string getUUID();
 };
 
-#endif // ATTILA_POLYHEDRAL_PASS_H
+#endif // PESTO_POLYHEDRAL_PASS_H

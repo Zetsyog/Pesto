@@ -19,21 +19,21 @@ endif
 
 
 
-bin_PROGRAMS=attila
+bin_PROGRAMS=pesto
 
-attila_SOURCES=\
-    attila.cpp
+pesto_SOURCES=\
+    main.cpp
 
-attila_CPPFLAGS=$(OPT_FLAGS) $(DEBUG_FLAGS) \
+pesto_CPPFLAGS=$(OPT_FLAGS) $(DEBUG_FLAGS) \
     $(OSL_INCLUDE) \
     $(ISL_INCLUDE) \
     $(CLOOG_INCLUDE) \
     $(PLUTO_INCLUDE) \
     -I../include -I$(top_srcdir)/include 
 
-attila_LDFLAGS=-static $(PLUTO_LDFLAGS)
+pesto_LDFLAGS=-static $(PLUTO_LDFLAGS)
 
-attila_LDADD = \
-   ../lib/libattila.la \
+pesto_LDADD = \
+   ../lib/libpesto.la \
     $(PLUTO_LIBADD) \
    -lm -lgomp

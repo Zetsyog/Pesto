@@ -1,6 +1,6 @@
-#include <attila/ClastNest.hpp>
-#include <attila/ClastProgram.hpp>
 #include <cloog/cloog.h>
+#include <pesto/ClastNest.hpp>
+#include <pesto/ClastProgram.hpp>
 
 ClastProgram::ClastProgram() {}
 

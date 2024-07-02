@@ -1,5 +1,5 @@
-#ifndef ATTILA_CLAST_OPTIMIZER_H
-#define ATTILA_CLAST_OPTIMIZER_H
+#ifndef PESTO_CLAST_OPTIMIZER_H
+#define PESTO_CLAST_OPTIMIZER_H
 
 class ClastOptimizer {
   public:
@@ -11,4 +11,4 @@ class ClastOptimizer {
   private:
 };
 
-#endif // ATTILA_CLAST_OPTIMIZER_H
+#endif // PESTO_CLAST_OPTIMIZER_H

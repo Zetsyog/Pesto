@@ -1,8 +1,8 @@
-#ifndef ATTILA_POLY_PROGRAM_H
-#define ATTILA_POLY_PROGRAM_H
+#ifndef PESTO_POLY_PROGRAM_H
+#define PESTO_POLY_PROGRAM_H
 
-#include <attila/ScopNest.hpp>
 #include <osl/osl.h>
+#include <pesto/ScopNest.hpp>
 #include <vector>
 
 class PolyProgram {
@@ -33,4 +33,4 @@ class PolyProgramBuilder {
 	PolyProgram *program;
 };
 
-#endif // ATTILA_POLY_PROGRAM_H
+#endif // PESTO_POLY_PROGRAM_H

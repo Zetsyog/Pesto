@@ -1,6 +1,6 @@
 SUBDIRS=
 
-lib_LTLIBRARIES = libattila.la
+lib_LTLIBRARIES = libpesto.la
 
 
 
@@ -25,13 +25,12 @@ endif
 
 
 
-libattila_la_SOURCES = \
+libpesto_la_SOURCES = \
    ClastCodegen.cpp \
    ClastNest.cpp \
    ClastOptimizer.cpp \
    ClastProgram.cpp \
    isl_support.c \
-	libattila.cpp \
    OpenScopOptimizer.cpp \
    osl_support.c \
    PlutoPasses.cpp \
@@ -40,16 +39,16 @@ libattila_la_SOURCES = \
    PolyProgram.cpp \
    ScopNest.cpp 
 
-libattila_la_CPPFLAGS = $(OPT_FLAGS) $(DEBUG_FLAGS)\
+libpesto_la_CPPFLAGS = $(OPT_FLAGS) $(DEBUG_FLAGS)\
    -I../include -I$(top_srcdir)/include \
    $(OSL_INCLUDE) \
    $(ISL_INCLUDE) \
    $(CLOOG_INCLUDE) \
    $(PLUTO_INCLUDE)
 
-libattila_la_LDFLAGS = $(PLUTO_LDFLAGS)
+libpesto_la_LDFLAGS = $(PLUTO_LDFLAGS)
 
-libattila_la_LIBADD = \
+libpesto_la_LIBADD = \
    $(ISL_LIBADD) \
    $(OSL_LIBADD) \
    $(CLOOG_LIBADD) \

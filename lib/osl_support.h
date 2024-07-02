@@ -1,5 +1,5 @@
-#ifndef ATTILA_OSL_SUPPORT_H
-#define ATTILA_OSL_SUPPORT_H
+#ifndef PESTO_OSL_SUPPORT_H
+#define PESTO_OSL_SUPPORT_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -56,4 +56,4 @@ osl_scop_p *osl_scop_split_nests(osl_scop_p scop);
 }
 #endif
 
-#endif // ATTILA_OSL_SUPPORT_H
+#endif // PESTO_OSL_SUPPORT_H

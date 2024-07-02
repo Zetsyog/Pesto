@@ -1,5 +1,5 @@
-#ifndef ATTILA_ISL_SUPPORT_H
-#define ATTILA_ISL_SUPPORT_H
+#ifndef PESTO_ISL_SUPPORT_H
+#define PESTO_ISL_SUPPORT_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,4 +23,4 @@ __isl_give isl_map *isl_map_from_osl_relation(osl_relation_p relation,
 }
 #endif
 
-#endif // ATTILA_ISL_SUPPORT_H
+#endif // PESTO_ISL_SUPPORT_H

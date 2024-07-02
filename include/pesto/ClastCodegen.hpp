@@ -1,7 +1,7 @@
-#ifndef ATTILA_CLAST_CODEGEN_H
-#define ATTILA_CLAST_CODEGEN_H
+#ifndef PESTO_CLAST_CODEGEN_H
+#define PESTO_CLAST_CODEGEN_H
 
-#include <attila/ClastProgram.hpp>
+#include <pesto/ClastProgram.hpp>
 #include <string>
 
 class ClastCodegen {

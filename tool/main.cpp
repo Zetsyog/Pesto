@@ -1,10 +1,10 @@
-#include <attila/Attila.hpp>
 #include <iostream>
 #include <osl/osl.h>
+#include <pesto/Pesto.hpp>
 #include <stdio.h>
 
 void print_usage() {
-	std::cerr << "Usage: attila [options] <input file>" << std::endl;
+	std::cerr << "Usage: pesto [options] <input file>" << std::endl;
 	std::cerr << "Options:" << std::endl;
 	std::cerr << "  -h, --help\t\tPrint this help message" << std::endl;
 	std::cerr << "  -v, --version\t\tPrint the version number" << std::endl;
@@ -16,7 +16,7 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 	std::string input_file_path = argv[1];
-	std::cerr << "[attila] Parsing file " << argv[1] << std::endl;
+	std::cerr << "[pesto] Parsing file " << argv[1] << std::endl;
 	FILE *in = fopen(input_file_path.c_str(), "r");
 	osl_scop_p scop = osl_scop_read(in);
 	fclose(in);
@@ -37,9 +37,9 @@ int main(int argc, char **argv) {
 	// define the scop we are working on
 
 	// run the passes
-	std::cerr << "[attila] Running optimizer" << std::endl;
+	std::cerr << "[pesto] Running optimizer" << std::endl;
 	optimizer.runPasses(*polyProgram);
-	std::cerr << "[attila] Done running optimizer" << std::endl;
+	std::cerr << "[pesto] Done running optimizer" << std::endl;
 
 	std::vector<ScopNest> nests = polyProgram->getScopNests();
 
@@ -54,18 +54,18 @@ int main(int argc, char **argv) {
 		fclose(out);
 	}
 
-	std::cerr << "[attila] Building Clast Program" << std::endl;
+	std::cerr << "[pesto] Building Clast Program" << std::endl;
 	ClastProgram *clastProgram =
 		ClastProgramBuilder().fromPolyProgram(polyProgram).build();
 
 	delete polyProgram;
 
-	std::cerr << "[attila] Generating code" << std::endl;
+	std::cerr << "[pesto] Generating code" << std::endl;
 	ClastCodegen codegen;
 	codegen.generateCode(*clastProgram, "output_");
 
 	delete clastProgram;
 
-	std::cerr << "[attila] Done" << std::endl;
+	std::cerr << "[pesto] Done" << std::endl;
 	return 0;
 }

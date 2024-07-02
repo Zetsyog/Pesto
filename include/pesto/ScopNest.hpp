@@ -1,5 +1,5 @@
-#ifndef ATTILA_SCOPNEST_H
-#define ATTILA_SCOPNEST_H
+#ifndef PESTO_SCOPNEST_H
+#define PESTO_SCOPNEST_H
 
 #include <osl/osl.h>
 
@@ -14,4 +14,4 @@ class ScopNest {
 	osl_scop_p getScop();
 };
 
-#endif // ATTILA_SCOPNEST_H
+#endif // PESTO_SCOPNEST_H

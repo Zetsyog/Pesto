@@ -1,9 +1,9 @@
-#ifndef ATTILA_CLAST_PROGRAM_H
-#define ATTILA_CLAST_PROGRAM_H
+#ifndef PESTO_CLAST_PROGRAM_H
+#define PESTO_CLAST_PROGRAM_H
 
-#include <attila/ClastNest.hpp>
-#include <attila/PolyProgram.hpp>
 #include <cloog/cloog.h>
+#include <pesto/ClastNest.hpp>
+#include <pesto/PolyProgram.hpp>
 
 class ClastProgram {
   public:
@@ -34,4 +34,4 @@ class ClastProgramBuilder {
 	ClastProgram *program;
 };
 
-#endif // ATTILA_CLAST_PROGRAM_H
+#endif // PESTO_CLAST_PROGRAM_H
