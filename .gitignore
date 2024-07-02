@@ -16,6 +16,10 @@
 build/
 dist/
 
+# local files
+local/
+sourceme
+
 # Generated files
 Makefile
 configure
