@@ -21,6 +21,11 @@ int main(int argc, char **argv) {
 	osl_scop_p scop = osl_scop_read(in);
 	fclose(in);
 
+	if (scop == NULL) {
+		std::cerr << "[pesto] Error parsing scop file" << std::endl;
+		return 1;
+	}
+
 	// create Polyhedral Program
 	PolyProgram *polyProgram = PolyProgramBuilder().addScop(scop).build();
 
@@ -29,10 +34,12 @@ int main(int argc, char **argv) {
 	// register passes
 	PlutoAutoTransformPass *auto_transform_pass = new PlutoAutoTransformPass();
 	SplitNestedLoopsPass *split_nested_loops_pass = new SplitNestedLoopsPass();
+	PlutoTilingPass *tiling_pass = new PlutoTilingPass();
 
 	// order matter
 	optimizer.addPass(auto_transform_pass);
 	optimizer.addPass(split_nested_loops_pass);
+	optimizer.addPass(tiling_pass);
 
 	// define the scop we are working on
 

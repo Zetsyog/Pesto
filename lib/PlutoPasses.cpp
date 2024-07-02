@@ -47,3 +47,23 @@ void PlutoAutoTransformPass::runSingleNest(ScopNest &nest) {
 }
 
 std::string PlutoAutoTransformPass::getUUID() { return "pluto-auto-transform"; }
+
+PlutoTilingPass::PlutoTilingPass() {}
+PlutoTilingPass::~PlutoTilingPass() {}
+
+std::string PlutoTilingPass::getUUID() { return "pluto-tiling"; }
+
+void PlutoTilingPass::runSingleNest(ScopNest &nest) {
+	PlutoContext *context = pluto_context_alloc();
+	PlutoOptions *options = context->options;
+	options->tile = 1;
+	options->parallel = 1;
+	options->prevector = 0;
+	options->unrolljam = 0;
+	options->isldep = 1;
+	options->candldep = 0;
+
+	osl_scop_p scop = nest.getScop();
+
+	scop = pluto_schedule_osl(scop, context);
+}

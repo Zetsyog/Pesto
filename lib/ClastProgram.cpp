@@ -37,11 +37,12 @@ ClastProgramBuilder &ClastProgramBuilder::addNest(ScopNest &nest) {
 
 	ClastNest *clastNest = new ClastNest();
 	clastNest->getCloogOptions()->f = -1;
-	clastNest->getCloogOptions()->l = 1;
-	clastNest->getCloogOptions()->compilable = 1;
+	// clastNest->getCloogOptions()->l = 1;
+	clastNest->getCloogOptions()->compilable = 0;
 	clastNest->getCloogOptions()->esp = 1;
-	clastNest->getCloogOptions()->strides = 1;
-	// clastNest->getCloogOptions()->sh = 1;
+	clastNest->getCloogOptions()->strides = 0;
+	clastNest->getCloogOptions()->sh = 0;
+	clastNest->getCloogOptions()->openscop = 1;
 	clastNest->getCloogOptions()->backtrack = 1;
 
 	CloogInput *input =

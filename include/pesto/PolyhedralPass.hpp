@@ -32,6 +32,15 @@ class PlutoAutoTransformPass : public IPolySingleNestPass {
 	virtual std::string getUUID();
 };
 
+class PlutoTilingPass : public IPolySingleNestPass {
+  public:
+	PlutoTilingPass();
+	virtual ~PlutoTilingPass();
+
+	virtual void runSingleNest(ScopNest &nest);
+	virtual std::string getUUID();
+};
+
 class SplitNestedLoopsPass : public IPolyhedralPass {
   public:
 	SplitNestedLoopsPass();
