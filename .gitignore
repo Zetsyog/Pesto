@@ -23,6 +23,7 @@ config.log
 config.status
 attila.sh
 ./attila
+./tool/attila
 
 # Editor/IDE specific files
 .vscode/
