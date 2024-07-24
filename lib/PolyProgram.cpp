@@ -4,11 +4,16 @@ PolyProgram::PolyProgram() {}
 
 PolyProgram::~PolyProgram() {}
 
-void PolyProgram::addScopNest(ScopNest nest) { this->nests.push_back(nest); }
+void PolyProgram::addScopNest(ScopNest *nest) { this->nests.push_back(nest); }
 
-void PolyProgram::clearScopNests() { this->nests.clear(); }
+void PolyProgram::clearScopNests() {
+	for (auto &nest : this->nests) {
+		delete nest;
+	}
+	this->nests.clear();
+}
 
-std::vector<ScopNest> PolyProgram::getScopNests() { return this->nests; }
+std::vector<ScopNest *> PolyProgram::getScopNests() { return this->nests; }
 
 PolyProgramBuilder::PolyProgramBuilder() : program(nullptr) { this->reset(); }
 
@@ -25,7 +30,7 @@ PolyProgram *PolyProgramBuilder::build() {
 }
 
 PolyProgramBuilder &PolyProgramBuilder::addScop(osl_scop_p scop) {
-	ScopNest nest(scop);
+	ScopNest *nest = new ScopNest(scop);
 	this->program->addScopNest(nest);
 
 	return *this;

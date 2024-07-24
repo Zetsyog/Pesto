@@ -48,3 +48,8 @@ Makefile.in
 configure~
 configure.ac~
 libtool
+
+# misc
+.direnv
+.envrc
+shell.nix

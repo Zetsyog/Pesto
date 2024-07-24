@@ -25,9 +25,10 @@ void osl_scop_to_isl(osl_scop_p scop, isl_ctx *ctx, isl_union_map **schedules,
 
 	isl_space *param_space = isl_space_params_alloc(ctx, n_param);
 
-	int i;
-	for (osl_statement_p stmt = scop->statement, i = 0; stmt != NULL;
+	int i = 0;
+	for (osl_statement_p stmt = scop->statement; stmt != NULL;
 		 stmt = stmt->next, i += 1) {
+
 		char stmt_name[100] = {0};
 		sprintf(stmt_name, "S_%d", i);
 		isl_id *id = isl_id_alloc(ctx, stmt_name, NULL);

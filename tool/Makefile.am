@@ -21,6 +21,8 @@ endif
 
 bin_PROGRAMS=pesto
 
+EXTRA_pesto_DEPENDENCIES = ../lib/libpesto.la
+
 pesto_SOURCES=\
     main.cpp
 

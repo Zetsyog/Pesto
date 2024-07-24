@@ -23,7 +23,7 @@ PLUTO_LIBADD+=-lpluto
 PLUTO_LDFLAGS+=-L$(top_builddir)/pluto/lib
 endif
 
-
+EXTRA_libpesto_la_DEPENDENCIES = ../pluto/lib/libpluto.la
 
 libpesto_la_SOURCES = \
    ClastCodegen.cpp \
@@ -33,6 +33,7 @@ libpesto_la_SOURCES = \
    isl_support.c \
    OpenScopOptimizer.cpp \
    osl_support.c \
+   ParamTilingPass.cpp \
    PlutoPasses.cpp \
    PolyhedralPass.cpp \
    PolyPasses.cpp \

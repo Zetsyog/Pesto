@@ -32,16 +32,19 @@ ClastProgram *ClastProgramBuilder::build() {
 	return program;
 }
 
-ClastProgramBuilder &ClastProgramBuilder::addNest(ScopNest &nest) {
-	osl_scop_p scop = nest.getScop();
+ClastProgramBuilder &ClastProgramBuilder::addNest(ScopNest *nest) {
+	if (nest == nullptr) {
+		return *this;
+	}
+	osl_scop_p scop = nest->getScop();
 
 	ClastNest *clastNest = new ClastNest();
 	clastNest->getCloogOptions()->f = -1;
-	// clastNest->getCloogOptions()->l = 1;
+	clastNest->getCloogOptions()->l = 1;
 	clastNest->getCloogOptions()->compilable = 0;
 	clastNest->getCloogOptions()->esp = 1;
 	clastNest->getCloogOptions()->strides = 0;
-	clastNest->getCloogOptions()->sh = 0;
+	clastNest->getCloogOptions()->sh = 1;
 	clastNest->getCloogOptions()->openscop = 1;
 	clastNest->getCloogOptions()->backtrack = 1;
 
@@ -59,7 +62,7 @@ ClastProgramBuilder &ClastProgramBuilder::addNest(ScopNest &nest) {
 
 ClastProgramBuilder &
 ClastProgramBuilder::fromPolyProgram(PolyProgram *program) {
-	std::vector<ScopNest> nests = program->getScopNests();
+	std::vector<ScopNest *> nests = program->getScopNests();
 	for (auto &nest : nests) {
 		this->addNest(nest);
 	}

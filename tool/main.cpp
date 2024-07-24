@@ -18,6 +18,10 @@ int main(int argc, char **argv) {
 	std::string input_file_path = argv[1];
 	std::cerr << "[pesto] Parsing file " << argv[1] << std::endl;
 	FILE *in = fopen(input_file_path.c_str(), "r");
+	if (in == NULL) {
+		std::cerr << "[pesto] Error while opening input file" << std::endl;
+		return 1;
+	}
 	osl_scop_p scop = osl_scop_read(in);
 	fclose(in);
 
@@ -28,6 +32,7 @@ int main(int argc, char **argv) {
 
 	// create Polyhedral Program
 	PolyProgram *polyProgram = PolyProgramBuilder().addScop(scop).build();
+	osl_scop_free(scop);
 
 	OpenScopOptimizer optimizer;
 
@@ -48,18 +53,20 @@ int main(int argc, char **argv) {
 	optimizer.runPasses(*polyProgram);
 	std::cerr << "[pesto] Done running optimizer" << std::endl;
 
-	std::vector<ScopNest> nests = polyProgram->getScopNests();
+	std::vector<ScopNest *> nests = polyProgram->getScopNests();
 
-	for (auto it = nests.begin(); it != nests.end(); ++it) {
-		int iteration = std::distance(nests.begin(), it);
-		osl_scop_p scop = it->getScop();
-
+	for (std::vector<ScopNest *>::iterator it = nests.begin();
+		 it != nests.end(); ++it) {
+		int distance = std::distance(nests.begin(), it);
+		ScopNest *nest = *it;
 		std::string output_file_path =
-			"output_" + std::to_string(iteration) + ".scop";
+			"output_" + std::to_string(distance) + ".scop";
 		FILE *out = fopen(output_file_path.c_str(), "w");
-		osl_scop_print(out, scop);
+		osl_scop_print(out, nest->getScop());
 		fclose(out);
 	}
+
+	std::cout << "Number of iterations: " << nests.size() << std::endl;
 
 	std::cerr << "[pesto] Building Clast Program" << std::endl;
 	ClastProgram *clastProgram =

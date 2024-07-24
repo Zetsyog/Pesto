@@ -9,28 +9,29 @@
 #include <isl/union_map.h>
 #include <isl/union_set.h>
 #include <osl/scop.h>
+#include <pluto/internal/pluto.h>
+#include <pluto/osl_pluto.h>
 #include <pluto/pluto.h>
 #include <string.h>
 
 #include "isl_support.h"
 
-PlutoAutoTransformPass::PlutoAutoTransformPass() {}
+#define PLUTO_DEBUG 0
+#define PLUTO_QUIET 0
 
-PlutoAutoTransformPass::~PlutoAutoTransformPass() {}
+PlutoPass::PlutoPass(std::string suffix) {
+	this->suffix = suffix;
+	this->context = pluto_context_alloc();
+}
 
-void PlutoAutoTransformPass::runSingleNest(ScopNest &nest) {
-	PlutoContext *context = pluto_context_alloc();
-	PlutoOptions *options = context->options;
-	options->tile = 0;
-	options->parallel = 0;
-	options->prevector = 0;
-	options->unrolljam = 0;
-	options->isldep = 1;
-	options->candldep = 0;
+PlutoOptions *PlutoPass::getOptions() { return this->context->options; }
 
+void PlutoPass::runSingleNest(ScopNest &nest) {
 	osl_scop_p scop = nest.getScop();
 
-	scop = pluto_schedule_osl(scop, context);
+	PlutoProg *pluto_prog = osl_scop_to_pluto_prog(scop, context);
+	pluto_schedule_prog(pluto_prog);
+	pluto_populate_scop(scop, pluto_prog, context);
 
 	int nparam = osl_scop_get_nb_parameters(scop);
 	for (int i = 0; i < nparam; i += 1) {
@@ -40,30 +41,51 @@ void PlutoAutoTransformPass::runSingleNest(ScopNest &nest) {
 		osl_int_set_long(scop->context->precision,
 						 &scop->context->m[scop->context->nb_rows - 1][1 + i],
 						 1);
-		// osl_int_set_long(
-		// 	scop->context->precision,
-		// 	&scop->context->m[scop->context->nb_rows - 1][1 + nparam], -1);
+		osl_int_set_long(
+			scop->context->precision,
+			&scop->context->m[scop->context->nb_rows - 1][1 + nparam], -1);
 	}
 }
 
-std::string PlutoAutoTransformPass::getUUID() { return "pluto-auto-transform"; }
+PlutoPass::~PlutoPass() { pluto_context_free(this->context); }
 
-PlutoTilingPass::PlutoTilingPass() {}
-PlutoTilingPass::~PlutoTilingPass() {}
+std::string PlutoPass::getUUID() { return "pluto-" + this->suffix; }
 
-std::string PlutoTilingPass::getUUID() { return "pluto-tiling"; }
+PlutoAutoTransformPass::PlutoAutoTransformPass() : PlutoPass("auto-transform") {
+	this->getOptions()->silent = !PLUTO_DEBUG;
+	this->getOptions()->quiet = !PLUTO_DEBUG;
+	this->getOptions()->debug = PLUTO_DEBUG;
+	this->getOptions()->moredebug = PLUTO_DEBUG;
 
-void PlutoTilingPass::runSingleNest(ScopNest &nest) {
-	PlutoContext *context = pluto_context_alloc();
-	PlutoOptions *options = context->options;
-	options->tile = 1;
-	options->parallel = 1;
-	options->prevector = 0;
-	options->unrolljam = 0;
-	options->isldep = 1;
-	options->candldep = 0;
+	this->getOptions()->identity = 0;
+	this->getOptions()->isldep = 1;
+	this->getOptions()->readscop = 1;
 
-	osl_scop_p scop = nest.getScop();
-
-	scop = pluto_schedule_osl(scop, context);
+	// pluto opt
+	this->getOptions()->tile = 0;
+	this->getOptions()->diamondtile = 0;
+	this->getOptions()->parallel = 0;
+	this->getOptions()->prevector = 0;
+	this->getOptions()->unrolljam = 0;
 }
+
+PlutoAutoTransformPass::~PlutoAutoTransformPass() {}
+
+PlutoTilingPass::PlutoTilingPass() : PlutoPass("tiling") {
+	this->getOptions()->silent = PLUTO_QUIET;
+	this->getOptions()->quiet = PLUTO_QUIET;
+	this->getOptions()->debug = PLUTO_DEBUG;
+	this->getOptions()->moredebug = PLUTO_DEBUG;
+
+	this->getOptions()->identity = 0;
+	this->getOptions()->isldep = 1;
+	this->getOptions()->readscop = 1;
+
+	// pluto opt
+	this->getOptions()->tile = 1;
+	this->getOptions()->diamondtile = 0;
+	this->getOptions()->parallel = 1;
+	this->getOptions()->prevector = 0;
+	this->getOptions()->unrolljam = 0;
+}
+PlutoTilingPass::~PlutoTilingPass() {}

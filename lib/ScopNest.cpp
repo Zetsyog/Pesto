@@ -1,7 +1,11 @@
 #include <pesto/ScopNest.hpp>
 
-ScopNest::ScopNest(osl_scop_p scop) { this->scop = scop; }
+ScopNest::ScopNest(osl_scop_p scop) { 
+    this->scop = osl_scop_clone(scop);; 
+    }
 
 osl_scop_p ScopNest::getScop() { return this->scop; }
 
-ScopNest::~ScopNest() {}
+ScopNest::~ScopNest() {
+    osl_scop_free(this->scop);
+}

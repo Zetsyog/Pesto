@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 
+#include <pluto/pluto.h>
+
 class IPolyhedralPass {
   public:
 	virtual ~IPolyhedralPass();
@@ -23,22 +25,31 @@ class IPolySingleNestPass : public IPolyhedralPass {
 	virtual std::string getUUID() = 0;
 };
 
-class PlutoAutoTransformPass : public IPolySingleNestPass {
+class PlutoPass : public IPolySingleNestPass {
+  public:
+	PlutoPass(std::string suffix);
+	virtual ~PlutoPass();
+
+	virtual void runSingleNest(ScopNest &nest);
+	virtual std::string getUUID();
+
+	PlutoOptions *getOptions();
+
+  private:
+	std::string suffix;
+	PlutoContext *context;
+};
+
+class PlutoAutoTransformPass : public PlutoPass {
   public:
 	PlutoAutoTransformPass();
 	virtual ~PlutoAutoTransformPass();
-
-	virtual void runSingleNest(ScopNest &nest);
-	virtual std::string getUUID();
 };
 
-class PlutoTilingPass : public IPolySingleNestPass {
+class PlutoTilingPass : public PlutoPass {
   public:
 	PlutoTilingPass();
 	virtual ~PlutoTilingPass();
-
-	virtual void runSingleNest(ScopNest &nest);
-	virtual std::string getUUID();
 };
 
 class SplitNestedLoopsPass : public IPolyhedralPass {

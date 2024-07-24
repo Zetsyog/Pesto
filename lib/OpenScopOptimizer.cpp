@@ -6,12 +6,12 @@ OpenScopOptimizer::OpenScopOptimizer() {}
 OpenScopOptimizer::~OpenScopOptimizer() {}
 
 void OpenScopOptimizer::runPasses(PolyProgram &prog) {
-	for (auto &pass : this->passes) {
+	for (auto it = this->passes.begin(); it != this->passes.end(); ++it) {
 		int nestCount = prog.getScopNests().size();
-		std::cerr << "[pesto-optimizer] Running pass " << pass->getUUID()
+		std::cerr << "[pesto-optimizer] Running pass " << (*it)->getUUID()
 				  << " on " << std::to_string(nestCount) << " loop nests "
 				  << std::endl;
-		pass->run(prog);
+		(*it)->run(prog);
 	}
 }
 

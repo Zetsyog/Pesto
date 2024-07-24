@@ -16,6 +16,7 @@ dnl  **************************************************************************/
 dnl Checks for programs.
 AC_PROG_CC
 AC_PROG_CXX
+AX_CXX_COMPILE_STDCXX_17
 AM_PROG_AR
 AC_PROG_LN_S
 AC_PROG_MAKE_SET
