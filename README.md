@@ -3,3 +3,7 @@
 Polyhedral flExible loop-neST Optimizer
 
 Polyhedral Elementary uSer-defined Tunable cOmpiler
+
+```bash
+./bin/pesto <openscop_file>
+```

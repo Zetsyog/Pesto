@@ -53,3 +53,7 @@ libtool
 .direnv
 .envrc
 shell.nix
+
+# tmp
+test/
+output_*
