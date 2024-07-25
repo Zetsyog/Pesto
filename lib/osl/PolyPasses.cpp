@@ -62,3 +62,30 @@ void SplitNestedLoopsPass::run(PolyProgram &prog) {
 }
 
 std::string SplitNestedLoopsPass::getUUID() { return "split-nested-loops"; }
+
+// ParamContextPass
+ParamContextPass::ParamContextPass(int contextValue)
+	: contextValue(contextValue) {}
+
+ParamContextPass::~ParamContextPass() {}
+
+void ParamContextPass::runSingleNest(ScopNest &nest) {
+	osl_scop_p scop = nest.getScop();
+	int nparam = osl_scop_get_nb_parameters(scop);
+	for (int i = 0; i < nparam; i += 1) {
+		osl_relation_insert_blank_row(scop->context, scop->context->nb_rows);
+		osl_int_set_long(scop->context->precision,
+						 &scop->context->m[scop->context->nb_rows - 1][0], 1);
+		osl_int_set_long(scop->context->precision,
+						 &scop->context->m[scop->context->nb_rows - 1][1 + i],
+						 1);
+		osl_int_set_long(
+			scop->context->precision,
+			&scop->context->m[scop->context->nb_rows - 1][1 + nparam],
+			-this->contextValue);
+	}
+}
+
+std::string ParamContextPass::getUUID() {
+	return "param-context-" + std::to_string(this->contextValue);
+}

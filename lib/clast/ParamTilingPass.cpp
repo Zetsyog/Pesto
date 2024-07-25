@@ -6,7 +6,7 @@ ClastParamTilingPass::ClastParamTilingPass() {}
 
 ClastParamTilingPass::~ClastParamTilingPass() {}
 
-void ClastParamTilingPass::run(ClastProgram &prog) {}
+void ClastParamTilingPass::runSingleNest(ClastNest &nest) {}
 
 std::string ClastParamTilingPass::getUUID() {
 	return "clast-param-tiling-pass";

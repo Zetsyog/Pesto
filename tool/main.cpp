@@ -43,6 +43,7 @@ int main(int argc, char **argv) {
 	optimizer.addPass(new pesto::PlutoAutoTransformPass());
 	optimizer.addPass(new pesto::SplitNestedLoopsPass());
 	optimizer.addPass(new pesto::PlutoTilingPass());
+	optimizer.addPass(new pesto::ParamContextPass(10));
 
 	// define the scop we are working on
 
@@ -67,11 +68,15 @@ int main(int argc, char **argv) {
 		fclose(out);
 	}
 
-	std::cout << "Number of iterations: " << nests.size() << std::endl;
-
 	std::cerr << "[pesto] Building Clast Program" << std::endl;
 	std::unique_ptr<pesto::ClastProgram> clastProgram =
 		pesto::ClastProgramBuilder().fromPolyProgram(polyProgram.get()).build();
+
+	// clast optimizations
+	pesto::ClastOptimizer clastOptimizer;
+	clastOptimizer.addPass(new pesto::ClastParamTilingPass());
+
+	clastOptimizer.run(*clastProgram.get());
 
 	std::cerr << "[pesto] Generating code" << std::endl;
 	pesto::ClastCodegen codegen;

@@ -26,19 +26,20 @@ endif
 EXTRA_libpesto_la_DEPENDENCIES = ../pluto/lib/libpluto.la
 
 libpesto_la_SOURCES = \
-   ClastCodegen.cpp \
-   ClastNest.cpp \
-   ClastOptimizer.cpp \
-   ClastProgram.cpp \
    isl_support.c \
-   OpenScopOptimizer.cpp \
    osl_support.c \
-   ParamTilingPass.cpp \
-   PlutoPasses.cpp \
-   PolyhedralPass.cpp \
-   PolyPasses.cpp \
-   PolyProgram.cpp \
-   ScopNest.cpp 
+   clast/ClastCodegen.cpp \
+   clast/ClastNest.cpp \
+   clast/ClastOptimizer.cpp \
+   clast/ClastProgram.cpp \
+   clast/ClastPass.cpp \
+   clast/ParamTilingPass.cpp \
+   osl/OpenScopOptimizer.cpp \
+   osl/PlutoPasses.cpp \
+   osl/PolyhedralPass.cpp \
+   osl/PolyPasses.cpp \
+   osl/PolyProgram.cpp \
+   osl/ScopNest.cpp 
 
 libpesto_la_CPPFLAGS = $(OPT_FLAGS) $(DEBUG_FLAGS)\
    -I../include -I$(top_srcdir)/include \

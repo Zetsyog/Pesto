@@ -13,5 +13,6 @@
 #include <pesto/PolyProgram.hpp>
 #include <pesto/PolyhedralPass.hpp>
 #include <pesto/ScopNest.hpp>
+#include <pesto/macros.h>
 
 #endif // PESTO_PESTO_H

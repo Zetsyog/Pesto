@@ -14,23 +14,23 @@ class IClastPass {
 	virtual std::string getUUID() = 0;
 };
 
-class IClastSingleNestPass {
+class IClastSingleNestPass : public IClastPass {
   public:
 	virtual ~IClastSingleNestPass();
 
 	virtual void run(ClastProgram &prog);
-	virtual std::string getUUID() = 0;
 
+	virtual std::string getUUID() = 0;
 	virtual void runSingleNest(ClastNest &nest) = 0;
 };
 
-class ClastParamTilingPass : IClastSingleNestPass {
+class ClastParamTilingPass : public IClastSingleNestPass {
   public:
 	ClastParamTilingPass();
 	virtual ~ClastParamTilingPass();
 
-	virtual void run(ClastProgram &prog);
 	virtual std::string getUUID();
+	virtual void runSingleNest(ClastNest &nest);
 };
 
 } // namespace pesto

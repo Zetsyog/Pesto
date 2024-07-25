@@ -39,19 +39,6 @@ void PlutoPass::runSingleNest(ScopNest &nest) {
 	pluto_populate_scop(scop, pluto_prog, context);
 
 	pluto_prog_free(pluto_prog);
-
-	int nparam = osl_scop_get_nb_parameters(scop);
-	for (int i = 0; i < nparam; i += 1) {
-		osl_relation_insert_blank_row(scop->context, scop->context->nb_rows);
-		osl_int_set_long(scop->context->precision,
-						 &scop->context->m[scop->context->nb_rows - 1][0], 1);
-		osl_int_set_long(scop->context->precision,
-						 &scop->context->m[scop->context->nb_rows - 1][1 + i],
-						 1);
-		osl_int_set_long(
-			scop->context->precision,
-			&scop->context->m[scop->context->nb_rows - 1][1 + nparam], -1);
-	}
 }
 
 PlutoPass::~PlutoPass() { pluto_context_free(this->context); }
@@ -91,7 +78,7 @@ PlutoTilingPass::PlutoTilingPass() : PlutoPass("tiling") {
 	// pluto opt
 	this->getOptions()->tile = 1;
 	this->getOptions()->diamondtile = 0;
-	this->getOptions()->parallel = 1;
+	this->getOptions()->parallel = 0;
 	this->getOptions()->prevector = 0;
 	this->getOptions()->unrolljam = 0;
 }

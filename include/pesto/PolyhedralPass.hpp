@@ -27,6 +27,18 @@ class IPolySingleNestPass : public IPolyhedralPass {
 	virtual std::string getUUID() = 0;
 };
 
+class ParamContextPass : public IPolySingleNestPass {
+  public:
+	ParamContextPass(int contextValue);
+	virtual ~ParamContextPass();
+
+	virtual void runSingleNest(ScopNest &nest);
+	virtual std::string getUUID();
+
+  private:
+	int contextValue;
+};
+
 class PlutoPass : public IPolySingleNestPass {
   public:
 	PlutoPass(std::string suffix);
