@@ -7,9 +7,9 @@
 
 #include <pesto/ClastCodegen.hpp>
 #include <pesto/ClastNest.hpp>
-#include <pesto/ClastOptimizer.hpp>
+#include <pesto/ClastPassManager.hpp>
 #include <pesto/ClastProgram.hpp>
-#include <pesto/OpenScopOptimizer.hpp>
+#include <pesto/OslPassManager.hpp>
 #include <pesto/PolyProgram.hpp>
 #include <pesto/PolyhedralPass.hpp>
 #include <pesto/ScopNest.hpp>

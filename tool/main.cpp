@@ -36,20 +36,20 @@ int main(int argc, char **argv) {
 
 	osl_scop_free(scop);
 
-	pesto::OpenScopOptimizer optimizer;
+	pesto::OslPassManager oslPM;
 
 	// register all the polyhedral passes
 	// order matter
-	optimizer.addPass(new pesto::PlutoAutoTransformPass());
-	optimizer.addPass(new pesto::SplitNestedLoopsPass());
-	optimizer.addPass(new pesto::PlutoTilingPass());
-	optimizer.addPass(new pesto::ParamContextPass(10));
+	oslPM.addPass(std::make_unique<pesto::ParamContextPass>(10));
+	oslPM.addPass(std::make_unique<pesto::PlutoAutoTransformPass>());
+	oslPM.addPass(std::make_unique<pesto::SplitNestedLoopsPass>());
+	oslPM.addPass(std::make_unique<pesto::PlutoTilingPass>());
 
 	// define the scop we are working on
 
 	// run the passes
 	std::cerr << "[pesto] Running optimizer" << std::endl;
-	optimizer.runPasses(*polyProgram.get());
+	oslPM.runPasses(*polyProgram.get());
 	std::cerr << "[pesto] Done running optimizer" << std::endl;
 
 	std::vector<pesto::ScopNest *> nests = polyProgram->getScopNests();
@@ -73,10 +73,11 @@ int main(int argc, char **argv) {
 		pesto::ClastProgramBuilder().fromPolyProgram(polyProgram.get()).build();
 
 	// clast optimizations
-	pesto::ClastOptimizer clastOptimizer;
-	clastOptimizer.addPass(new pesto::ClastParamTilingPass());
+	pesto::ClastPassManager clastPM;
 
-	clastOptimizer.run(*clastProgram.get());
+	clastPM.addPass(std::make_unique<pesto::ClastParamTilingPass>());
+
+	clastPM.run(*clastProgram.get());
 
 	std::cerr << "[pesto] Generating code" << std::endl;
 	pesto::ClastCodegen codegen;

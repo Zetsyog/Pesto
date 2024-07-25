@@ -158,3 +158,15 @@ osl_scop_p *osl_scop_split_nests(osl_scop_p scop) {
 	}
 	return new_scops;
 }
+
+int osl_max_scattering_dim(osl_scop_p scop) {
+	assert(scop != NULL);
+	int max_dim = 0;
+	for (osl_statement_p stmt = scop->statement; stmt != NULL;
+		 stmt = stmt->next) {
+		if (stmt->scattering->nb_output_dims > max_dim) {
+			max_dim = stmt->scattering->nb_output_dims;
+		}
+	}
+	return max_dim;
+}

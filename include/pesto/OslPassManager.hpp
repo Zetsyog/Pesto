@@ -20,10 +20,10 @@ namespace pesto {
  * Then c code can be generated
  *
  */
-class OpenScopOptimizer {
+class OslPassManager {
   public:
-	OpenScopOptimizer();
-	virtual ~OpenScopOptimizer();
+	OslPassManager();
+	virtual ~OslPassManager();
 
 	/**
 	 * Run optimization passes
@@ -32,7 +32,7 @@ class OpenScopOptimizer {
 	 */
 	void runPasses(PolyProgram &prog);
 
-	void addPass(IPolyhedralPass *pass);
+	void addPass(std::unique_ptr<IPolyhedralPass> pass);
 
   private:
 	std::vector<std::unique_ptr<IPolyhedralPass>> passes;

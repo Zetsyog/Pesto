@@ -9,12 +9,12 @@
 
 namespace pesto {
 
-class ClastOptimizer {
+class ClastPassManager {
   public:
-	ClastOptimizer();
-	virtual ~ClastOptimizer();
+	ClastPassManager();
+	virtual ~ClastPassManager();
 
-	void addPass(IClastPass *pass);
+	void addPass(std::unique_ptr<IClastPass> pass);
 
 	void run(ClastProgram &prog);
 

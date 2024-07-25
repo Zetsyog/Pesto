@@ -52,6 +52,13 @@ osl_statement_get_scattering_first_dim_vector(osl_statement_p statement);
  */
 osl_scop_p *osl_scop_split_nests(osl_scop_p scop);
 
+/**
+ * @brief get the maximum scattering dimension number of the scop
+ * @param scop
+ * @return int
+ */
+int osl_max_scattering_dim(osl_scop_p scop);
+
 #ifdef __cplusplus
 }
 #endif

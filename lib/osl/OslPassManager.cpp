@@ -1,14 +1,14 @@
 #include <iostream>
-#include <pesto/OpenScopOptimizer.hpp>
+#include <pesto/OslPassManager.hpp>
 #include <pesto/macros.h>
 
 using namespace pesto;
 
-OpenScopOptimizer::OpenScopOptimizer() {}
+OslPassManager::OslPassManager() {}
 
-OpenScopOptimizer::~OpenScopOptimizer() {}
+OslPassManager::~OslPassManager() {}
 
-void OpenScopOptimizer::runPasses(PolyProgram &prog) {
+void OslPassManager::runPasses(PolyProgram &prog) {
 	for (auto it = this->passes.begin(); it != this->passes.end(); ++it) {
 		int nestCount = prog.getScopNests().size();
 		std::cerr << "[" << PESTO_NAME_OPT_OSL << "] Running pass '"
@@ -18,6 +18,6 @@ void OpenScopOptimizer::runPasses(PolyProgram &prog) {
 	}
 }
 
-void OpenScopOptimizer::addPass(IPolyhedralPass *pass) {
-	this->passes.push_back(std::unique_ptr<IPolyhedralPass>(pass));
+void OslPassManager::addPass(std::unique_ptr<IPolyhedralPass> pass) {
+	this->passes.push_back(std::move(pass));
 }
