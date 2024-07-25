@@ -1,5 +1,5 @@
-#ifndef PESTO_CLAST_PASSES_H
-#define PESTO_CLAST_PASSES_H
+#ifndef PESTO_CLAST_PASS_H
+#define PESTO_CLAST_PASS_H
 
 #include <string>
 #include <vector>
@@ -22,22 +22,6 @@ class IClastSingleNestPass : public IPolySingleNestPass {
 	virtual void runClast(struct clast_root *root) = 0;
 };
 
-class ClastMetadata {
-  public:
-	CloogState *cloogState;
-	CloogOptions *cloogOptions;
-	struct clast_stmt *root;
-};
-
-class GenClastPass : public IPolySingleNestPass {
-  public:
-	GenClastPass();
-	virtual ~GenClastPass();
-
-	virtual std::string getUUID();
-	virtual void runSingleNest(ScopNest &nest);
-};
-
 } // namespace pesto
 
-#endif // PESTO_CLAST_PASSES_H
+#endif // PESTO_CLAST_PASS_H

@@ -48,7 +48,8 @@ int main(int argc, char **argv) {
 	pestoPM.addPass(std::make_unique<pesto::PlutoAutoTransformPass>());
 	pestoPM.addPass(std::make_unique<pesto::SplitNestedLoopsPass>());
 	pestoPM.addPass(std::make_unique<pesto::PlutoTilingPass>());
-	pestoPM.addPass(std::make_unique<pesto::GenClastPass>());
+	pestoPM.addPass(std::make_unique<pesto::ClastGenPass>());
+	pestoPM.addPass(std::make_unique<pesto::ClastParamTilingPass>());
 	pestoPM.addPass(std::make_unique<pesto::CloogCodegenPass>("output."));
 
 	// define the scop we are working on

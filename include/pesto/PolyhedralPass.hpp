@@ -31,27 +31,6 @@ class IPolySingleNestPass : public IPolyhedralPass {
 	virtual std::string getUUID() = 0;
 };
 
-class ParamContextPass : public IPolySingleNestPass {
-  public:
-	ParamContextPass(int contextValue);
-	virtual ~ParamContextPass();
-
-	virtual void runSingleNest(ScopNest &nest);
-	virtual std::string getUUID();
-
-  private:
-	int contextValue;
-};
-
-class SplitNestedLoopsPass : public IPolyhedralPass {
-  public:
-	SplitNestedLoopsPass();
-	virtual ~SplitNestedLoopsPass();
-
-	virtual void run(PolyProgram &prog);
-	virtual std::string getUUID();
-};
-
 } // namespace pesto
 
 #endif // PESTO_POLYHEDRAL_PASS_H

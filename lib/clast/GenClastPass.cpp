@@ -4,13 +4,13 @@
 
 using namespace pesto;
 
-GenClastPass::GenClastPass() {}
+ClastGenPass::ClastGenPass() {}
 
-GenClastPass::~GenClastPass() {}
+ClastGenPass::~ClastGenPass() {}
 
-std::string GenClastPass::getUUID() { return "clast-gen"; }
+std::string ClastGenPass::getUUID() { return "clast-gen"; }
 
-void GenClastPass::runSingleNest(ScopNest &nest) {
+void ClastGenPass::runSingleNest(ScopNest &nest) {
 	osl_scop_p scop = nest.getScop();
 
 	ClastMetadata data;
@@ -19,8 +19,10 @@ void GenClastPass::runSingleNest(ScopNest &nest) {
 
 	std::cerr << osl_max_scattering_dim(scop) << std::endl;
 
-	data.cloogOptions->f = osl_max_scattering_dim(scop) + 1;
-	data.cloogOptions->l = osl_max_scattering_dim(scop) + 1;
+	// data.cloogOptions->f = osl_max_scattering_dim(scop) + 1;
+	// data.cloogOptions->l = osl_max_scattering_dim(scop) + 1;
+	// data.cloogOptions->override = 1;
+
 	data.cloogOptions->compilable = 0;
 	data.cloogOptions->esp = 1;
 	data.cloogOptions->strides = 0;

@@ -1,5 +1,5 @@
 #include <iostream>
-#include <pesto/PolyhedralPass.hpp>
+#include <pesto/Pesto.hpp>
 
 #include <osl_support.h>
 
