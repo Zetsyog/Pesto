@@ -1,6 +1,9 @@
 #ifndef PESTO_CLAST_PROGRAM_H
 #define PESTO_CLAST_PROGRAM_H
 
+#include <memory>
+#include <vector>
+
 #include <cloog/cloog.h>
 #include <pesto/ClastNest.hpp>
 #include <pesto/PolyProgram.hpp>
@@ -25,7 +28,7 @@ class ClastProgramBuilder {
 	ClastProgramBuilder();
 	virtual ~ClastProgramBuilder();
 
-	ClastProgram *build();
+	std::unique_ptr<ClastProgram> build();
 
 	ClastProgramBuilder &addNest(ScopNest *nest);
 	ClastProgramBuilder &fromPolyProgram(PolyProgram *program);

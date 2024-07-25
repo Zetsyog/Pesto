@@ -3,6 +3,7 @@
 
 #include <any>
 #include <map>
+#include <memory>
 #include <osl/osl.h>
 #include <pesto/ScopNest.hpp>
 #include <vector>
@@ -30,7 +31,7 @@ class PolyProgramBuilder {
 	PolyProgramBuilder();
 	virtual ~PolyProgramBuilder();
 
-	PolyProgram *build();
+	std::unique_ptr<PolyProgram> build();
 
 	PolyProgramBuilder &addScop(osl_scop_p scop);
 

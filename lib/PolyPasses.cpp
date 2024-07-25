@@ -45,6 +45,7 @@ void SplitNestedLoopsPass::run(PolyProgram &prog) {
 		for (int i = 0; i < nest_count; i++) {
 			osl_scop_free(new_scops[i]);
 		}
+		free(new_scops);
 	}
 
 	if (new_nests.size() > 0) {
@@ -52,6 +53,7 @@ void SplitNestedLoopsPass::run(PolyProgram &prog) {
 				  << " new nests" << std::endl;
 	} else {
 		std::cerr << "[split-nested-loops] No new nests added" << std::endl;
+		return;
 	}
 	prog.clearScopNests();
 	for (auto &nest : new_nests) {

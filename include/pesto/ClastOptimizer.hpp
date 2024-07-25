@@ -1,9 +1,11 @@
 #ifndef PESTO_CLAST_OPTIMIZER_H
 #define PESTO_CLAST_OPTIMIZER_H
 
+#include <memory>
+#include <vector>
+
 #include <pesto/ClastPass.hpp>
 #include <pesto/ClastProgram.hpp>
-#include <vector>
 
 namespace pesto {
 
@@ -17,7 +19,7 @@ class ClastOptimizer {
 	void run(ClastProgram &prog);
 
   private:
-	std::vector<IClastPass *> passes;
+	std::vector<std::unique_ptr<IClastPass>> passes;
 };
 
 } // namespace pesto

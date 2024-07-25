@@ -1,5 +1,5 @@
 #include <iostream>
-#include <pesto/Pesto.hpp>
+#include <string.h>
 
 #include <isl/id.h>
 #include <isl/map.h>
@@ -8,13 +8,16 @@
 #include <isl/space.h>
 #include <isl/union_map.h>
 #include <isl/union_set.h>
+
 #include <osl/scop.h>
+
 #include <pluto/internal/pluto.h>
+#include <pluto/internal/program.h>
 #include <pluto/osl_pluto.h>
 #include <pluto/pluto.h>
-#include <string.h>
 
 #include "isl_support.h"
+#include "pesto/Pesto.hpp"
 
 #define PLUTO_DEBUG 0
 #define PLUTO_QUIET 0
@@ -34,6 +37,8 @@ void PlutoPass::runSingleNest(ScopNest &nest) {
 	PlutoProg *pluto_prog = osl_scop_to_pluto_prog(scop, context);
 	pluto_schedule_prog(pluto_prog);
 	pluto_populate_scop(scop, pluto_prog, context);
+
+	pluto_prog_free(pluto_prog);
 
 	int nparam = osl_scop_get_nb_parameters(scop);
 	for (int i = 0; i < nparam; i += 1) {

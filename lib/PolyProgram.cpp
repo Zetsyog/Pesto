@@ -4,7 +4,7 @@ using namespace pesto;
 
 PolyProgram::PolyProgram() {}
 
-PolyProgram::~PolyProgram() {}
+PolyProgram::~PolyProgram() { this->clearScopNests(); }
 
 void PolyProgram::addScopNest(ScopNest *nest) { this->nests.push_back(nest); }
 
@@ -24,11 +24,11 @@ PolyProgramBuilder::~PolyProgramBuilder() {
 		delete this->program;
 }
 
-PolyProgram *PolyProgramBuilder::build() {
+std::unique_ptr<PolyProgram> PolyProgramBuilder::build() {
 	PolyProgram *program = this->program;
 	this->program = nullptr;
 	this->reset();
-	return program;
+	return std::unique_ptr<PolyProgram>(program);
 }
 
 PolyProgramBuilder &PolyProgramBuilder::addScop(osl_scop_p scop) {

@@ -32,8 +32,8 @@ int main(int argc, char **argv) {
 
 	// create Polyhedral Program
 	std::unique_ptr<pesto::PolyProgram> polyProgram =
-		std::unique_ptr<pesto::PolyProgram>(
-			pesto::PolyProgramBuilder().addScop(scop).build());
+		pesto::PolyProgramBuilder().addScop(scop).build();
+
 	osl_scop_free(scop);
 
 	pesto::OpenScopOptimizer optimizer;
@@ -53,8 +53,11 @@ int main(int argc, char **argv) {
 
 	std::vector<pesto::ScopNest *> nests = polyProgram->getScopNests();
 
+	// DEBUG
+	// TODO: remove
 	for (std::vector<pesto::ScopNest *>::iterator it = nests.begin();
 		 it != nests.end(); ++it) {
+		// dump every nest as a scop file before codegen
 		int distance = std::distance(nests.begin(), it);
 		pesto::ScopNest *nest = *it;
 		std::string output_file_path =
@@ -68,10 +71,7 @@ int main(int argc, char **argv) {
 
 	std::cerr << "[pesto] Building Clast Program" << std::endl;
 	std::unique_ptr<pesto::ClastProgram> clastProgram =
-		std::unique_ptr<pesto::ClastProgram>(
-			pesto::ClastProgramBuilder()
-				.fromPolyProgram(polyProgram.get())
-				.build());
+		pesto::ClastProgramBuilder().fromPolyProgram(polyProgram.get()).build();
 
 	std::cerr << "[pesto] Generating code" << std::endl;
 	pesto::ClastCodegen codegen;

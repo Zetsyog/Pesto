@@ -27,11 +27,11 @@ ClastProgramBuilder::~ClastProgramBuilder() {
 		delete this->program;
 }
 
-ClastProgram *ClastProgramBuilder::build() {
+std::unique_ptr<ClastProgram> ClastProgramBuilder::build() {
 	ClastProgram *program = this->program;
 	this->program = nullptr;
 	this->reset();
-	return program;
+	return std::unique_ptr<ClastProgram>(program);
 }
 
 ClastProgramBuilder &ClastProgramBuilder::addNest(ScopNest *nest) {
