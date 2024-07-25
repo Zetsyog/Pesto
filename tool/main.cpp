@@ -31,34 +31,32 @@ int main(int argc, char **argv) {
 	}
 
 	// create Polyhedral Program
-	PolyProgram *polyProgram = PolyProgramBuilder().addScop(scop).build();
+	std::unique_ptr<pesto::PolyProgram> polyProgram =
+		std::unique_ptr<pesto::PolyProgram>(
+			pesto::PolyProgramBuilder().addScop(scop).build());
 	osl_scop_free(scop);
 
-	OpenScopOptimizer optimizer;
+	pesto::OpenScopOptimizer optimizer;
 
-	// register passes
-	PlutoAutoTransformPass *auto_transform_pass = new PlutoAutoTransformPass();
-	SplitNestedLoopsPass *split_nested_loops_pass = new SplitNestedLoopsPass();
-	PlutoTilingPass *tiling_pass = new PlutoTilingPass();
-
+	// register all the polyhedral passes
 	// order matter
-	optimizer.addPass(auto_transform_pass);
-	optimizer.addPass(split_nested_loops_pass);
-	optimizer.addPass(tiling_pass);
+	optimizer.addPass(new pesto::PlutoAutoTransformPass());
+	optimizer.addPass(new pesto::SplitNestedLoopsPass());
+	optimizer.addPass(new pesto::PlutoTilingPass());
 
 	// define the scop we are working on
 
 	// run the passes
 	std::cerr << "[pesto] Running optimizer" << std::endl;
-	optimizer.runPasses(*polyProgram);
+	optimizer.runPasses(*polyProgram.get());
 	std::cerr << "[pesto] Done running optimizer" << std::endl;
 
-	std::vector<ScopNest *> nests = polyProgram->getScopNests();
+	std::vector<pesto::ScopNest *> nests = polyProgram->getScopNests();
 
-	for (std::vector<ScopNest *>::iterator it = nests.begin();
+	for (std::vector<pesto::ScopNest *>::iterator it = nests.begin();
 		 it != nests.end(); ++it) {
 		int distance = std::distance(nests.begin(), it);
-		ScopNest *nest = *it;
+		pesto::ScopNest *nest = *it;
 		std::string output_file_path =
 			"output_" + std::to_string(distance) + ".scop";
 		FILE *out = fopen(output_file_path.c_str(), "w");
@@ -69,16 +67,15 @@ int main(int argc, char **argv) {
 	std::cout << "Number of iterations: " << nests.size() << std::endl;
 
 	std::cerr << "[pesto] Building Clast Program" << std::endl;
-	ClastProgram *clastProgram =
-		ClastProgramBuilder().fromPolyProgram(polyProgram).build();
-
-	delete polyProgram;
+	std::unique_ptr<pesto::ClastProgram> clastProgram =
+		std::unique_ptr<pesto::ClastProgram>(
+			pesto::ClastProgramBuilder()
+				.fromPolyProgram(polyProgram.get())
+				.build());
 
 	std::cerr << "[pesto] Generating code" << std::endl;
-	ClastCodegen codegen;
-	codegen.generateCode(*clastProgram, "output_");
-
-	delete clastProgram;
+	pesto::ClastCodegen codegen;
+	codegen.generateCode(*clastProgram.get(), "output_");
 
 	std::cerr << "[pesto] Done" << std::endl;
 	return 0;

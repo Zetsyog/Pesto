@@ -3,6 +3,8 @@
 
 #include <cloog/cloog.h>
 
+namespace pesto {
+
 class ClastNest {
   public:
 	ClastNest();
@@ -19,5 +21,7 @@ class ClastNest {
 	CloogOptions *cloogOptions;
 	struct clast_stmt *root;
 };
+
+} // namespace pesto
 
 #endif // PESTO_CLAST_NEST_H

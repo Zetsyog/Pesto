@@ -1,5 +1,7 @@
 #include <pesto/ClastPass.hpp>
 
+using namespace pesto;
+
 ClastParamTilingPass::ClastParamTilingPass() {}
 
 ClastParamTilingPass::~ClastParamTilingPass() {}

@@ -1,6 +1,8 @@
 #include <iostream>
 #include <pesto/OpenScopOptimizer.hpp>
 
+using namespace pesto;
+
 OpenScopOptimizer::OpenScopOptimizer() {}
 
 OpenScopOptimizer::~OpenScopOptimizer() {}
@@ -16,5 +18,5 @@ void OpenScopOptimizer::runPasses(PolyProgram &prog) {
 }
 
 void OpenScopOptimizer::addPass(IPolyhedralPass *pass) {
-	this->passes.push_back(pass);
+	this->passes.push_back(std::unique_ptr<IPolyhedralPass>(pass));
 }

@@ -1,5 +1,7 @@
 #include "pesto/ClastNest.hpp"
 
+using namespace pesto;
+
 ClastNest::ClastNest() {
 	this->cloogState = cloog_state_malloc();
 	this->cloogOptions = cloog_options_malloc(this->cloogState);

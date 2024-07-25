@@ -1,5 +1,7 @@
 #include <pesto/Pesto.hpp>
 
+using namespace pesto;
+
 PolyProgram::PolyProgram() {}
 
 PolyProgram::~PolyProgram() {}

@@ -1,5 +1,7 @@
 #include <pesto/Pesto.hpp>
 
+using namespace pesto;
+
 void IPolySingleNestPass::run(PolyProgram &prog) {
 	// TODO
 	std::vector<ScopNest *> nests = prog.getScopNests();

@@ -4,6 +4,8 @@
 #include <pesto/ClastProgram.hpp>
 #include <string>
 
+namespace pesto {
+
 class ClastCodegen {
   public:
 	ClastCodegen();
@@ -11,5 +13,7 @@ class ClastCodegen {
 
 	void generateCode(ClastProgram &program, std::string const &output);
 };
+
+} // namespace pesto
 
 #endif

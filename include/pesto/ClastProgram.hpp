@@ -5,6 +5,8 @@
 #include <pesto/ClastNest.hpp>
 #include <pesto/PolyProgram.hpp>
 
+namespace pesto {
+
 class ClastProgram {
   public:
 	ClastProgram();
@@ -33,5 +35,7 @@ class ClastProgramBuilder {
   private:
 	ClastProgram *program;
 };
+
+} // namespace pesto
 
 #endif // PESTO_CLAST_PROGRAM_H

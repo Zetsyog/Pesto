@@ -3,6 +3,8 @@
 #include <pesto/ClastCodegen.hpp>
 #include <pesto/ClastNest.hpp>
 
+using namespace pesto;
+
 ClastCodegen::ClastCodegen() {}
 
 ClastCodegen::~ClastCodegen() {}

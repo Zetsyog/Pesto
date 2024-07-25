@@ -3,6 +3,8 @@
 
 #include <osl/osl.h>
 
+namespace pesto {
+
 class ScopNest {
   private:
 	osl_scop_p scop;
@@ -13,5 +15,7 @@ class ScopNest {
 
 	osl_scop_p getScop();
 };
+
+} // namespace pesto
 
 #endif // PESTO_SCOPNEST_H

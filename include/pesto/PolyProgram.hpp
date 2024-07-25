@@ -7,6 +7,8 @@
 #include <pesto/ScopNest.hpp>
 #include <vector>
 
+namespace pesto {
+
 class PolyProgram {
   public:
 	PolyProgram();
@@ -37,5 +39,7 @@ class PolyProgramBuilder {
   private:
 	PolyProgram *program;
 };
+
+} // namespace pesto
 
 #endif // PESTO_POLY_PROGRAM_H

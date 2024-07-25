@@ -8,6 +8,8 @@
 
 #include <pluto/pluto.h>
 
+namespace pesto {
+
 class IPolyhedralPass {
   public:
 	virtual ~IPolyhedralPass();
@@ -60,5 +62,7 @@ class SplitNestedLoopsPass : public IPolyhedralPass {
 	virtual void run(PolyProgram &prog);
 	virtual std::string getUUID();
 };
+
+} // namespace pesto
 
 #endif // PESTO_POLYHEDRAL_PASS_H

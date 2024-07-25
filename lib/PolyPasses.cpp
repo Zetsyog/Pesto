@@ -3,6 +3,8 @@
 
 #include <osl_support.h>
 
+using namespace pesto;
+
 SplitNestedLoopsPass::SplitNestedLoopsPass() {}
 
 SplitNestedLoopsPass::~SplitNestedLoopsPass() {}
@@ -45,13 +47,14 @@ void SplitNestedLoopsPass::run(PolyProgram &prog) {
 		}
 	}
 
-	if(new_nests.size() > 0) {
-		std::cerr << "[split-nested-loops] Added " << new_nests.size() << " new nests" << std::endl;
+	if (new_nests.size() > 0) {
+		std::cerr << "[split-nested-loops] Added " << new_nests.size()
+				  << " new nests" << std::endl;
 	} else {
 		std::cerr << "[split-nested-loops] No new nests added" << std::endl;
 	}
 	prog.clearScopNests();
-	for(auto &nest : new_nests) {
+	for (auto &nest : new_nests) {
 		prog.addScopNest(nest);
 	}
 }

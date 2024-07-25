@@ -19,6 +19,8 @@
 #define PLUTO_DEBUG 0
 #define PLUTO_QUIET 0
 
+using namespace pesto;
+
 PlutoPass::PlutoPass(std::string suffix) {
 	this->suffix = suffix;
 	this->context = pluto_context_alloc();

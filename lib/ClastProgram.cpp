@@ -2,6 +2,8 @@
 #include <pesto/ClastNest.hpp>
 #include <pesto/ClastProgram.hpp>
 
+using namespace pesto;
+
 ClastProgram::ClastProgram() {}
 
 ClastProgram::~ClastProgram() {

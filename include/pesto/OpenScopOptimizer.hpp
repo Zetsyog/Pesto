@@ -1,11 +1,14 @@
 #ifndef PESTO_OPENSCOP_OPTIMIZER_H
 #define PESTO_OPENSCOP_OPTIMIZER_H
 
+#include <memory>
 #include <osl/osl.h>
 #include <pesto/PolyProgram.hpp>
 #include <pesto/PolyhedralPass.hpp>
 #include <pesto/ScopNest.hpp>
 #include <vector>
+
+namespace pesto {
 
 /**
  * @brief Openscop optimizer class
@@ -32,7 +35,9 @@ class OpenScopOptimizer {
 	void addPass(IPolyhedralPass *pass);
 
   private:
-	std::vector<IPolyhedralPass *> passes;
+	std::vector<std::unique_ptr<IPolyhedralPass>> passes;
 };
+
+} // namespace pesto
 
 #endif // PESTO_OPENSCOP_OPTIMIZER_H
