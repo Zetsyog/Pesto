@@ -19,36 +19,39 @@
         "opt-osl": true,
         "opt-clast": true
     },
-    "passes": {
-        "osl": [
-            {
-                "uuid": "pluto-pass",
-                "pluto-opt": {
-                    "tile": false,
-                    "parallel": false,
-                    "prevector": false
-                },
-                "filters": [
-                    "$nest_depth >= 2",
-                ]
+    "passes":[
+        {
+            "uuid": "pluto-pass",
+            "pluto-opt": {
+                "tile": false,
+                "parallel": false,
+                "prevector": false
             },
-            {
-                "uuid": "split-loop-nest",
-            },
-            {
-                "uuid": "pluto-pass",
-                "pluto-opt": {
-                    "tile": true,
-                    "parallel": false,
-                    "prevector": false
-                }
+            "filters": [
+                "$nest_depth >= 2",
+            ]
+        },
+        {
+            "uuid": "split-loop-nest",
+        },
+        {
+            "uuid": "pluto-pass",
+            "pluto-opt": {
+                "tile": true,
+                "parallel": false,
+                "prevector": false
             }
-        ],
-        "clast": [
-            {
-                "uuid": "param-tiling"
-            }
-        ]
-    }
+        },
+        {
+            "uuid": "clast-gen"
+        },
+        {
+            "uuid": "clast-param-tiling"
+        },
+        {
+            "uuid": "codegen-cloog"
+        }
+    ]
+    
 }
 ```

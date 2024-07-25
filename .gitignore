@@ -36,6 +36,7 @@ tool/pesto
 # Dependency files
 .deps/
 .libs/
+.dirstamp
 
 # autoconf
 aclocal.m4

@@ -1,5 +1,7 @@
 #include <pesto/Pesto.hpp>
 
+#include "osl_support.h"
+
 using namespace pesto;
 
 GenClastPass::GenClastPass() {}
@@ -15,12 +17,14 @@ void GenClastPass::runSingleNest(ScopNest &nest) {
 	data.cloogState = cloog_state_malloc();
 	data.cloogOptions = cloog_options_malloc(data.cloogState);
 
-	data.cloogOptions->f = -1;
-	data.cloogOptions->l = 1;
+	std::cerr << osl_max_scattering_dim(scop) << std::endl;
+
+	data.cloogOptions->f = osl_max_scattering_dim(scop) + 1;
+	data.cloogOptions->l = osl_max_scattering_dim(scop) + 1;
 	data.cloogOptions->compilable = 0;
 	data.cloogOptions->esp = 1;
 	data.cloogOptions->strides = 0;
-	data.cloogOptions->sh = 1;
+	// data.cloogOptions->sh = 1;
 	data.cloogOptions->openscop = 1;
 	data.cloogOptions->backtrack = 0;
 
