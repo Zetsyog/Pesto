@@ -1,6 +1,7 @@
 #ifndef PESTO_POLYHEDRAL_PASS_H
 #define PESTO_POLYHEDRAL_PASS_H
 
+#include <iostream>
 #include <pesto/PolyProgram.hpp>
 #include <pesto/ScopNest.hpp>
 #include <string>
@@ -16,6 +17,9 @@ class IPolyhedralPass {
 
 	virtual void run(PolyProgram &prog) = 0;
 	virtual std::string getUUID() = 0;
+
+  protected:
+	std::ostream &log(std::ostream &os);
 };
 
 class IPolySingleNestPass : public IPolyhedralPass {
@@ -37,33 +41,6 @@ class ParamContextPass : public IPolySingleNestPass {
 
   private:
 	int contextValue;
-};
-
-class PlutoPass : public IPolySingleNestPass {
-  public:
-	PlutoPass(std::string suffix);
-	virtual ~PlutoPass();
-
-	virtual void runSingleNest(ScopNest &nest);
-	virtual std::string getUUID();
-
-	PlutoOptions *getOptions();
-
-  private:
-	std::string suffix;
-	PlutoContext *context;
-};
-
-class PlutoAutoTransformPass : public PlutoPass {
-  public:
-	PlutoAutoTransformPass();
-	virtual ~PlutoAutoTransformPass();
-};
-
-class PlutoTilingPass : public PlutoPass {
-  public:
-	PlutoTilingPass();
-	virtual ~PlutoTilingPass();
 };
 
 class SplitNestedLoopsPass : public IPolyhedralPass {

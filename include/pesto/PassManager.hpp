@@ -11,7 +11,7 @@
 namespace pesto {
 
 /**
- * @brief Openscop optimizer class
+ * @brief PassManager class
  * Used to run different optimization passes on a polyhedral code
  * Take as input a polyhedral program in OpenScop format
  * Two kinds of passes can be run:
@@ -20,10 +20,10 @@ namespace pesto {
  * Then c code can be generated
  *
  */
-class OslPassManager {
+class PassManager {
   public:
-	OslPassManager();
-	virtual ~OslPassManager();
+	PassManager();
+	virtual ~PassManager();
 
 	/**
 	 * Run optimization passes

@@ -18,12 +18,9 @@ class PolyProgram {
 	void addScopNest(ScopNest *nest);
 	void clearScopNests();
 	std::vector<ScopNest *> getScopNests();
-	std::any getMetadata(std::string key);
-	void setMetadata(std::string key, std::any value);
 
   private:
 	std::vector<ScopNest *> nests;
-	std::map<std::string, std::any> metadata;
 };
 
 class PolyProgramBuilder {
@@ -39,6 +36,7 @@ class PolyProgramBuilder {
 
   private:
 	PolyProgram *program;
+	int nextNestId;
 };
 
 } // namespace pesto

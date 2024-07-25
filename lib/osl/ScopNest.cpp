@@ -2,8 +2,12 @@
 
 using namespace pesto;
 
-ScopNest::ScopNest(osl_scop_p scop) { this->scop = osl_scop_clone(scop); }
+ScopNest::ScopNest(int id, osl_scop_p scop) : id(id) {
+	this->scop = osl_scop_clone(scop);
+}
 
 osl_scop_p ScopNest::getScop() { return this->scop; }
 
 ScopNest::~ScopNest() { osl_scop_free(this->scop); }
+
+int ScopNest::getId() { return this->id; }

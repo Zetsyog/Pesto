@@ -13,3 +13,7 @@ void IPolySingleNestPass::run(PolyProgram &prog) {
 IPolyhedralPass::~IPolyhedralPass() {}
 
 IPolySingleNestPass::~IPolySingleNestPass() {}
+
+std::ostream &IPolyhedralPass::log(std::ostream &os) {
+	return os << "[" << this->getUUID() << "] ";
+}

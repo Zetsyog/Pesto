@@ -13,6 +13,7 @@ void SplitNestedLoopsPass::run(PolyProgram &prog) {
 	std::vector<ScopNest *> original_nests = prog.getScopNests();
 
 	std::vector<ScopNest *> new_nests;
+	int nextNestId = 0;
 
 	// TODO: better algorithm ?
 	for (auto it = original_nests.begin(); it != original_nests.end(); ++it) {
@@ -28,7 +29,7 @@ void SplitNestedLoopsPass::run(PolyProgram &prog) {
 		std::cerr << "[split-nested-loops] found " << nest_count << " nests"
 				  << std::endl;
 		if (nest_count <= 1) {
-			new_nests.push_back(new ScopNest(scop));
+			new_nests.push_back(new ScopNest(nextNestId++, scop));
 			continue;
 		}
 		std::cerr << "[split-nested-loops] splitting nests..." << std::endl;
@@ -39,7 +40,7 @@ void SplitNestedLoopsPass::run(PolyProgram &prog) {
 		}
 
 		for (int i = 0; i < nest_count; i++) {
-			new_nests.push_back(new ScopNest(new_scops[i]));
+			new_nests.push_back(new ScopNest(nextNestId++, new_scops[i]));
 		}
 
 		for (int i = 0; i < nest_count; i++) {

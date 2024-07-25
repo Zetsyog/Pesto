@@ -28,13 +28,10 @@ EXTRA_libpesto_la_DEPENDENCIES = ../pluto/lib/libpluto.la
 libpesto_la_SOURCES = \
    isl_support.c \
    osl_support.c \
-   clast/ClastCodegen.cpp \
-   clast/ClastNest.cpp \
-   clast/ClastOptimizer.cpp \
-   clast/ClastProgram.cpp \
-   clast/ClastPass.cpp \
-   clast/ParamTilingPass.cpp \
-   osl/OpenScopOptimizer.cpp \
+   PassManager.cpp \
+   Utils.cpp \
+   clast/GenClastPass.cpp \
+   codegen/CloogPass.cpp \
    osl/PlutoPasses.cpp \
    osl/PolyhedralPass.cpp \
    osl/PolyPasses.cpp \

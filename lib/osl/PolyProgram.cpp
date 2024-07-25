@@ -32,7 +32,7 @@ std::unique_ptr<PolyProgram> PolyProgramBuilder::build() {
 }
 
 PolyProgramBuilder &PolyProgramBuilder::addScop(osl_scop_p scop) {
-	ScopNest *nest = new ScopNest(scop);
+	ScopNest *nest = new ScopNest(nextNestId++, scop);
 	this->program->addScopNest(nest);
 
 	return *this;
