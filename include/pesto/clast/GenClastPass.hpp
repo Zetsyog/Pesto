@@ -12,6 +12,7 @@ class ClastMetadata {
   public:
 	CloogState *cloogState;
 	CloogOptions *cloogOptions;
+	unsigned stmtsNb;
 	struct clast_stmt *root;
 };
 

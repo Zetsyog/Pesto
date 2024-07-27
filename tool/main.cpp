@@ -77,13 +77,12 @@ int main(int argc, char **argv) {
 
 	// register all the passes
 	// order matter
-	// TODO: modular way to register passes
 	pestoPM.addPass(std::make_unique<pesto::ParamContextPass>(10));
 	pestoPM.addPass(std::make_unique<pesto::PlutoAutoTransformPass>());
 	pestoPM.addPass(std::make_unique<pesto::SplitNestedLoopsPass>());
 	pestoPM.addPass(std::make_unique<pesto::PlutoTilingPass>());
 	pestoPM.addPass(std::make_unique<pesto::GenClastPass>());
-	// pestoPM.addPass(std::make_unique<pesto::ClastParamTilingPass>());
+	pestoPM.addPass(std::make_unique<pesto::ClastParamTilingPass>());
 	// TODO: should codegen be a pass? Or whole different component ?
 	pestoPM.addPass(
 		std::make_unique<pesto::CloogCodegenPass>(options->getGenPrefix()));

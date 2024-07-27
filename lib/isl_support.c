@@ -1,4 +1,3 @@
-#include "isl_support.h"
 #include <isl/id.h>
 #include <isl/map.h>
 #include <isl/set.h>
@@ -6,6 +5,8 @@
 #include <isl/union_map.h>
 #include <isl/union_set.h>
 #include <osl/osl.h>
+
+#include "isl_support.h"
 
 void osl_scop_to_isl(osl_scop_p scop, isl_ctx *ctx, isl_union_map **schedules,
 					 isl_union_map **reads, isl_union_map **writes) {

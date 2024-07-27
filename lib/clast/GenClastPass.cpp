@@ -16,9 +16,13 @@ void GenClastPass::runSingleNest(ScopNest &nest) {
 	ClastMetadata data;
 	data.cloogState = cloog_state_malloc();
 	data.cloogOptions = cloog_options_malloc(data.cloogState);
+	data.stmtsNb = osl_statement_number(scop->statement);
 
-	// data.cloogOptions->f = osl_max_scattering_dim(scop) + 1;
-	// data.cloogOptions->l = osl_max_scattering_dim(scop) + 1;
+	int max_scattering_dim = osl_max_scattering_dim(scop);
+	std::cerr << max_scattering_dim << std::endl;
+
+	data.cloogOptions->f = max_scattering_dim + 1;
+	data.cloogOptions->l = max_scattering_dim + 1;
 	// data.cloogOptions->override = 1;
 
 	data.cloogOptions->compilable = 0;

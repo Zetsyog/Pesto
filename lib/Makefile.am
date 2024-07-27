@@ -23,9 +23,11 @@ libpesto_la_SOURCES = \
    osl_support.c \
    PassManager.cpp \
    Utils.cpp \
+   clast/clast_support.c \
    clast/GenClastPass.cpp \
    clast/ParamTilingPass.cpp \
    codegen/CloogPass.cpp \
+   codegen/trahrhe.c \
    osl/PlutoPasses.cpp \
    osl/PolyhedralPass.cpp \
    osl/PolyPasses.cpp \
