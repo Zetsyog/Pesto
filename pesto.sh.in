@@ -1,0 +1,181 @@
+#!@BASH@
+
+extract_scop_bin="./extract_scop.sh"
+replace_scop_bin="./replace_scop.sh"
+pesto_bin="./tool/pesto"
+
+# TODO: custom compiler support
+CC=gcc
+
+usage() {
+    echo "Usage: pesto [options] <input_file>" >&2
+    echo "Options:" >&2
+    printf "%-30s%s\n" "  -o, --output <file>" "Path of output file" >&2
+    printf "%-30s%s\n" "  --readscop" "Input file is using Openscop format" >&2
+    printf "%-30s%s\n" "  -i, --indent" "Format generated code" >&2
+    printf "%-30s%s\n" "  -h, --help" "Print this help message" >&2
+    printf "%-30s%s\n" "  -v, --version" "Print the current version of the software" >&2
+    exit 1
+}
+
+full_filename=$(basename "$1")
+filename=${full_filename##*/}
+filename=${filename%%.*}
+
+OPTS=$(getopt -o o:i --long output:,indent -- "$@")
+if [ $? != 0 ]; then
+    echo "[pesto-cli] Failed to parse options" >&2
+    exit 1
+fi
+
+# Set the parsed options
+eval set -- "$OPTS"
+
+# Parse command line arguments
+output_file=""
+indent=0
+forward_opts=()
+while true; do
+    case "$1" in
+    -o | --output)
+        output_file="$2"
+        shift 2
+        ;;
+    -i | --indent)
+        indent=1
+        forward_opts+=("$1")
+        shift
+        ;;
+    --)
+        shift
+        break
+        ;;
+    *)
+        echo "[pesto-cli] Internal error!" >&2
+        exit 1
+        ;;
+    esac
+done
+
+echo "[pesto-cli] Forwarding options:" "${forward_opts[@]}" >&2
+
+# Check if only one input is provided
+if [ $# -ne 1 ]; then
+    echo "[pesto-cli] ERROR: Only one input file is allowed" >&2
+    usage
+fi
+
+input_file=$1
+
+# Check if input file is provided
+if [ -z "$input_file" ]; then
+    usage
+fi
+
+# Set default output file if not provided
+if [ -z "$output_file" ]; then
+    output_file="${filename}.pesto.c"
+fi
+
+if [[ -d "$output_file" ]]; then
+    echo "[pesto-cli] ERROR: Output is a directory" >&2
+    exit 1
+fi
+
+include_file=$(mktemp)
+pesto_gen_prefix=".pesto.gen"
+
+echo "$pesto_gen_prefix" >".pesto_prefix"
+
+# Function to process the input file and extract pragma sections
+process_file() {
+    local infile="$1"
+    local scop_file
+    local body_file
+
+    echo "[pesto-cli] Processing file $infile" >&2
+
+    scop_file=$(mktemp)
+
+    echo "[pesto-cli] Extracting scop to $scop_file" >&2
+
+    echo "#pragma scop" >"$scop_file"
+    ${extract_scop_bin} "$infile" >>"$scop_file"
+    echo "#pragma endscop" >>"$scop_file"
+
+    rm -f ${pesto_gen_prefix}.*
+    # TODO: call pesto
+    # run pesto tool on the extracted scop
+    # shellcheck disable=SC2068
+    ${pesto_bin} "$scop_file" ${forward_opts[@]}
+
+    generated_files="${pesto_gen_prefix}.*"
+
+    body_file=$(mktemp)
+    echo "" >"${body_file}"
+
+    # for each generated file
+    for file in $generated_files; do
+        echo "[pesto-cli] DEBUG: processing $file" >&2
+
+        # extract include directives
+        grep "^#include" "${file}" >"${include_file}"
+
+        # remove in place all include directives
+        sed -i '/^#include/d' "${file}"
+
+        # run preprocessor on file
+        ${CC} -E -P "$file" >>"$body_file"
+
+        # rm -f "$file"
+    done
+
+    echo "[pesto-cli] DEBUG: replacing scop in $infile with $body_file" >&2
+    ${replace_scop_bin} "$infile" "$body_file" >".kernel"
+    mv ".kernel" "$infile"
+
+    # cleanup generated files
+    rm -f ${pesto_gen_prefix}.*
+}
+
+# Function to check if file contains #pragma scop
+contains_pragma() {
+    grep -q "#pragma scop" "$1"
+}
+
+echo "[pesto-cli] Starting pesto" >&2
+echo "[pesto-cli] Input file: $input_file" >&2
+echo "[pesto-cli] Filename : $filename" >&2
+echo "[pesto-cli] Output file: $output_file" >&2
+echo "[pesto-cli] Include file: $include_file" >&2
+
+# We work on a copy of the input file
+# Because we do in-place work
+
+working_file=$(mktemp)
+# Copy input file to temp file to start processing
+cp "$input_file" "$working_file"
+
+echo "[pesto-cli] Working on file $working_file" >&2
+
+# Loop until there are no more pragmas to process
+while contains_pragma "$working_file"; do
+    process_file "$working_file"
+    break
+done
+
+if [[ $indent -ne 0 ]]; then
+    if which clang-format &>/dev/null; then
+        clang-format --style=LLVM -i "${working_file}"
+    else
+        echo "[pesto-cli] Indent flag is set but clang-format is not found, skipping indentation" >&2
+    fi
+fi
+
+# Move the final processed file to the specified output file
+echo "[pesto-cli] Done working on $output_file" >&2
+mv "$working_file" "$output_file"
+
+# cleanup
+# TODO
+rm -f .pesto_prefix

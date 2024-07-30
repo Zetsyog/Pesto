@@ -3,7 +3,6 @@
 
 #define PESTO_VERSION "0.1.0"
 
-#define PESTO_NAME_OPT_OSL "pesto-opt-osl"
-#define PESTO_NAME_OPT_CLAST "pesto-opt-clast"
+#define PESTO_NAME_PM "pesto-pm"
 
 #endif // PESTO_MACROS_H

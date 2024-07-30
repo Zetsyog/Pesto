@@ -17,10 +17,14 @@ dnl Checks for programs.
 AC_PROG_CC
 AC_PROG_CXX
 AX_CXX_COMPILE_STDCXX_17
+
 AM_PROG_AR
 AC_PROG_LN_S
 AC_PROG_MAKE_SET
 AC_CHECK_PROG(CD, cd)
+
+AC_PATH_PROGS(BASH, bash)
+
 dnl Configure needs an empty install.sh file with this, i HATE that...
 AC_PROG_INSTALL
 LT_INIT
@@ -33,16 +37,6 @@ dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 AC_TYPE_SIZE_T
 
-AC_CONFIG_FILES([
-  Makefile 
-  lib/Makefile 
-  tool/Makefile 
-])
-
-echo ""
-echo "======================"
-echo "Configuring pluto"
-echo "======================"
 AC_SUBST(PLUTO_INCLUDE)
 AC_SUBST(PLUTO_LDFLAGS)
 AC_SUBST(PLUTO_LIBADD)
@@ -51,29 +45,26 @@ AC_SUBST(ISL_INCLUDE)
 AC_SUBST(ISL_LIBADD)
 AC_SUBST(OSL_INCLUDE)
 AC_SUBST(OSL_LIBADD)
+AC_SUBST(CLAN_INCLUDE)
+AC_SUBST(CLAN_LIBADD)
 AC_SUBST(CLOOG_INCLUDE)
 AC_SUBST(CLOOG_LIBADD)
-dnl Offer --with-pluto-builddir
-AC_ARG_WITH(pluto-builddir,
-    AS_HELP_STRING([--with-pluto-builddir=DIR],[Location of pluto build dir]),
-    [
-        pluto_prefix="$withval";
-        PLUTO_INCLUDE="-I$pluto_prefix/include";
-        PLUTO_LDFLAGS="-L$pluto_prefix/lib";
-        PLUTO_LIBADD="-lpluto";
-        OSL_INCLUDE="-I$pluto_prefix/openscop/include";
-        ISL_INCLUDE="-I$pluto_prefix/isl/include";
-        external_pluto="true"
-    ],
-    [external_pluto="false"]
-)
 
 
-if test "x$external_pluto" = "xfalse"; then
-    AC_CONFIG_SUBDIRS([pluto])
-fi
-AM_CONDITIONAL(EXTERNAL_PLUTO, test x$external_pluto = xtrue)
+echo ""
+echo "======================"
+echo "Configuring pluto"
+echo "======================"
+AC_CONFIG_SUBDIRS([pluto])
 
+
+
+AC_CONFIG_FILES([
+  Makefile 
+  lib/Makefile 
+  tool/Makefile 
+  pesto.sh
+])
 
 AC_OUTPUT
 
@@ -83,4 +74,4 @@ echo "  *-----------------------------------------------*/"
 echo "Your system is ready to compile PESTO"
 echo "Run 'make' next to compile"
 # echo "Then, run 'make test' to check if everything is working correctly"
-echo "Use atiling (see README)"
+echo "Use pesto (see README)"

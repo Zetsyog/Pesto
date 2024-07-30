@@ -15,8 +15,7 @@
 #include <pesto/PlutoPasses.hpp>
 #include <pesto/PolyhedralPass.hpp>
 
-#include <pesto/clast/ClastGenPass.hpp>
-#include <pesto/clast/ClastPass.hpp>
+#include <pesto/clast/GenClastPass.hpp>
 #include <pesto/clast/ParamTilingPass.hpp>
 
 #include <pesto/macros.h>

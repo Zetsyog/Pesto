@@ -26,7 +26,7 @@ configure
 config.log
 config.status
 pesto.sh
-./pesto
+/pesto
 tool/pesto
 
 # Editor/IDE specific files

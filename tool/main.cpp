@@ -1,64 +1,97 @@
 #include <iostream>
-#include <osl/osl.h>
-#include <pesto/Pesto.hpp>
-#include <stdio.h>
 
-void print_usage() {
-	std::cerr << "Usage: pesto [options] <input file>" << std::endl;
-	std::cerr << "Options:" << std::endl;
-	std::cerr << "  -h, --help\t\tPrint this help message" << std::endl;
-	std::cerr << "  -v, --version\t\tPrint the version number" << std::endl;
-}
+#include <stdio.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+#include <clan/clan.h>
+#include <osl/osl.h>
+
+#include <pesto/Pesto.hpp>
+
+#include "Options.hpp"
 
 int main(int argc, char **argv) {
-	if (argc < 2) {
-		print_usage();
+	auto options = PestoOptions::build(argc, argv);
+
+	/* FRONTEND */
+	// check if input file is provided
+	std::cerr << "[pesto-cli] Received input file '" << options->getInputPath()
+			  << "'" << std::endl;
+
+	// check if input file is regular file, else shout
+	struct stat path_stat;
+	stat(options->getInputPath().c_str(), &path_stat);
+	if (!S_ISREG(path_stat.st_mode)) {
+		std::cerr << "[pesto-cli] Input file is not a regular file"
+				  << std::endl;
 		return 1;
 	}
-	std::string input_file_path = argv[1];
 
-	// frontend: read openscop file
-	// TODO: add support for other formats (c code, isl, etc)
-	std::cerr << "[pesto] Parsing file " << argv[1] << std::endl;
-
-	FILE *in = fopen(input_file_path.c_str(), "r");
+	// open input file
+	FILE *in = fopen(options->getInputPath().c_str(), "r");
 	if (in == NULL) {
-		std::cerr << "[pesto] Error while opening input file" << std::endl;
+		std::cerr << "[pesto-cli] Error while opening input file '"
+				  << options->getInputPath() << "'" << std::endl;
 		return 1;
 	}
-	osl_scop_p scop = osl_scop_read(in);
+
+	osl_scop_p scop;
+
+	// if input is scop file
+	if (options->getReadScop()) {
+		std::cerr << "[pesto-cli] Considering input as openscop file"
+				  << std::endl;
+		scop = osl_scop_read(in);
+		if (scop == NULL) {
+			std::cerr << "[pesto-cli] Error parsing scop file" << std::endl;
+			return 1;
+		}
+	} else { // else we consider it is plain c and extract openscop using clan
+		std::cerr << "[pesto-cli] Considering input file as plain c"
+				  << std::endl;
+		std::cerr << "[pesto-cli] Running clan on '" << options->getInputPath()
+				  << "'" << std::endl;
+		clan_options_p clan_opt = clan_options_malloc();
+		scop = clan_scop_extract(in, clan_opt);
+		clan_options_free(clan_opt);
+		if (scop == NULL) {
+			std::cerr << "[pesto-cli] Clan scop extraction failed. Abort"
+					  << std::endl;
+			return 1;
+		}
+	}
+
 	fclose(in);
+	/* DONE FRONTEND */
 
-	if (scop == NULL) {
-		std::cerr << "[pesto] Error parsing scop file" << std::endl;
-		return 1;
-	}
-
-	// create Polyhedral Program
+	// pesto magic starts here
+	// create pesto program
 	std::unique_ptr<pesto::PolyProgram> polyProgram =
 		pesto::PolyProgramBuilder().addScop(scop).build();
-
+	// scop has been copied by builder, we can free memory
 	osl_scop_free(scop);
 
 	pesto::PassManager pestoPM;
 
-	// register all the polyhedral passes
+	// register all the passes
 	// order matter
+	// TODO: modular way to register passes
 	pestoPM.addPass(std::make_unique<pesto::ParamContextPass>(10));
 	pestoPM.addPass(std::make_unique<pesto::PlutoAutoTransformPass>());
 	pestoPM.addPass(std::make_unique<pesto::SplitNestedLoopsPass>());
 	pestoPM.addPass(std::make_unique<pesto::PlutoTilingPass>());
-	pestoPM.addPass(std::make_unique<pesto::ClastGenPass>());
-	pestoPM.addPass(std::make_unique<pesto::ClastParamTilingPass>());
-	pestoPM.addPass(std::make_unique<pesto::CloogCodegenPass>("output."));
-
-	// define the scop we are working on
+	pestoPM.addPass(std::make_unique<pesto::GenClastPass>());
+	// pestoPM.addPass(std::make_unique<pesto::ClastParamTilingPass>());
+	// TODO: should codegen be a pass? Or whole different component ?
+	pestoPM.addPass(
+		std::make_unique<pesto::CloogCodegenPass>(options->getGenPrefix()));
 
 	// run the passes
-	std::cerr << "[pesto] Running optimizations passes" << std::endl;
+	std::cerr << "[pesto-cli] Running optimizations passes" << std::endl;
 	pestoPM.runPasses(*polyProgram.get());
-	std::cerr << "[pesto] Done passes" << std::endl;
 
-	std::cerr << "[pesto] Done" << std::endl;
+	std::cerr << "[pesto-cli] Done" << std::endl;
 	return 0;
 }

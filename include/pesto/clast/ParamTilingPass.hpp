@@ -1,7 +1,7 @@
 #ifndef PESTO_PARAM_TILING_PASS_H
 #define PESTO_PARAM_TILING_PASS_H
 
-#include <pesto/clast/ClastPass.hpp>
+#include <pesto/PolyhedralPass.hpp>
 
 namespace pesto {
 

@@ -3,9 +3,8 @@
 
 #include <string>
 
-#include <pesto/clast/ClastPass.hpp>
-
 #include <cloog/cloog.h>
+#include <pesto/PolyhedralPass.hpp>
 
 namespace pesto {
 
@@ -16,10 +15,10 @@ class ClastMetadata {
 	struct clast_stmt *root;
 };
 
-class ClastGenPass : public IPolySingleNestPass {
+class GenClastPass : public IPolySingleNestPass {
   public:
-	ClastGenPass();
-	virtual ~ClastGenPass();
+	GenClastPass();
+	virtual ~GenClastPass();
 
 	virtual std::string getUUID();
 	virtual void runSingleNest(ScopNest &nest);
