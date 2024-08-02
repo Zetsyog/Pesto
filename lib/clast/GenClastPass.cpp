@@ -28,6 +28,8 @@ void GenClastPass::runSingleNest(ScopNest &nest) {
 	data.cloogOptions->compilable = 0;
 	data.cloogOptions->esp = 1;
 	data.cloogOptions->strides = 0;
+	data.cloogOptions->nosimplify = 0;
+	data.cloogOptions->save_domains = 1;
 	// data.cloogOptions->sh = 1;
 	data.cloogOptions->openscop = 1;
 	data.cloogOptions->backtrack = 0;

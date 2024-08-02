@@ -18,6 +18,8 @@
 #include <pesto/clast/GenClastPass.hpp>
 #include <pesto/clast/ParamTilingPass.hpp>
 
+#include <pesto/trahrhe.h>
+
 #include <pesto/macros.h>
 
 #endif // PESTO_PESTO_H

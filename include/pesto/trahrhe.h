@@ -20,7 +20,8 @@ struct trahrhe_codegen_data {
 	enum trahrhe_stmt_type stmt_type;
 	enum ptile_type tiling_type;
 	int stmt_id;
-	unsigned int band_id;
+	char *var_prefix;
+	char *fun_prefix;
 	unsigned int depth; /* current tiling depth */
 	char *iterator_name;
 	char *lb_expr;

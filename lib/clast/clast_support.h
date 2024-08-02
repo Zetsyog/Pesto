@@ -59,6 +59,18 @@ struct clast_user_stmt *pesto_clast_create_stmt(CloogOptions *cloogOptions,
 												CloogDomain *domain,
 												unsigned int id);
 
+int clast_for_is_outter_tile_loop(struct clast_for *for_stmt);
+
+int clast_for_is_inner_tile_loop(struct clast_for *for_stmt);
+
+/**
+ * For a given clast_for, return the index of the isl_dimension
+ * that reprensent the corresponding outter tiling dimension
+ * @param for_stmt
+ * @return index of the outter tiling dimension or -1 if the loop is not tiled
+ */
+int clast_for_get_inner_tile_outter_dim(struct clast_for *for_stmt);
+
 #ifdef __cplusplus
 }
 #endif

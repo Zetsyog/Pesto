@@ -58,3 +58,4 @@ shell.nix
 # tmp
 test/
 output_*
+*.tmp.c
