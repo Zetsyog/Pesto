@@ -61,6 +61,10 @@ int main(int argc, char **argv) {
 					  << std::endl;
 			return 1;
 		}
+
+		if (osl_generic_lookup(scop->extension, OSL_URI_COORDINATES) != NULL) {
+			osl_generic_remove(&scop->extension, OSL_URI_COORDINATES);
+		}
 	}
 
 	fclose(in);
@@ -81,6 +85,7 @@ int main(int argc, char **argv) {
 	pestoPM.addPass(std::make_unique<pesto::PlutoAutoTransformPass>());
 	pestoPM.addPass(std::make_unique<pesto::SplitNestedLoopsPass>());
 	pestoPM.addPass(std::make_unique<pesto::PlutoTilingPass>());
+	pestoPM.addPass(std::make_unique<pesto::DumpOslPass>("debug."));
 	pestoPM.addPass(std::make_unique<pesto::GenClastPass>());
 	pestoPM.addPass(std::make_unique<pesto::ClastParamTilingPass>());
 	// TODO: should codegen be a pass? Or whole different component ?

@@ -26,6 +26,18 @@ class SplitNestedLoopsPass : public IPolyhedralPass {
 	virtual std::string getUUID();
 };
 
+class DumpOslPass : public IPolySingleNestPass {
+  public:
+	DumpOslPass(std::string prefix);
+	virtual ~DumpOslPass();
+
+	virtual void runSingleNest(ScopNest &nest);
+	virtual std::string getUUID();
+
+  private:
+	std::string path_prefix;
+};
+
 } // namespace pesto
 
 #endif // PESTO_OSL_PASSES_H

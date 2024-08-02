@@ -88,6 +88,15 @@ void CloogCodegenPass::runSingleNest(ScopNest &nest) {
 	// generate stmt macros
 	generateStmtMacro(file, nest);
 
+	// print custom macro if there are any
+	if (nest.metadata.has("macros")) {
+		std::vector<std::string> macros =
+			nest.metadata.get<std::vector<std::string>>("macros");
+		for (auto &macro : macros) {
+			fprintf(file, "%s\n\n", macro.c_str());
+		}
+	}
+
 	// then print cloog ast
 	clast_pprint(file, root, 0, options);
 	fclose(file);
