@@ -102,8 +102,12 @@ void CloogCodegenPass::runSingleNest(ScopNest &nest) {
 	fclose(file);
 
 	if (nest.metadata.has("clast")) {
-		cloog_clast_free(root);
-		cloog_options_free(options);
-		cloog_state_free(state);
+		ClastMetadata data = nest.metadata.get<ClastMetadata>("clast");
+
+		cloog_clast_free(data.root);
+		cloog_program_free(data.cloogProgram);
+
+		cloog_options_free(data.cloogOptions);
+		cloog_state_free(data.cloogState);
 	}
 }

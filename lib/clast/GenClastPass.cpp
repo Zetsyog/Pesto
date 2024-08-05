@@ -19,7 +19,6 @@ void GenClastPass::runSingleNest(ScopNest &nest) {
 	data.stmtsNb = osl_statement_number(scop->statement);
 
 	int max_scattering_dim = osl_max_scattering_dim(scop);
-	std::cerr << max_scattering_dim << std::endl;
 
 	data.cloogOptions->f = max_scattering_dim + 1;
 	data.cloogOptions->l = max_scattering_dim + 1;
@@ -36,10 +35,16 @@ void GenClastPass::runSingleNest(ScopNest &nest) {
 
 	CloogInput *input = cloog_input_from_osl_scop(data.cloogState, scop);
 	// input is freed by cloog_clast_create_from_input
-	struct clast_stmt *root =
-		cloog_clast_create_from_input(input, data.cloogOptions);
+	CloogProgram *program;
 
-	data.root = root;
+	program = cloog_program_alloc(input->context, input->ud, data.cloogOptions);
+	free(input);
+
+	program = cloog_program_generate(program, data.cloogOptions);
+
+	data.cloogProgram = program;
+
+	data.root = cloog_clast_create(program, data.cloogOptions);
 
 	nest.metadata.set("clast", data);
 }

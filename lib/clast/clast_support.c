@@ -196,13 +196,8 @@ int clast_for_get_inner_tile_outter_dim(struct clast_for *for_stmt) {
 
 	isl_set *domain = isl_set_copy(set);
 
-	// idx is the index of the iterator dimension in the domain
-	int idx = isl_set_find_dim_by_name(domain, isl_dim_set, for_stmt->iterator);
-	if (idx < 0) {
-		isl_set_free(domain);
-		return 0;
-	}
 	int n_dim = isl_set_dim(domain, isl_dim_set);
+	int idx = n_dim - 1;
 
 	// only keep constraints involving the iterator
 	domain = isl_set_drop_constraints_not_involving_dims(domain, isl_dim_set,
@@ -259,4 +254,91 @@ int clast_for_get_inner_tile_outter_dim(struct clast_for *for_stmt) {
 	isl_set_free(domain);
 
 	return corresponding_outter_dim;
+}
+
+struct clast_stmt **clast_get_user_stmt_list(struct clast_stmt *root,
+											 int *size) {
+	struct clast_stmt **stmts = NULL;
+	*size = 0;
+
+	// DFS algorithm to traverse the syntax tree
+	for (; root != NULL; root = root->next) {
+		if (CLAST_STMT_IS_A(root, stmt_user)) {
+			stmts = realloc(stmts, (*size + 1) * sizeof(struct clast_stmt *));
+			stmts[*size] = root;
+			*size += 1;
+		} else if (clast_stmt_is_branch(root)) {
+			int branch_size = 0;
+			struct clast_stmt **branch_stmts = clast_get_user_stmt_list(
+				clast_branch_deeper_next(root), &branch_size);
+			stmts = realloc(stmts, (*size + branch_size) *
+									   sizeof(struct clast_stmt *));
+			for (int i = 0; i < branch_size; i += 1) {
+				stmts[*size + i] = branch_stmts[i];
+			}
+			*size += branch_size;
+			free(branch_stmts);
+		}
+	}
+
+	return stmts;
+}
+
+static struct clast_for *_clast_get_parent_for(struct clast_stmt *root,
+											   struct clast_stmt *target,
+											   struct clast_for *parent) {
+	for (; root != NULL; root = root->next) {
+		if (root == target) {
+			return parent;
+		}
+		if (CLAST_STMT_IS_A(root, stmt_for)) {
+			struct clast_for *for_stmt = (struct clast_for *)root;
+			struct clast_for *result =
+				_clast_get_parent_for(for_stmt->body, target, for_stmt);
+			if (result != NULL) {
+				return result;
+			}
+		} else if (clast_stmt_is_branch(root)) {
+			struct clast_for *result = _clast_get_parent_for(
+				clast_branch_deeper_next(root), target, parent);
+			if (result != NULL) {
+				return result;
+			}
+		}
+	}
+	return NULL;
+}
+
+struct clast_for *clast_get_parent_clast_for(struct clast_stmt *root,
+											 struct clast_stmt *stmt) {
+	return _clast_get_parent_for(root, stmt, NULL);
+}
+
+struct clast_for *clast_get_outter_tiling_for(struct clast_stmt *root,
+											  struct clast_for *inner_for) {
+	int outter_tile_idx = clast_for_get_inner_tile_outter_dim(inner_for);
+	if (outter_tile_idx == -1) {
+		return NULL;
+	}
+	struct clast_for *parent =
+		clast_get_parent_clast_for(root, (struct clast_stmt *)inner_for);
+	while (parent != NULL) {
+		isl_set *set = isl_set_from_cloog_domain(parent->domain);
+		isl_size ndim = isl_set_dim(set, isl_dim_set);
+		if (ndim - 1 == outter_tile_idx) {
+			return parent;
+		}
+		parent = clast_get_parent_clast_for(root, (struct clast_stmt *)parent);
+	}
+	return NULL;
+}
+
+int clast_for_depth(struct clast_stmt *root, struct clast_for *for_stmt) {
+	int depth = 0;
+	while (for_stmt != NULL) {
+		depth += 1;
+		for_stmt =
+			clast_get_parent_clast_for(root, (struct clast_stmt *)for_stmt);
+	}
+	return depth;
 }
