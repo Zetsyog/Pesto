@@ -50,14 +50,16 @@ void CloogCodegenPass::runSingleNest(ScopNest &nest) {
 	CloogState *state = nullptr;
 	CloogOptions *options = nullptr;
 
+	auto clastData = nest.metadata.get<ClastMetadata>();
+
 	std::string path =
 		this->path_prefix + "." + std::to_string(nest.getId()) + ".c";
 
-	if (nest.metadata.has("clast")) {
-		ClastMetadata data = nest.metadata.get<ClastMetadata>("clast");
-		root = data.root;
-		state = data.cloogState;
-		options = data.cloogOptions;
+	if (clastData) {
+		log(std::cerr) << "Using existing CLooG AST" << std::endl;
+		root = clastData.value()->root;
+		state = clastData.value()->cloogState;
+		options = clastData.value()->cloogOptions;
 	} else {
 		osl_scop_p scop = nest.getScop();
 
@@ -89,9 +91,9 @@ void CloogCodegenPass::runSingleNest(ScopNest &nest) {
 	generateStmtMacro(file, nest);
 
 	// print custom macro if there are any
-	if (nest.metadata.has("macros")) {
-		std::vector<std::string> macros =
-			nest.metadata.get<std::vector<std::string>>("macros");
+	auto macrosData = nest.metadata.get<MacroMetadata>();
+	if (macrosData) {
+		std::vector<std::string> macros = macrosData.value()->macros;
 		for (auto &macro : macros) {
 			fprintf(file, "%s\n\n", macro.c_str());
 		}
@@ -100,14 +102,4 @@ void CloogCodegenPass::runSingleNest(ScopNest &nest) {
 	// then print cloog ast
 	clast_pprint(file, root, 0, options);
 	fclose(file);
-
-	if (nest.metadata.has("clast")) {
-		ClastMetadata data = nest.metadata.get<ClastMetadata>("clast");
-
-		cloog_clast_free(data.root);
-		cloog_program_free(data.cloogProgram);
-
-		cloog_options_free(data.cloogOptions);
-		cloog_state_free(data.cloogState);
-	}
 }

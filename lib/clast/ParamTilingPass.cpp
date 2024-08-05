@@ -21,7 +21,7 @@ ClastParamTilingPass::~ClastParamTilingPass() {}
 void ClastParamTilingPass::run(PolyProgram &prog) {
 	// ensure each nest has a clast metadata
 	for (auto &nest : prog.getScopNests()) {
-		if (!nest->metadata.has("clast")) {
+		if (!nest->metadata.get<ClastMetadata>().has_value()) {
 			log(std::cerr) << "Nest does not have clast metadata. You must "
 							  "run the 'clast-gen' pass before this one."
 						   << std::endl;
@@ -150,27 +150,29 @@ void replace_inner_tiled_for_bounds(ClastMetadata &metadata,
 void insert_tiling_statements(ScopNest &nest, struct clast_stmt *root,
 							  struct clast_for *inner_for,
 							  struct clast_for *outter_for) {
-	ClastMetadata metadata = nest.metadata.get<ClastMetadata>("clast");
-	std::vector<std::string> macros;
-	if (nest.metadata.has(PESTO_UUID_METADATA_MACROS)) {
-		macros = nest.metadata.get<std::vector<std::string>>(
-			PESTO_UUID_METADATA_MACROS);
+	std::shared_ptr<ClastMetadata> metadata =
+		nest.metadata.get<ClastMetadata>().value();
+	auto macros = nest.metadata.get<MacroMetadata>();
+
+	if (!macros.has_value()) {
+		nest.metadata.set<MacroMetadata>();
+		macros = nest.metadata.get<MacroMetadata>();
 	}
 	struct clast_user_stmt *header_stmt = pesto_clast_create_stmt(
-		metadata.cloogOptions, NULL, ++metadata.stmtsNb);
+		metadata->cloogOptions, NULL, ++metadata->stmtsNb);
 	clast_insert_before(root, (struct clast_stmt *)outter_for,
 						(struct clast_stmt *)header_stmt);
 
 	struct trahrhe_codegen_data gen_data = {};
-	gen_data.stmt_id = metadata.stmtsNb;
+	gen_data.stmt_id = metadata->stmtsNb;
 	gen_data.depth = 0;
 	gen_data.endline = strdup("\\\n");
 	gen_data.iterator_name = strdup(inner_for->iterator);
-	gen_data.npar = metadata.cloogProgram->names->nb_parameters;
+	gen_data.npar = metadata->cloogProgram->names->nb_parameters;
 	gen_data.params = (char **)malloc(gen_data.npar * sizeof(char *));
 	for (int i = 0; i < gen_data.npar; i++) {
 		gen_data.params[i] =
-			strdup(metadata.cloogProgram->names->parameters[i]);
+			strdup(metadata->cloogProgram->names->parameters[i]);
 	}
 
 	// char buffer[256] = {0};
@@ -179,13 +181,13 @@ void insert_tiling_statements(ScopNest &nest, struct clast_stmt *root,
 	// fclose(buffer_fp);
 	// std::string macro = "#define S" + std::to_string(gen_data.stmt_id) + "()
 	// " + 					std::string(buffer); macros.push_back(macro);
-
-	nest.metadata.set(PESTO_UUID_METADATA_MACROS, macros);
 }
 
 void ClastParamTilingPass::runSingleNest(ScopNest &nest) {
-	ClastMetadata metadata = nest.metadata.get<ClastMetadata>("clast");
-	struct clast_root *root = (struct clast_root *)metadata.root;
+	// We made sure in the run() function that the nest has a clast metadata
+	auto metadata = nest.metadata.get<ClastMetadata>().value();
+
+	struct clast_root *root = (struct clast_root *)metadata->root;
 	if (root == NULL) {
 		return;
 	}
@@ -228,7 +230,7 @@ void ClastParamTilingPass::runSingleNest(ScopNest &nest) {
 		// dump the group
 		std::cerr << "Group size: " << stmt_group.size() << std::endl;
 		for (struct clast_stmt *stmt : stmt_group) {
-			clast_pprint(stderr, stmt, 0, metadata.cloogOptions);
+			clast_pprint(stderr, stmt, 0, metadata->cloogOptions);
 		}
 
 		// apply tiling
@@ -249,7 +251,7 @@ void ClastParamTilingPass::runSingleNest(ScopNest &nest) {
 
 				// replace the bounds of the outter loop
 				replace_outter_tiled_for_bounds(outter_for);
-				replace_inner_tiled_for_bounds(metadata,
+				replace_inner_tiled_for_bounds(*metadata,
 											   (struct clast_stmt *)root,
 											   parent_for, outter_for);
 				insert_tiling_statements(nest, (struct clast_stmt *)root,

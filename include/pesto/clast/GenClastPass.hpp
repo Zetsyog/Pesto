@@ -10,6 +10,9 @@ namespace pesto {
 
 class ClastMetadata {
   public:
+	ClastMetadata();
+	virtual ~ClastMetadata();
+
 	CloogState *cloogState;
 	CloogOptions *cloogOptions;
 	CloogProgram *cloogProgram;

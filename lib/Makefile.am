@@ -22,7 +22,6 @@ libpesto_la_SOURCES = \
    isl_support.c \
    osl_support.c \
    PassManager.cpp \
-   Utils.cpp \
    clast/clast_support.c \
    clast/GenClastPass.cpp \
    clast/ParamTilingPass.cpp \

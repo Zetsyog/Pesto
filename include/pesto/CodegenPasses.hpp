@@ -22,6 +22,11 @@ class CloogCodegenPass : public IPolySingleNestPass {
 	std::string path_prefix;
 };
 
+class MacroMetadata {
+  public:
+	std::vector<std::string> macros;
+};
+
 } // namespace pesto
 
 #endif // PESTO_CODEGEN_PASSES_H

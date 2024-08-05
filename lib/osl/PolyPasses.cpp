@@ -30,8 +30,6 @@ void SplitNestedLoopsPass::run(PolyProgram &prog) {
 				  << std::endl;
 		if (nest_count <= 1) {
 			auto nest = new ScopNest(nextNestId++, scop);
-			nest->metadata.set(PESTO_UUID_METADATA_OSL_MAINSCOP,
-							   osl_scop_clone(scop));
 			new_nests.push_back(nest);
 			continue;
 		}
@@ -44,8 +42,6 @@ void SplitNestedLoopsPass::run(PolyProgram &prog) {
 
 		for (int i = 0; i < nest_count; i++) {
 			auto nest = new ScopNest(nextNestId++, new_scops[i]);
-			nest->metadata.set(PESTO_UUID_METADATA_OSL_MAINSCOP,
-							   osl_scop_clone(new_scops[i]));
 			new_nests.push_back(nest);
 		}
 
