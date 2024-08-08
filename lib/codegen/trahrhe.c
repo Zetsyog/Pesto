@@ -3,31 +3,6 @@
 
 #include <pesto/trahrhe.h>
 
-/* codegen macros */
-// outter loop upper bound
-#define TRAHRHE_GEN_OUTTER_UB(fp, data)                                        \
-	fprintf(fp, "g%d_ub%s", data->group_id, data->iterator_name)
-
-// DIVi
-#define TRAHRHE_GEN_DIV(fp, data) fprintf(fp, "DIV%u", data->depth)
-
-// TARGET_VOL_Li
-#define TRAHRHE_GEN_TARGET_VOL(fp, data)                                       \
-	fprintf(fp, "g%d_TARGET_VOL_L%d", data->group_id, data->depth)
-
-#define TRAHRHE_GEN_PCMAX(fp, data)                                            \
-	fprintf(fp, "g%d_%s_pcmax", data->group_id, data->inner_it_name)
-
-#define TRAHRHE_GEN_ERHART_FN(fp, data)                                        \
-	fprintf(fp, "g%d_%s_Ehrhart", data->group_id, data->inner_it_name)
-
-#define TRAHRHE_GEN_TRAHRHE_FN(fp, data)                                       \
-	fprintf(fp, "g%d_%s_trahrhe_g%d_%s", data->group_id, data->inner_it_name,  \
-			data->group_id, data->inner_it_name)
-
-#define TRAHRHE_GEN_INNER_LB(fp, data) fprintf(fp, "lb%s", data->inner_it_name)
-#define TRAHRHE_GEN_INNER_UB(fp, data) fprintf(fp, "ub%s", data->inner_it_name)
-
 /* codegen functions */
 void trahrhe_codegen_header_stmt_algebraic(FILE *fp,
 										   struct trahrhe_codegen_data *data);
@@ -83,7 +58,7 @@ void trahrhe_codegen_header_stmt_algebraic(FILE *fp,
 	TRAHRHE_GEN_OUTTER_UB(fp, data);
 	fprintf(fp, " = ");
 	TRAHRHE_GEN_DIV(fp, data);
-	fprintf(fp, ";\\\n"); // new line
+	fprintf(fp, " - 1;\\\n"); // new line
 
 	TRAHRHE_GEN_PCMAX(fp, data);
 	fprintf(fp, " = ");

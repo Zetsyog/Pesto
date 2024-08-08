@@ -98,6 +98,8 @@ int isl_set_count_tiling_dimensions(__isl_keep isl_set *set);
 
 __isl_give isl_set *isl_set_remove_tiling_dimensions(__isl_take isl_set *set);
 
+__isl_give isl_set *isl_set_drop_tiling_constraints(__isl_take isl_set *set);
+
 #ifdef __cplusplus
 }
 #endif

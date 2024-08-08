@@ -14,6 +14,24 @@ void CloogCodegenPass::run(PolyProgram &prog) {
 	log(std::cerr) << "Starting Cloog codegen using prefix '" << path_prefix
 				   << "'" << std::endl;
 	IPolySingleNestPass::run(prog);
+
+	// generate var declarations
+	VarDeclMetadata varDecls;
+	for (auto &nest : prog.getScopNests()) {
+		auto varDeclsData = nest->metadata.get<VarDeclMetadata>();
+		if (varDeclsData) {
+			std::vector<std::string> vars = varDeclsData.value()->getVars();
+			for (auto &var : vars) {
+				varDecls.addVar(var);
+			}
+		}
+	}
+	FILE *vardecl_fd = fopen(".vardecls", "w");
+	for (auto &var : varDecls.getVars()) {
+		fprintf(vardecl_fd, "%s ", varDecls.type.c_str());
+		fprintf(vardecl_fd, "%s;\n", var.c_str());
+	}
+	fclose(vardecl_fd);
 }
 
 void generateStmtMacro(FILE *fd, ScopNest &nest) {
@@ -49,8 +67,10 @@ void CloogCodegenPass::runSingleNest(ScopNest &nest) {
 	struct clast_stmt *root = nullptr;
 	CloogState *state = nullptr;
 	CloogOptions *options = nullptr;
+	CloogProgram *program = nullptr;
 
 	auto clastData = nest.metadata.get<ClastMetadata>();
+	auto varDeclsData = nest.metadata.getOrCreate<VarDeclMetadata>();
 
 	std::string path =
 		this->path_prefix + "." + std::to_string(nest.getId()) + ".c";
@@ -60,6 +80,7 @@ void CloogCodegenPass::runSingleNest(ScopNest &nest) {
 		root = clastData.value()->root;
 		state = clastData.value()->cloogState;
 		options = clastData.value()->cloogOptions;
+		program = clastData.value()->cloogProgram;
 	} else {
 		osl_scop_p scop = nest.getScop();
 
@@ -76,13 +97,22 @@ void CloogCodegenPass::runSingleNest(ScopNest &nest) {
 		options->backtrack = 1;
 
 		CloogInput *input = cloog_input_from_osl_scop(state, scop);
+		program = cloog_program_alloc(input->context, input->ud, options);
+		free(input);
+
+		program = cloog_program_generate(program, options);
 		// input is freed by cloog_clast_create_from_input
-		struct clast_stmt *root = cloog_clast_create_from_input(input, options);
+		struct clast_stmt *root = cloog_clast_create(program, options);
 	}
 
 	if (root == nullptr || state == nullptr || options == nullptr) {
 		log(std::cerr) << "Failed to generate CLooG AST" << std::endl;
 		return;
+	}
+
+	// Add iterators to var decls
+	for (int i = 0; i < program->names->nb_scattering; i += 1) {
+		varDeclsData->addVar(program->names->scattering[i]);
 	}
 
 	log(std::cerr) << "Writing code to " << path << std::endl;
@@ -102,4 +132,11 @@ void CloogCodegenPass::runSingleNest(ScopNest &nest) {
 	// then print cloog ast
 	clast_pprint(file, root, 0, options);
 	fclose(file);
+
+	if (!clastData) {
+		cloog_clast_free(root);
+		cloog_program_free(program);
+		cloog_options_free(options);
+		cloog_state_free(state);
+	}
 }

@@ -27,6 +27,7 @@ libpesto_la_SOURCES = \
    clast/ParamTilingPass.cpp \
    codegen/CloogPass.cpp \
    codegen/trahrhe.c \
+   codegen/VarDecls.cpp \
    osl/PlutoPasses.cpp \
    osl/PolyhedralPass.cpp \
    osl/PolyPasses.cpp \

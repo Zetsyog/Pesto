@@ -7,6 +7,33 @@ extern "C" {
 
 #include <stdio.h>
 
+/* codegen macros */
+// outter loop upper bound
+#define TRAHRHE_GEN_OUTTER_UB(fp, data)                                        \
+	fprintf(fp, "g%d_ub%s", (data)->group_id, (data)->iterator_name)
+
+// DIVi
+#define TRAHRHE_GEN_DIV(fp, data) fprintf(fp, "DIV%u", (data)->depth)
+
+// TARGET_VOL_Li
+#define TRAHRHE_GEN_TARGET_VOL(fp, data)                                       \
+	fprintf(fp, "g%d_TARGET_VOL_L%d", (data)->group_id, (data)->depth)
+
+#define TRAHRHE_GEN_PCMAX(fp, data)                                            \
+	fprintf(fp, "g%d_%s_pcmax", (data)->group_id, (data)->inner_it_name)
+
+#define TRAHRHE_GEN_ERHART_FN(fp, data)                                        \
+	fprintf(fp, "g%d_%s_Ehrhart", (data)->group_id, (data)->inner_it_name)
+
+#define TRAHRHE_GEN_TRAHRHE_FN(fp, data)                                       \
+	fprintf(fp, "g%d_%s_trahrhe_g%d_%s", (data)->group_id,                     \
+			(data)->inner_it_name, (data)->group_id, (data)->inner_it_name)
+
+#define TRAHRHE_GEN_INNER_LB(fp, data)                                         \
+	fprintf(fp, "g%d_lb%s", (data)->group_id, (data)->inner_it_name)
+#define TRAHRHE_GEN_INNER_UB(fp, data)                                         \
+	fprintf(fp, "g%d_ub%s", (data)->group_id, (data)->inner_it_name)
+
 enum trahrhe_stmt_type { trahrhe_stmt_head, trahrhe_stmt_body };
 
 enum ptile_type {

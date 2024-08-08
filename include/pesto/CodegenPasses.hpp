@@ -9,6 +9,20 @@
 
 namespace pesto {
 
+class VarDeclMetadata {
+  public:
+	VarDeclMetadata();
+	virtual ~VarDeclMetadata();
+
+	std::string type;
+
+	void addVar(std::string var);
+	std::vector<std::string> getVars();
+
+  private:
+	std::vector<std::string> vars;
+};
+
 class CloogCodegenPass : public IPolySingleNestPass {
   public:
 	CloogCodegenPass(std::string prefix);

@@ -50,23 +50,32 @@ struct tiling_info {
 };
 
 void replace_outter_tiled_for_bounds(ClastMetadata &metadata,
-									 struct clast_for *for_stmt) {
-	free_clast_expr(for_stmt->LB);
-	free_clast_expr(for_stmt->UB);
+									 struct tiling_info &tiling_info) {
+	free_clast_expr(tiling_info.outter_for->LB);
+	free_clast_expr(tiling_info.outter_for->UB);
 
 	cloog_int_t zero;
 	cloog_int_init(zero);
-	for_stmt->LB = (struct clast_expr *)new_clast_term(zero, NULL);
-	auto ub_var =
-		std::make_shared<std::string>("ub" + std::string(for_stmt->iterator));
-	for_stmt->UB = (struct clast_expr *)new_clast_name(ub_var->c_str());
+	tiling_info.outter_for->LB =
+		(struct clast_expr *)new_clast_term(zero, NULL);
+
+	char buffer[256] = {0};
+	FILE *buf_fd = fmemopen(buffer, 256, "w");
+	TRAHRHE_GEN_OUTTER_UB(buf_fd, &tiling_info.gen_data[0]);
+	fclose(buf_fd);
+	auto ub_var = std::make_shared<std::string>(buffer);
+	tiling_info.outter_for->UB =
+		(struct clast_expr *)new_clast_name(ub_var->c_str());
+
 	metadata.names.push_back(ub_var);
 }
 
 void replace_inner_tiled_for_bounds(ClastMetadata &metadata,
 									struct clast_stmt *root,
-									struct clast_for *inner_for,
-									struct clast_for *outter_for) {
+									struct tiling_info &tiling_info) {
+	struct clast_for *outter_for = tiling_info.outter_for;
+	struct clast_for *inner_for = tiling_info.inner_for;
+
 	free_clast_expr(inner_for->LB);
 	free_clast_expr(inner_for->UB);
 
@@ -75,33 +84,33 @@ void replace_inner_tiled_for_bounds(ClastMetadata &metadata,
 	inner_for->UB = clast_for_compute_original_bound(
 		metadata.cloogProgram->names, inner_for, outter_for, 1);
 
-	auto lb_var =
-		std::make_shared<std::string>("lb" + std::string(inner_for->iterator));
+	char buffer[256] = {0};
+	FILE *buf_fd = fmemopen(buffer, 256, "w");
+
+	TRAHRHE_GEN_INNER_LB(buf_fd, &tiling_info.gen_data[1]);
+	fflush(buf_fd);
+	auto lb_var = std::make_shared<std::string>(buffer);
 	struct clast_name *param_lb = new_clast_name(lb_var->c_str());
 	metadata.names.push_back(lb_var);
+	rewind(buf_fd);
 
-	auto ub_var =
-		std::make_shared<std::string>("ub" + std::string(inner_for->iterator));
+	TRAHRHE_GEN_INNER_UB(buf_fd, &tiling_info.gen_data[1]);
+	fclose(buf_fd);
+	auto ub_var = std::make_shared<std::string>(buffer);
 	struct clast_name *param_ub = new_clast_name(ub_var->c_str());
 	metadata.names.push_back(ub_var);
 
-	if (inner_for->LB == NULL) {
-		inner_for->LB = (struct clast_expr *)param_lb;
-	} else {
-		struct clast_reduction *red = new_clast_reduction(clast_red_max, 2);
-		red->elts[0] = inner_for->LB;
-		red->elts[1] = (struct clast_expr *)param_lb;
-		inner_for->LB = (struct clast_expr *)red;
-	}
+	struct clast_reduction *red;
 
-	if (inner_for->UB == NULL) {
-		inner_for->UB = (struct clast_expr *)param_ub;
-	} else {
-		struct clast_reduction *red = new_clast_reduction(clast_red_min, 2);
-		red->elts[0] = inner_for->UB;
-		red->elts[1] = (struct clast_expr *)param_ub;
-		inner_for->UB = (struct clast_expr *)red;
-	}
+	red = new_clast_reduction(clast_red_max, 2);
+	red->elts[0] = inner_for->LB;
+	red->elts[1] = (struct clast_expr *)param_lb;
+	inner_for->LB = (struct clast_expr *)red;
+
+	red = new_clast_reduction(clast_red_min, 2);
+	red->elts[0] = inner_for->UB;
+	red->elts[1] = (struct clast_expr *)param_ub;
+	inner_for->UB = (struct clast_expr *)red;
 }
 
 void insert_tiling_statements(ScopNest &nest, struct clast_stmt *root,
@@ -145,7 +154,6 @@ void insert_tiling_statements(ScopNest &nest, struct clast_stmt *root,
 	free(lb_expr);
 	free(ub_expr);
 
-	std::string trahrhe_prefix = tiling_info.inner_for->iterator;
 	std::string lb_name = "lb" + std::string(tiling_info.inner_for->iterator);
 	std::string ub_name = "ub" + std::string(tiling_info.inner_for->iterator);
 
@@ -169,13 +177,34 @@ void insert_tiling_statements(ScopNest &nest, struct clast_stmt *root,
 		}
 	}
 }
+void addVarDecls(ScopNest &nest, struct tiling_info &tiling_info) {
+	auto varDeclData = nest.metadata.getOrCreate<VarDeclMetadata>();
+	char buffer[256] = {0};
+	FILE *buf_fd = fmemopen(buffer, 256, "w");
+	TRAHRHE_GEN_INNER_LB(buf_fd, &tiling_info.gen_data[1]);
+	fflush(buf_fd);
+	varDeclData->addVar(buffer);
+	rewind(buf_fd);
+	TRAHRHE_GEN_INNER_UB(buf_fd, &tiling_info.gen_data[1]);
+	fflush(buf_fd);
+	varDeclData->addVar(buffer);
+	rewind(buf_fd);
+	TRAHRHE_GEN_OUTTER_UB(buf_fd, &tiling_info.gen_data[0]);
+	fflush(buf_fd);
+	varDeclData->addVar(buffer);
+	rewind(buf_fd);
+	TRAHRHE_GEN_PCMAX(buf_fd, &tiling_info.gen_data[0]);
+	fflush(buf_fd);
+	varDeclData->addVar(buffer);
+	rewind(buf_fd);
+	TRAHRHE_GEN_TARGET_VOL(buf_fd, &tiling_info.gen_data[0]);
+	fflush(buf_fd);
+	varDeclData->addVar(buffer);
+	fclose(buf_fd);
+}
 
 void generate_stmt_macros(ScopNest &nest, struct tiling_info &tiling_info) {
-	auto macrosData = nest.metadata.get<MacroMetadata>();
-	if (!macrosData.has_value()) {
-		nest.metadata.set<MacroMetadata>();
-		macrosData = nest.metadata.get<MacroMetadata>();
-	}
+	auto macrosData = nest.metadata.getOrCreate<MacroMetadata>();
 
 	char buffer[512] = {0};
 	for (int i = 0; i < 2; i += 1) {
@@ -186,7 +215,7 @@ void generate_stmt_macros(ScopNest &nest, struct tiling_info &tiling_info) {
 							std::to_string(tiling_info.gen_data[i].stmt_id) +
 							"() " + buffer;
 
-		macrosData.value()->list.push_back(macro);
+		macrosData->list.push_back(macro);
 	}
 }
 
@@ -242,9 +271,6 @@ void apply_tiling(ScopNest &nest, struct clast_stmt *root,
 	for (int i = 0; i < tiling_info_list.size(); i++) {
 		auto &tiling_info = tiling_info_list[i];
 
-		replace_inner_tiled_for_bounds(*metadata, root, tiling_info.inner_for,
-									   tiling_info.outter_for);
-		replace_outter_tiled_for_bounds(*metadata, tiling_info.outter_for);
 		insert_tiling_statements(nest, root, tiling_info);
 		for (int i = 0; i < 2; i += 1) {
 			tiling_info.gen_data[i].group_id = group->id;
@@ -264,6 +290,9 @@ void apply_tiling(ScopNest &nest, struct clast_stmt *root,
 					strdup(tiling_info_list[j].gen_data[0].ub_name);
 			}
 		}
+		replace_inner_tiled_for_bounds(*metadata, root, tiling_info);
+		replace_outter_tiled_for_bounds(*metadata, tiling_info);
+		addVarDecls(nest, tiling_info);
 		generate_stmt_macros(nest, tiling_info);
 	}
 
