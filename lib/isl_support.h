@@ -9,6 +9,8 @@ extern "C" {
 #include <isl/ctx.h>
 #include <isl/map.h>
 #include <isl/set.h>
+#include <isl/space.h>
+#include <isl/space_type.h>
 #include <isl/union_map.h>
 
 #include <osl/osl.h>
@@ -83,6 +85,18 @@ __isl_give isl_basic_set *isl_basic_set_from_osl_scop(isl_ctx *ctx,
  */
 __isl_give isl_set *
 isl_set_set_param_names_from_osl_scop(__isl_take isl_set *set, osl_scop_p scop);
+
+/**
+ * Check if the given dimension in the basic set is used as a tiling dimension
+ */
+isl_bool isl_basic_set_is_tiling_dim(__isl_keep isl_basic_set *bset, int pos);
+
+/**
+ * @brief get the number of tiling dimensions of the relation
+ */
+int isl_set_count_tiling_dimensions(__isl_keep isl_set *set);
+
+__isl_give isl_set *isl_set_remove_tiling_dimensions(__isl_take isl_set *set);
 
 #ifdef __cplusplus
 }

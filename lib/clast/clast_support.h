@@ -106,6 +106,17 @@ struct clast_for *clast_get_parent_clast_for(struct clast_stmt *root,
  */
 int clast_for_depth(struct clast_stmt *root, struct clast_for *for_stmt);
 
+/**
+ * Compute the original bound (upper or lower) of a given clast_for
+ * By original, it means the bound before any tiling transformation
+ * @param for_stmt the for statement
+ * @param bound the bound to get (0 for lower, 1 for upper)
+ * @return the computed bound
+ */
+struct clast_expr *
+clast_for_compute_original_bound(CloogNames *names, struct clast_for *inner_for,
+								 struct clast_for *outter_for, int bound);
+
 #ifdef __cplusplus
 }
 #endif

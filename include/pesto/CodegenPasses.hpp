@@ -24,7 +24,7 @@ class CloogCodegenPass : public IPolySingleNestPass {
 
 class MacroMetadata {
   public:
-	std::vector<std::string> macros;
+	std::vector<std::string> list;
 };
 
 } // namespace pesto

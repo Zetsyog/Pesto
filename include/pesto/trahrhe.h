@@ -7,21 +7,23 @@ extern "C" {
 
 #include <stdio.h>
 
-enum trahrhe_stmt_type { head, body };
+enum trahrhe_stmt_type { trahrhe_stmt_head, trahrhe_stmt_body };
 
 enum ptile_type {
-	rectangular,
-	algebraic,
-	algebraic_standalone,
-	rectangular_standalone
+	trahrhe_type_rectangular,
+	trahrhe_type_algebraic,
+	trahrhe_type_algebraic_standalone,
+	trahrhe_type_rectangular_standalone
 };
 
 struct trahrhe_codegen_data {
 	enum trahrhe_stmt_type stmt_type;
 	enum ptile_type tiling_type;
 	int stmt_id;
-	char *var_prefix;
-	char *fun_prefix;
+	int group_id;
+	char *lb_name;
+	char *ub_name;
+	char *inner_it_name;
 	unsigned int depth; /* current tiling depth */
 	char *iterator_name;
 	char *lb_expr;
@@ -32,6 +34,8 @@ struct trahrhe_codegen_data {
 };
 
 void trahrhe_codegen_stmt(FILE *fp, struct trahrhe_codegen_data *data);
+
+void trahrhe_codegen_free(struct trahrhe_codegen_data *data);
 
 #ifdef __cplusplus
 }

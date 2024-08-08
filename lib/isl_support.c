@@ -301,3 +301,71 @@ isl_set_set_param_names_from_osl_scop(__isl_take isl_set *set,
 
 	return set;
 }
+
+int isl_set_count_tiling_dimensions(__isl_keep isl_set *set) {
+	int count = 0;
+	int ndim = isl_set_dim(set, isl_dim_set);
+
+	isl_basic_set_list *bset_list = isl_set_get_basic_set_list(set);
+	isl_basic_set *bset = isl_basic_set_list_get_at(bset_list, 0);
+
+	for (int i = 0; i < ndim; i += 1) {
+		if (isl_basic_set_is_tiling_dim(bset, i)) {
+			count += 1;
+		}
+	}
+
+	isl_basic_set_free(bset);
+	isl_basic_set_list_free(bset_list);
+	return count;
+}
+
+isl_bool isl_basic_set_is_tiling_dim(__isl_keep isl_basic_set *bset, int pos) {
+	isl_ctx *ctx = isl_basic_set_get_ctx(bset);
+
+	isl_constraint_list *cst_list = isl_basic_set_get_constraint_list(bset);
+	isl_size list_len = isl_constraint_list_size(cst_list);
+	isl_bool result = isl_bool_false;
+	isl_val *cmp = isl_val_int_from_ui(ctx, 32);
+
+	for (isl_size i = 0; i < list_len; i++) {
+		isl_constraint *cst = isl_constraint_list_get_at(cst_list, i);
+		isl_val *val =
+			isl_constraint_get_coefficient_val(cst, isl_dim_set, pos);
+		if (isl_val_abs_eq(val, cmp)) {
+			result = isl_bool_true;
+			i = list_len;
+		}
+		isl_val_free(val);
+		isl_constraint_free(cst);
+	}
+
+	isl_val_free(cmp);
+	isl_constraint_list_free(cst_list);
+
+	return result;
+}
+
+__isl_give isl_set *isl_set_remove_tiling_dimensions(__isl_take isl_set *set) {
+
+	while (isl_set_count_tiling_dimensions(set) > 0) {
+		isl_size ndim = isl_set_dim(set, isl_dim_set);
+		isl_basic_set_list *bset_list = isl_set_get_basic_set_list(set);
+
+		for (int i = 0; i < ndim; i += 1) {
+			int basic_set_count = isl_basic_set_list_n_basic_set(bset_list);
+			for (int j = 0; j < basic_set_count; j += 1) {
+				isl_basic_set *bset = isl_basic_set_list_get_at(bset_list, j);
+				if (isl_basic_set_is_tiling_dim(bset, i)) {
+					set = isl_set_remove_dims(set, isl_dim_set, i, 1);
+					j = basic_set_count;
+					i = ndim;
+				}
+				isl_basic_set_free(bset);
+			}
+		}
+		isl_basic_set_list_free(bset_list);
+	}
+
+	return set;
+}

@@ -1,7 +1,9 @@
 #ifndef PESTO_GEN_CLAST_PASS_H
 #define PESTO_GEN_CLAST_PASS_H
 
+#include <memory>
 #include <string>
+#include <vector>
 
 #include <cloog/cloog.h>
 #include <pesto/PolyhedralPass.hpp>
@@ -18,6 +20,7 @@ class ClastMetadata {
 	CloogProgram *cloogProgram;
 	unsigned stmtsNb;
 	struct clast_stmt *root;
+	std::vector<std::shared_ptr<std::string>> names;
 };
 
 class GenClastPass : public IPolySingleNestPass {

@@ -93,7 +93,7 @@ void CloogCodegenPass::runSingleNest(ScopNest &nest) {
 	// print custom macro if there are any
 	auto macrosData = nest.metadata.get<MacroMetadata>();
 	if (macrosData) {
-		std::vector<std::string> macros = macrosData.value()->macros;
+		std::vector<std::string> macros = macrosData.value()->list;
 		for (auto &macro : macros) {
 			fprintf(file, "%s\n\n", macro.c_str());
 		}
