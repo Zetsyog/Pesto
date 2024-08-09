@@ -24,10 +24,7 @@
 
 using namespace pesto;
 
-PlutoPass::PlutoPass(std::string suffix) {
-	this->suffix = suffix;
-	this->context = pluto_context_alloc();
-}
+PlutoPass::PlutoPass() { this->context = pluto_context_alloc(); }
 
 PlutoOptions *PlutoPass::getOptions() { return this->context->options; }
 
@@ -43,9 +40,7 @@ void PlutoPass::runSingleNest(ScopNest &nest) {
 
 PlutoPass::~PlutoPass() { pluto_context_free(this->context); }
 
-std::string PlutoPass::getUUID() { return "pluto-" + this->suffix; }
-
-PlutoAutoTransformPass::PlutoAutoTransformPass() : PlutoPass("auto-transform") {
+PlutoAutoTransformPass::PlutoAutoTransformPass() {
 	this->getOptions()->silent = !PLUTO_DEBUG;
 	this->getOptions()->quiet = !PLUTO_DEBUG;
 	this->getOptions()->debug = PLUTO_DEBUG;
@@ -65,7 +60,11 @@ PlutoAutoTransformPass::PlutoAutoTransformPass() : PlutoPass("auto-transform") {
 
 PlutoAutoTransformPass::~PlutoAutoTransformPass() {}
 
-PlutoTilingPass::PlutoTilingPass() : PlutoPass("tiling") {
+std::string PlutoAutoTransformPass::getUUID() {
+	return PESTO_UUID_PASS_PLUTO_AUTO_TRANSFORM;
+}
+
+PlutoTilingPass::PlutoTilingPass() {
 	this->getOptions()->silent = PLUTO_QUIET;
 	this->getOptions()->quiet = PLUTO_QUIET;
 	this->getOptions()->debug = PLUTO_DEBUG;
@@ -83,3 +82,5 @@ PlutoTilingPass::PlutoTilingPass() : PlutoPass("tiling") {
 	this->getOptions()->unrolljam = 0;
 }
 PlutoTilingPass::~PlutoTilingPass() {}
+
+std::string PlutoTilingPass::getUUID() { return PESTO_UUID_PASS_PLUTO_TILING; }

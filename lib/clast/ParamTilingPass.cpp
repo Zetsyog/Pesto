@@ -404,4 +404,6 @@ void ClastParamTilingPass::runSingleNest(ScopNest &nest) {
 	free(stmt);
 }
 
-std::string ClastParamTilingPass::getUUID() { return "clast-param-tiling"; }
+std::string ClastParamTilingPass::getUUID() {
+	return PESTO_UUID_PASS_PARAM_TILING;
+}

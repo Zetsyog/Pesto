@@ -12,16 +12,14 @@ namespace pesto {
 
 class PlutoPass : public IPolySingleNestPass {
   public:
-	PlutoPass(std::string suffix);
+	PlutoPass();
 	virtual ~PlutoPass();
 
 	virtual void runSingleNest(ScopNest &nest);
-	virtual std::string getUUID();
 
 	PlutoOptions *getOptions();
 
   private:
-	std::string suffix;
 	PlutoContext *context;
 };
 
@@ -29,12 +27,14 @@ class PlutoAutoTransformPass : public PlutoPass {
   public:
 	PlutoAutoTransformPass();
 	virtual ~PlutoAutoTransformPass();
+	virtual std::string getUUID();
 };
 
 class PlutoTilingPass : public PlutoPass {
   public:
 	PlutoTilingPass();
 	virtual ~PlutoTilingPass();
+	virtual std::string getUUID();
 };
 
 } // namespace pesto

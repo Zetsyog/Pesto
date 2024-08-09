@@ -8,7 +8,7 @@ GenClastPass::GenClastPass() {}
 
 GenClastPass::~GenClastPass() {}
 
-std::string GenClastPass::getUUID() { return "clast-gen"; }
+std::string GenClastPass::getUUID() { return PESTO_UUID_PASS_CLAST_GEN; }
 
 void GenClastPass::runSingleNest(ScopNest &nest) {
 	nest.metadata.set<ClastMetadata>();

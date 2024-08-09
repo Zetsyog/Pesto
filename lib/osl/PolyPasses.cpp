@@ -64,7 +64,9 @@ void SplitNestedLoopsPass::run(PolyProgram &prog) {
 	}
 }
 
-std::string SplitNestedLoopsPass::getUUID() { return "split-nested-loops"; }
+std::string SplitNestedLoopsPass::getUUID() {
+	return PESTO_UUID_PASS_SPLIT_NESTED_LOOPS;
+}
 
 // ParamContextPass
 ParamContextPass::ParamContextPass(int contextValue)
@@ -90,7 +92,7 @@ void ParamContextPass::runSingleNest(ScopNest &nest) {
 }
 
 std::string ParamContextPass::getUUID() {
-	return "param-context-" + std::to_string(this->contextValue);
+	return PESTO_UUID_PASS_PARAM_CONTEXT;
 }
 
 // DumpOslPass
@@ -109,4 +111,4 @@ void DumpOslPass::runSingleNest(ScopNest &nest) {
 	fclose(fd);
 }
 
-std::string DumpOslPass::getUUID() { return "osl-dump"; }
+std::string DumpOslPass::getUUID() { return PESTO_UUID_PASS_DUMP_OSL; }
