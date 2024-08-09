@@ -104,7 +104,9 @@ process_file() {
     echo "#pragma endscop" >>"$scop_file"
 
     rm -f ${pesto_gen_prefix}.*
-    # TODO: call pesto
+    # DEBUG
+    echo "@COMMAND" >&2
+    echo "${pesto_bin} $scop_file" "${forward_opts[@]}" >&2
     # run pesto tool on the extracted scop
     # shellcheck disable=SC2068
     ${pesto_bin} "$scop_file" ${forward_opts[@]}
@@ -130,9 +132,18 @@ process_file() {
 
         # run preprocessor on file
         ${CC} -E -P "$file" >>"$body_file"
+        if [ $? -ne 0 ]; then
+            echo "[pesto-cli] ERROR: Preprocessor failed" >&2
+            exit 1
+        fi
 
         # rm -f "$file"
     done
+
+    if [[ -f ".vardecls" ]]; then
+        cat .vardecls "$body_file" >.tmp && mv .tmp "$body_file"
+        rm -f .vardecls
+    fi
 
     echo "[pesto-cli] DEBUG: replacing scop in $infile with $body_file" >&2
     ${replace_scop_bin} "$infile" "$body_file" >".kernel"
@@ -170,7 +181,7 @@ done
 
 if [[ $indent -ne 0 ]]; then
     if which clang-format &>/dev/null; then
-        clang-format --style=LLVM -i "${working_file}"
+        clang-format --style="{BasedOnStyle: LLVM, ColumnLimit: 120}" -i "${working_file}"
     else
         echo "[pesto-cli] Indent flag is set but clang-format is not found, skipping indentation" >&2
     fi

@@ -5,6 +5,7 @@
 #include <assert.h>
 
 #include "clast_support.h"
+#include "isl_support.h"
 
 struct clast_stmt *clast_get_stmt_before(struct clast_stmt *root,
 										 struct clast_stmt *stmt) {
@@ -362,6 +363,8 @@ clast_for_compute_original_bound(CloogNames *names, struct clast_for *inner_for,
 	// remove constraints from the outter loop
 	set = isl_set_drop_constraints_involving_dims(set, isl_dim_set,
 												  ndim_outter - 1, 1);
+
+	set = isl_set_drop_tiling_constraints(set);
 
 	isl_basic_set_list *bset_list = isl_set_get_basic_set_list(set);
 	isl_basic_set *bset = isl_basic_set_list_get_at(bset_list, 0);

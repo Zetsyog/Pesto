@@ -347,7 +347,6 @@ isl_bool isl_basic_set_is_tiling_dim(__isl_keep isl_basic_set *bset, int pos) {
 }
 
 __isl_give isl_set *isl_set_remove_tiling_dimensions(__isl_take isl_set *set) {
-
 	while (isl_set_count_tiling_dimensions(set) > 0) {
 		isl_size ndim = isl_set_dim(set, isl_dim_set);
 		isl_basic_set_list *bset_list = isl_set_get_basic_set_list(set);
@@ -358,6 +357,30 @@ __isl_give isl_set *isl_set_remove_tiling_dimensions(__isl_take isl_set *set) {
 				isl_basic_set *bset = isl_basic_set_list_get_at(bset_list, j);
 				if (isl_basic_set_is_tiling_dim(bset, i)) {
 					set = isl_set_remove_dims(set, isl_dim_set, i, 1);
+					j = basic_set_count;
+					i = ndim;
+				}
+				isl_basic_set_free(bset);
+			}
+		}
+		isl_basic_set_list_free(bset_list);
+	}
+
+	return set;
+}
+
+__isl_give isl_set *isl_set_drop_tiling_constraints(__isl_take isl_set *set) {
+	while (isl_set_count_tiling_dimensions(set) > 0) {
+		isl_size ndim = isl_set_dim(set, isl_dim_set);
+		isl_basic_set_list *bset_list = isl_set_get_basic_set_list(set);
+
+		for (int i = 0; i < ndim; i += 1) {
+			int basic_set_count = isl_basic_set_list_n_basic_set(bset_list);
+			for (int j = 0; j < basic_set_count; j += 1) {
+				isl_basic_set *bset = isl_basic_set_list_get_at(bset_list, j);
+				if (isl_basic_set_is_tiling_dim(bset, i)) {
+					set = isl_set_drop_constraints_involving_dims(
+						set, isl_dim_set, i, 1);
 					j = basic_set_count;
 					i = ndim;
 				}

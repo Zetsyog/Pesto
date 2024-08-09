@@ -219,6 +219,38 @@ void generate_stmt_macros(ScopNest &nest, struct tiling_info &tiling_info) {
 	}
 }
 
+void compute_trahrhe_isl_domain(ScopNest &nest, struct StmtGroup *group,
+								std::vector<tiling_info> &tiling_info_list) {
+	auto metadata = nest.metadata.get<ClastMetadata>().value();
+
+	// compute isl domain to feed trahrhe software with
+	isl_set *domain =
+		isl_set_copy(isl_set_from_cloog_domain(group->parent_for->domain));
+
+	domain = isl_set_remove_tiling_dimensions(domain);
+
+	for (int i = 0; i < metadata->cloogProgram->names->nb_parameters; i += 1) {
+		domain =
+			isl_set_set_dim_name(domain, isl_dim_param, i,
+								 metadata->cloogProgram->names->parameters[i]);
+	}
+
+	for (int i = 0; i < tiling_info_list.size(); i += 1) {
+		auto &tiling_info = tiling_info_list[i];
+
+		char buffer[256] = {0};
+		snprintf(buffer, 256, "g%d_%s", group->id,
+				 tiling_info.inner_for->iterator);
+		domain = isl_set_set_dim_name(domain, isl_dim_set, i, buffer);
+	}
+
+	std::cerr << "TEST DUMP" << std::endl;
+	isl_set_dump(domain);
+	std::cerr << std::endl << "END DUMP" << std::endl;
+
+	isl_set_free(domain);
+}
+
 void apply_tiling(ScopNest &nest, struct clast_stmt *root,
 				  struct StmtGroup *group) {
 	auto metadata = nest.metadata.get<ClastMetadata>().value();
@@ -296,15 +328,7 @@ void apply_tiling(ScopNest &nest, struct clast_stmt *root,
 		generate_stmt_macros(nest, tiling_info);
 	}
 
-	// compute isl domain to feed trahrhe software with
-	isl_set *trahrhe_domain =
-		isl_set_remove_tiling_dimensions(isl_set_copy(domain));
-
-	std::cerr << "TEST DUMP" << std::endl;
-	isl_set_dump(trahrhe_domain);
-	std::cerr << std::endl << "END DUMP" << std::endl;
-
-	isl_set_free(trahrhe_domain);
+	compute_trahrhe_isl_domain(nest, group, tiling_info_list);
 
 	for (auto &tiling_info : tiling_info_list) {
 		// free the gen_data

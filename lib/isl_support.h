@@ -88,16 +88,31 @@ isl_set_set_param_names_from_osl_scop(__isl_take isl_set *set, osl_scop_p scop);
 
 /**
  * Check if the given dimension in the basic set is used as a tiling dimension
+ * @param bset
+ * @param pos
+ * @return isl_bool
  */
 isl_bool isl_basic_set_is_tiling_dim(__isl_keep isl_basic_set *bset, int pos);
 
 /**
  * @brief get the number of tiling dimensions of the relation
+ * @param set
+ * @return int
  */
 int isl_set_count_tiling_dimensions(__isl_keep isl_set *set);
 
+/**
+ * Removes any dimension that is a tiling iterator from the space of the set
+ * @param set
+ * @return a new set with the tiling dimensions removed
+ */
 __isl_give isl_set *isl_set_remove_tiling_dimensions(__isl_take isl_set *set);
 
+/**
+ * Drop all constraints involving a tiling dimension from the set
+ * @param set
+ * @return a new set with the tiling constraints removed
+ */
 __isl_give isl_set *isl_set_drop_tiling_constraints(__isl_take isl_set *set);
 
 #ifdef __cplusplus
