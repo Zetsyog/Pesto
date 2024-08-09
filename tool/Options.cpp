@@ -27,11 +27,13 @@ std::unique_ptr<PestoOptions> PestoOptions::build(int argc, char **argv) {
 	int c;
 	while (1) {
 		static struct option long_options[] = {
-			{"readscop", no_argument, &opt->readScop, 1}, {0, 0, 0, 0}};
+			{"readscop", no_argument, &opt->readScop, 1},
+			{"output", required_argument, 0, 'o'},
+			{0, 0, 0, 0}};
 
 		int option_index = 0;
 
-		c = getopt_long(argc, argv, "", long_options, &option_index);
+		c = getopt_long(argc, argv, "io:", long_options, &option_index);
 
 		// detect end of options
 		if (c == -1)
@@ -43,6 +45,9 @@ std::unique_ptr<PestoOptions> PestoOptions::build(int argc, char **argv) {
 			if (long_options[option_index].flag != 0)
 				break;
 
+			break;
+		case 'i':
+		case 'o':
 			break;
 		case '?':
 			// getopt already printed a message
