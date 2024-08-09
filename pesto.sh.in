@@ -39,7 +39,6 @@ while true; do
         ;;
     -i | --indent)
         indent=1
-        forward_opts+=("$1")
         shift
         ;;
     --)
