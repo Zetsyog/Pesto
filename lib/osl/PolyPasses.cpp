@@ -21,20 +21,18 @@ void SplitNestedLoopsPass::run(PolyProgram &prog) {
 		auto &nest = *it;
 		auto distance = std::distance(original_nests.begin(), it);
 
-		std::cerr << "[split-nested-loops] Running pass on nest " << distance
-				  << std::endl;
+		log(std::cerr) << "Running pass on nest " << distance << std::endl;
 
 		osl_scop_p scop = nest->getScop();
 
 		int nest_count = osl_scop_count_loop_nests(scop);
-		std::cerr << "[split-nested-loops] found " << nest_count << " nests"
-				  << std::endl;
+		log(std::cerr) << "found " << nest_count << " nests" << std::endl;
 		if (nest_count <= 1) {
 			auto nest = new ScopNest(nextNestId++, scop);
 			new_nests.push_back(nest);
 			continue;
 		}
-		std::cerr << "[split-nested-loops] splitting nests..." << std::endl;
+		log(std::cerr) << "splitting nests..." << std::endl;
 
 		osl_scop_p *new_scops = osl_scop_split_nests(scop);
 		if (new_scops == NULL) {
@@ -53,10 +51,10 @@ void SplitNestedLoopsPass::run(PolyProgram &prog) {
 	}
 
 	if (new_nests.size() > 0) {
-		std::cerr << "[split-nested-loops] Added " << new_nests.size()
-				  << " new nests" << std::endl;
+		log(std::cerr) << "Added " << new_nests.size() << " new nests"
+					   << std::endl;
 	} else {
-		std::cerr << "[split-nested-loops] No new nests added" << std::endl;
+		log(std::cerr) << "No new nests added" << std::endl;
 		return;
 	}
 	prog.clearScopNests();
