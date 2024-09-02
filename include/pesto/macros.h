@@ -13,5 +13,6 @@
 #define PESTO_UUID_PASS_CLAST_GEN "clast-gen"
 #define PESTO_UUID_PASS_PLUTO_AUTO_TRANSFORM "pluto-auto-transform"
 #define PESTO_UUID_PASS_PLUTO_TILING "pluto-tiling"
+#define PESTO_UUID_PASS_PLUTO_GENERIC "pluto"
 
 #endif // PESTO_MACROS_H

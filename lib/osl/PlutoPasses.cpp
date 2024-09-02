@@ -24,7 +24,23 @@
 
 using namespace pesto;
 
-PlutoPass::PlutoPass() { this->context = pluto_context_alloc(); }
+PlutoPass::PlutoPass() {
+	this->context = pluto_context_alloc();
+	this->getOptions()->silent = !PLUTO_DEBUG;
+	this->getOptions()->quiet = !PLUTO_DEBUG;
+	this->getOptions()->debug = PLUTO_DEBUG;
+	this->getOptions()->moredebug = PLUTO_DEBUG;
+
+	this->getOptions()->identity = 0;
+	this->getOptions()->isldep = 1;
+	this->getOptions()->readscop = 1;
+
+	this->getOptions()->tile = 0;
+	this->getOptions()->diamondtile = 0;
+	this->getOptions()->parallel = 0;
+	this->getOptions()->prevector = 0;
+	this->getOptions()->unrolljam = 0;
+}
 
 PlutoOptions *PlutoPass::getOptions() { return this->context->options; }
 
@@ -39,6 +55,8 @@ void PlutoPass::runSingleNest(ScopNest &nest) {
 }
 
 PlutoPass::~PlutoPass() { pluto_context_free(this->context); }
+
+std::string PlutoPass::getUUID() { return PESTO_UUID_PASS_PLUTO_GENERIC; }
 
 PlutoAutoTransformPass::PlutoAutoTransformPass() {
 	this->getOptions()->silent = !PLUTO_DEBUG;

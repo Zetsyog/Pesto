@@ -2,6 +2,7 @@
 #define PESTO_OPTIONS_H
 
 #include <memory>
+#include <optional>
 #include <string>
 
 class PestoOptions {
@@ -12,11 +13,13 @@ class PestoOptions {
 
 	std::string getGenPrefix();
 	std::string getInputPath();
+	std::optional<std::string> getConfigPath();
 	int getReadScop();
 
   private:
 	std::string genPrefix;
 	std::string inputPath;
+	std::optional<std::string> configPath;
 	int readScop;
 };
 

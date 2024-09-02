@@ -16,6 +16,7 @@ class PlutoPass : public IPolySingleNestPass {
 	virtual ~PlutoPass();
 
 	virtual void runSingleNest(ScopNest &nest);
+	virtual std::string getUUID();
 
 	PlutoOptions *getOptions();
 

@@ -32,7 +32,14 @@ libpesto_la_SOURCES = \
    osl/PolyhedralPass.cpp \
    osl/PolyPasses.cpp \
    osl/PolyProgram.cpp \
-   osl/ScopNest.cpp 
+   osl/ScopNest.cpp \
+   passbuilder/ClastParamTilingPB.cpp \
+   passbuilder/CloogCodegenPB.cpp \
+   passbuilder/GenClastPB.cpp \
+   passbuilder/PassBuilder.cpp \
+   passbuilder/PlutoPB.cpp \
+   passbuilder/PMBuilder.cpp \
+   passbuilder/SplitNestPB.cpp
 
 libpesto_la_CPPFLAGS = $(OPT_FLAGS) $(DEBUG_FLAGS)\
    -I../include -I$(top_srcdir)/include \

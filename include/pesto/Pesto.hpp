@@ -18,6 +18,13 @@
 #include <pesto/clast/GenClastPass.hpp>
 #include <pesto/clast/ParamTilingPass.hpp>
 
+#include <pesto/PassBuilder.hpp>
+#include <pesto/passbuilder/ClastParamTilingPB.hpp>
+#include <pesto/passbuilder/CloogCodegenPB.hpp>
+#include <pesto/passbuilder/GenClastPB.hpp>
+#include <pesto/passbuilder/PlutoPB.hpp>
+#include <pesto/passbuilder/SplitNestPB.hpp>
+
 #include <pesto/trahrhe.h>
 
 #include <pesto/macros.h>
