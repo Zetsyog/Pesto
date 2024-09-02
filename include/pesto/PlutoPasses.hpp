@@ -16,7 +16,6 @@ class PlutoPass : public IPolySingleNestPass {
 	virtual ~PlutoPass();
 
 	virtual void runSingleNest(ScopNest &nest);
-	virtual std::string getUUID();
 
 	PlutoOptions *getOptions();
 
@@ -28,14 +27,12 @@ class PlutoAutoTransformPass : public PlutoPass {
   public:
 	PlutoAutoTransformPass();
 	virtual ~PlutoAutoTransformPass();
-	virtual std::string getUUID();
 };
 
 class PlutoTilingPass : public PlutoPass {
   public:
 	PlutoTilingPass();
 	virtual ~PlutoTilingPass();
-	virtual std::string getUUID();
 };
 
 } // namespace pesto

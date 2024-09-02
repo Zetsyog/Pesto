@@ -4,11 +4,10 @@
 
 using namespace pesto;
 
-CloogCodegenPass::CloogCodegenPass(std::string prefix) : path_prefix(prefix) {}
+CloogCodegenPass::CloogCodegenPass(std::string prefix)
+	: path_prefix(prefix), IPolySingleNestPass("pass-gen-cloog") {}
 
 CloogCodegenPass::~CloogCodegenPass() {}
-
-std::string CloogCodegenPass::getUUID() { return PESTO_UUID_PASS_GEN_CLOOG; }
 
 void CloogCodegenPass::run(PolyProgram &prog) {
 	log(std::cerr) << "Starting Cloog codegen using prefix '" << path_prefix

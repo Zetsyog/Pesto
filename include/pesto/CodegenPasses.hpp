@@ -28,7 +28,6 @@ class CloogCodegenPass : public IPolySingleNestPass {
 	CloogCodegenPass(std::string prefix);
 	virtual ~CloogCodegenPass();
 
-	virtual std::string getUUID();
 	virtual void run(PolyProgram &prog);
 	virtual void runSingleNest(ScopNest &nest);
 

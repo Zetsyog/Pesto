@@ -13,22 +13,25 @@ namespace pesto {
 
 class IPolyhedralPass {
   public:
+	IPolyhedralPass(std::string name);
 	virtual ~IPolyhedralPass();
 
 	virtual void run(PolyProgram &prog) = 0;
-	virtual std::string getUUID() = 0;
+
+	virtual std::string getName() { return name; }
 
   protected:
-	std::ostream &log(std::ostream &os);
+	std::string name;
+	virtual std::ostream &log(std::ostream &os);
 };
 
 class IPolySingleNestPass : public IPolyhedralPass {
   public:
+	IPolySingleNestPass(std::string name);
 	virtual ~IPolySingleNestPass();
 
 	virtual void runSingleNest(ScopNest &nest) = 0;
 	virtual void run(PolyProgram &prog);
-	virtual std::string getUUID() = 0;
 };
 
 } // namespace pesto

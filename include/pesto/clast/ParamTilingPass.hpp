@@ -12,8 +12,6 @@ class ClastParamTilingPass : public IPolySingleNestPass {
 
 	virtual void run(PolyProgram &prog);
 	virtual void runSingleNest(ScopNest &nest);
-
-	virtual std::string getUUID();
 };
 
 } // namespace pesto

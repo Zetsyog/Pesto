@@ -28,7 +28,6 @@ class GenClastPass : public IPolySingleNestPass {
 	GenClastPass();
 	virtual ~GenClastPass();
 
-	virtual std::string getUUID();
 	virtual void runSingleNest(ScopNest &nest);
 };
 

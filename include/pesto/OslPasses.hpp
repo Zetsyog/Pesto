@@ -11,7 +11,6 @@ class ParamContextPass : public IPolySingleNestPass {
 	virtual ~ParamContextPass();
 
 	virtual void runSingleNest(ScopNest &nest);
-	virtual std::string getUUID();
 
   private:
 	int contextValue;
@@ -23,7 +22,6 @@ class SplitNestedLoopsPass : public IPolyhedralPass {
 	virtual ~SplitNestedLoopsPass();
 
 	virtual void run(PolyProgram &prog);
-	virtual std::string getUUID();
 };
 
 class DumpOslPass : public IPolySingleNestPass {
@@ -32,7 +30,6 @@ class DumpOslPass : public IPolySingleNestPass {
 	virtual ~DumpOslPass();
 
 	virtual void runSingleNest(ScopNest &nest);
-	virtual std::string getUUID();
 
   private:
 	std::string path_prefix;

@@ -5,7 +5,8 @@
 
 using namespace pesto;
 
-SplitNestedLoopsPass::SplitNestedLoopsPass() {}
+SplitNestedLoopsPass::SplitNestedLoopsPass()
+	: IPolyhedralPass("pass-split-nest") {}
 
 SplitNestedLoopsPass::~SplitNestedLoopsPass() {}
 
@@ -64,13 +65,9 @@ void SplitNestedLoopsPass::run(PolyProgram &prog) {
 	}
 }
 
-std::string SplitNestedLoopsPass::getUUID() {
-	return PESTO_UUID_PASS_SPLIT_NESTED_LOOPS;
-}
-
 // ParamContextPass
 ParamContextPass::ParamContextPass(int contextValue)
-	: contextValue(contextValue) {}
+	: contextValue(contextValue), IPolySingleNestPass("pass-param-context") {}
 
 ParamContextPass::~ParamContextPass() {}
 
@@ -91,13 +88,10 @@ void ParamContextPass::runSingleNest(ScopNest &nest) {
 	}
 }
 
-std::string ParamContextPass::getUUID() {
-	return PESTO_UUID_PASS_PARAM_CONTEXT;
-}
-
 // DumpOslPass
 
-DumpOslPass::DumpOslPass(std::string prefix) : path_prefix(prefix) {}
+DumpOslPass::DumpOslPass(std::string prefix)
+	: path_prefix(prefix), IPolySingleNestPass("pass-dump-osl") {}
 
 DumpOslPass::~DumpOslPass() {}
 
@@ -110,5 +104,3 @@ void DumpOslPass::runSingleNest(ScopNest &nest) {
 	osl_scop_print(fd, scop);
 	fclose(fd);
 }
-
-std::string DumpOslPass::getUUID() { return PESTO_UUID_PASS_DUMP_OSL; }

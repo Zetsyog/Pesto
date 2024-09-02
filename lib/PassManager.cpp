@@ -12,7 +12,7 @@ void PassManager::runPasses(PolyProgram &prog) {
 	for (auto it = this->passes.begin(); it != this->passes.end(); ++it) {
 		int nestCount = prog.getScopNests().size();
 		std::cerr << "[" << PESTO_NAME_PM << "] Running pass '"
-				  << (*it)->getUUID() << "' on " << std::to_string(nestCount)
+				  << (*it)->getName() << "' on " << std::to_string(nestCount)
 				  << " loop nests " << std::endl;
 		(*it)->run(prog);
 	}

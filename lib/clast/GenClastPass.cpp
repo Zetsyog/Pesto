@@ -4,11 +4,9 @@
 
 using namespace pesto;
 
-GenClastPass::GenClastPass() {}
+GenClastPass::GenClastPass() : IPolySingleNestPass("pass-clast-gen") {}
 
 GenClastPass::~GenClastPass() {}
-
-std::string GenClastPass::getUUID() { return PESTO_UUID_PASS_CLAST_GEN; }
 
 void GenClastPass::runSingleNest(ScopNest &nest) {
 	nest.metadata.set<ClastMetadata>();
