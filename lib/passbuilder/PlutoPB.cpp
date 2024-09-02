@@ -25,7 +25,6 @@ std::unique_ptr<pesto::IPolyhedralPass> PlutoPB::build(const json &j) {
 	// TODO: parse more options
 	if (pluto_opt.contains("tile")) {
 		pluto_opt.at("tile").get_to(pass->getOptions()->tile);
-		std::cerr << "Tile: " << pass->getOptions()->tile << std::endl;
 	}
 	if (pluto_opt.contains("parallel")) {
 		pluto_opt.at("parallel").get_to(pass->getOptions()->parallel);
