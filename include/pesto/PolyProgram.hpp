@@ -1,11 +1,13 @@
 #ifndef PESTO_POLY_PROGRAM_H
 #define PESTO_POLY_PROGRAM_H
 
+#include <osl/osl.h>
+
+#include <pesto/ScopNest.hpp>
+
 #include <any>
 #include <map>
 #include <memory>
-#include <osl/osl.h>
-#include <pesto/ScopNest.hpp>
 #include <vector>
 
 namespace pesto {
