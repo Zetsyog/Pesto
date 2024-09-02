@@ -17,6 +17,7 @@ std::unique_ptr<PMBuilder> PMBuilder::createDefault() {
 	pm->registerPassBuilder(std::make_unique<CloogCodegenPB>());
 	pm->registerPassBuilder(std::make_unique<PlutoPB>());
 	pm->registerPassBuilder(std::make_unique<SplitNestPB>());
+	pm->registerPassBuilder(std::make_unique<ClastParamTilingPB>());
 
 	return pm;
 }
