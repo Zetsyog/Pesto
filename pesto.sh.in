@@ -1,8 +1,8 @@
 #!@BASH@
 
-extract_scop_bin="./extract_scop.sh"
-replace_scop_bin="./replace_scop.sh"
-pesto_bin="./tool/pesto"
+extract_scop_bin="@abs_top_builddir@/extract_scop.sh"
+replace_scop_bin="@abs_top_builddir@/replace_scop.sh"
+pesto_bin="@abs_top_builddir@/tool/pesto"
 
 # TODO: custom compiler support
 CC=gcc
@@ -11,6 +11,7 @@ usage() {
     echo "Usage: pesto [options] <input_file>" >&2
     echo "Options:" >&2
     printf "%-30s%s\n" "  -o, --output <file>" "Path of output file" >&2
+    printf "%-30s%s\n" "  --config <file>" "Path of JSON config file" >&2
     printf "%-30s%s\n" "  --readscop" "Input file is using Openscop format" >&2
     printf "%-30s%s\n" "  -i, --indent" "Format generated code" >&2
     printf "%-30s%s\n" "  -h, --help" "Print this help message" >&2
@@ -18,7 +19,7 @@ usage() {
     exit 1
 }
 
-OPTS=$(getopt -o o:i --long output:,indent -- "$@")
+OPTS=$(getopt -o o:ihv --long output:,indent,config:,readscop,version,help -- "$@")
 if [ $? != 0 ]; then
     echo "[pesto-cli] Failed to parse options" >&2
     exit 1
@@ -39,6 +40,22 @@ while true; do
         ;;
     -i | --indent)
         indent=1
+        shift
+        ;;
+    -h | --help)
+        usage
+        exit 0
+        ;;
+    -v | --version)
+        echo "Pesto CLI O.1"
+        exit 0
+        ;;
+    --config)
+        forward_opts+=("$1" "$2")
+        shift 2
+        ;;
+    --readscop)
+        forward_opts+=("$1")
         shift
         ;;
     --)
