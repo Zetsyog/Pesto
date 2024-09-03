@@ -23,6 +23,12 @@ class VarDeclMetadata {
 	std::vector<std::string> vars;
 };
 
+/**
+ * A pass that generate C code from a PolyProgram
+ * For each ScopNest it will look for a ClastMetadata, and use the clast to
+ * generate C code
+ * Else it will use cloog on the openscop representation of the ScopNest
+ */
 class CloogCodegenPass : public IPolySingleNestPass {
   public:
 	CloogCodegenPass(std::string prefix);

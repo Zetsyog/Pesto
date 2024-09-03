@@ -5,6 +5,9 @@
 
 namespace pesto {
 
+/**
+ * A pass that performs a parametric tiling over the Clast of each ScopNest
+ */
 class ClastParamTilingPass : public IPolySingleNestPass {
   public:
 	ClastParamTilingPass();

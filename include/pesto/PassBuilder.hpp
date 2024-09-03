@@ -11,6 +11,12 @@ using json = nlohmann::json;
 
 namespace pesto {
 
+/**
+ * Interface for a pass builder
+ * This object is responsible for building a pass from a json object
+ * Each pass builder must have a unique identifier that will be used to identify
+ * it in the json configuration file
+ */
 class IPassBuilder {
   public:
 	IPassBuilder();
@@ -20,6 +26,12 @@ class IPassBuilder {
 	virtual std::unique_ptr<pesto::IPolyhedralPass> build(const json &j) = 0;
 };
 
+/**
+ * A pass manager builder
+ * This object is responsible for building a pass manager from a json object
+ * Pass builders must be registered so that the pass manager builder can
+ * delegate the building of each pass to the corresponding pass builder
+ */
 class PMBuilder {
   public:
 	PMBuilder();

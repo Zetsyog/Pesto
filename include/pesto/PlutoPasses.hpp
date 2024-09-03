@@ -10,6 +10,9 @@
 
 namespace pesto {
 
+/**
+ * A generic pass that runs Pluto on each ScopNest of the program
+ */
 class PlutoPass : public IPolySingleNestPass {
   public:
 	PlutoPass();
@@ -23,12 +26,20 @@ class PlutoPass : public IPolySingleNestPass {
 	PlutoContext *context;
 };
 
+/**
+ * A pass that runs Pluto without any optimization option
+ * like polycc --notile --noparallel --nounroll --noprevector
+ */
 class PlutoAutoTransformPass : public PlutoPass {
   public:
 	PlutoAutoTransformPass();
 	virtual ~PlutoAutoTransformPass();
 };
 
+/**
+ * A pass that runs Pluto with only the tiling option
+ * like polycc --tile
+ */
 class PlutoTilingPass : public PlutoPass {
   public:
 	PlutoTilingPass();

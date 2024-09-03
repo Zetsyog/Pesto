@@ -11,6 +11,12 @@
 
 namespace pesto {
 
+/**
+ * Base interface for a pass that operates on a PolyProgram
+ * A pass must have a name
+ * A pass must implement the run method that will be called on the PolyProgram
+ * by the PassManager
+ */
 class IPolyhedralPass {
   public:
 	IPolyhedralPass(std::string name);

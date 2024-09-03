@@ -9,6 +9,12 @@
 #include <typeindex>
 #include <unordered_map>
 
+/**
+ * A container for metadata that can be attached to any object
+ * The metadata is stored as a map from type to value
+ * The metadata is stored as a shared pointer, so that it can be shared between
+ * multiple objects
+ */
 class MetadataContainer {
   public:
 	/**

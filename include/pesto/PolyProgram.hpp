@@ -12,6 +12,12 @@
 
 namespace pesto {
 
+/**
+ * A class representing a polyhedral program
+ * A polyhedral program is a collection of ScopNest objects
+ * ScopNest objects can be added and / or removed from the program
+ * The order of the ScopNest objects does matter
+ */
 class PolyProgram {
   public:
 	PolyProgram();
@@ -25,6 +31,10 @@ class PolyProgram {
 	std::vector<ScopNest *> nests;
 };
 
+/**
+ * This class is used to build a PolyProgram object from an OpenScop
+ * representation
+ */
 class PolyProgramBuilder {
   public:
 	PolyProgramBuilder();

@@ -5,6 +5,10 @@
 
 namespace pesto {
 
+/**
+ * A pass that adds a minimal value to global parameters of each scop of the
+ * program
+ */
 class ParamContextPass : public IPolySingleNestPass {
   public:
 	ParamContextPass(int contextValue);
@@ -16,6 +20,9 @@ class ParamContextPass : public IPolySingleNestPass {
 	int contextValue;
 };
 
+/**
+ * A pass that splits nested loops in each scop of the program
+ */
 class SplitNestedLoopsPass : public IPolyhedralPass {
   public:
 	SplitNestedLoopsPass();
@@ -24,6 +31,10 @@ class SplitNestedLoopsPass : public IPolyhedralPass {
 	virtual void run(PolyProgram &prog);
 };
 
+/**
+ * A pass that dumps the osl representation of each scop of the program
+ * Useful for debugging
+ */
 class DumpOslPass : public IPolySingleNestPass {
   public:
 	DumpOslPass(std::string prefix);

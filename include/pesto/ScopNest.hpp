@@ -7,6 +7,12 @@
 
 namespace pesto {
 
+/**
+ * A class abstracting a program in a polyhedral representation
+ * This class is a wrapper around an osl_scop_p object
+ * It also contains a unique identifier
+ * It can also contain metadata used and / or shared by passes
+ */
 class ScopNest {
   private:
 	int id;
