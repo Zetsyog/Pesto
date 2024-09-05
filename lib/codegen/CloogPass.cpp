@@ -101,7 +101,7 @@ void CloogCodegenPass::runSingleNest(ScopNest &nest) {
 
 		program = cloog_program_generate(program, options);
 		// input is freed by cloog_clast_create_from_input
-		struct clast_stmt *root = cloog_clast_create(program, options);
+		root = cloog_clast_create(program, options);
 	}
 
 	if (root == nullptr || state == nullptr || options == nullptr) {
