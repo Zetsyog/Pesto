@@ -63,6 +63,7 @@ AC_CONFIG_FILES([
   Makefile 
   lib/Makefile 
   tool/Makefile 
+  trahrhe_wrapper.sh
   pesto.sh
 ])
 
