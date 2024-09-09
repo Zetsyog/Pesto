@@ -110,6 +110,7 @@ process_file() {
 
     echo "[pesto-cli] Processing file $infile" >&2
 
+    # scop_file is a temporary file that contains only the code delimited by the pragmas
     scop_file=$(mktemp)
 
     echo "[pesto-cli] Extracting scop to $scop_file" >&2
@@ -137,6 +138,10 @@ process_file() {
 
     # for each generated file
     for file in $generated_files; do
+        if [[ ! -f "$file" ]]; then
+            echo "[pesto-cli] ERROR: generated file $file not found" >&2
+            exit 1
+        fi
         echo "[pesto-cli] DEBUG: processing $file" >&2
 
         # extract include directives
@@ -155,9 +160,22 @@ process_file() {
         # rm -f "$file"
     done
 
+    # if there is a .vardecls file, append it to the body file
+    # this file should contain variable declarations
     if [[ -f ".vardecls" ]]; then
         cat .vardecls "$body_file" >.tmp && mv .tmp "$body_file"
         rm -f .vardecls
+    fi
+
+    # if there is a .exec-once file, each line contains a command to be executed once
+    if [[ -f ".exec-once" ]]; then
+        echo "[pesto-cli] Executing external commands " >&2
+        sed -i "s|^trahrhe_wrapper|@abs_top_builddir@/trahrhe_wrapper|g" ".exec-once"
+
+        while read -r line; do
+            eval "$line"
+        done <.exec-once
+        rm -f .exec-once
     fi
 
     echo "[pesto-cli] DEBUG: replacing scop in $infile with $body_file" >&2
@@ -184,14 +202,15 @@ echo "[pesto-cli] Include file: $include_file" >&2
 
 working_file=$(mktemp)
 # Copy input file to temp file to start processing
+# input file must not be modified
 cp "$input_file" "$working_file"
 
 echo "[pesto-cli] Working on file $working_file" >&2
 
 # Loop until there are no more pragmas to process
 while contains_pragma "$working_file"; do
+    # TODO: handle openscop input format
     process_file "$working_file"
-    break
 done
 
 if [[ $indent -ne 0 ]]; then

@@ -61,6 +61,9 @@ struct clast_user_stmt *pesto_clast_create_stmt(CloogOptions *cloogOptions,
 
 int clast_for_is_outter_tile_loop(struct clast_for *for_stmt);
 
+int clast_for_get_outter_tile_depth(struct clast_stmt *root,
+									struct clast_for *outter_for);
+
 int clast_for_is_inner_tile_loop(struct clast_for *for_stmt);
 
 /**

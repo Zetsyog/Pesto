@@ -139,11 +139,8 @@ int clast_for_is_outter_tile_loop(struct clast_for *for_stmt) {
 	isl_set *domain = isl_set_copy(set);
 
 	// idx is the index of the iterator dimension in the domain
-	int idx = isl_set_find_dim_by_name(domain, isl_dim_set, for_stmt->iterator);
-	if (idx < 0) {
-		isl_set_free(domain);
-		return 0;
-	}
+	int ndim = isl_set_n_dim(domain);
+	int idx = ndim - 1;
 
 	// only keep constraints involving the iterator
 	domain = isl_set_drop_constraints_not_involving_dims(domain, isl_dim_set,
@@ -184,6 +181,19 @@ int clast_for_is_outter_tile_loop(struct clast_for *for_stmt) {
 	isl_set_free(domain);
 
 	return is_outter_tile;
+}
+
+int clast_for_get_outter_tile_depth(struct clast_stmt *root,
+									struct clast_for *outter_for) {
+	int depth = 0;
+	while (outter_for != NULL) {
+		if (clast_for_is_outter_tile_loop(outter_for)) {
+			depth += 1;
+		}
+		outter_for =
+			clast_get_parent_clast_for(root, (struct clast_stmt *)outter_for);
+	}
+	return depth;
 }
 
 int clast_for_is_inner_tile_loop(struct clast_for *for_stmt) {
@@ -365,6 +375,13 @@ clast_for_compute_original_bound(CloogNames *names, struct clast_for *inner_for,
 												  ndim_outter - 1, 1);
 
 	set = isl_set_drop_tiling_constraints(set);
+	if (bound == 0) {
+		// TODO: bound could be other than 0
+		if (isl_set_dim_has_lower_bound(set, isl_dim_set, ndim - 1) ==
+			isl_bool_false) {
+			isl_set_lower_bound_si(set, isl_dim_set, ndim - 1, 0);
+		}
+	}
 
 	isl_basic_set_list *bset_list = isl_set_get_basic_set_list(set);
 	isl_basic_set *bset = isl_basic_set_list_get_at(bset_list, 0);

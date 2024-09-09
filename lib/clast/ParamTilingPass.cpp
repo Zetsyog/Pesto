@@ -6,6 +6,8 @@
 
 #include <cloog/isl/cloog.h>
 
+#include <isl/val.h>
+
 #include <pesto/Pesto.hpp>
 
 #include "clast/clast_support.h"
@@ -245,10 +247,31 @@ void compute_trahrhe_isl_domain(ScopNest &nest, struct StmtGroup *group,
 		domain = isl_set_set_dim_name(domain, isl_dim_set, i, buffer);
 	}
 
+	int ndim = isl_set_dim(domain, isl_dim_set);
+
+	for (int i = 0; i < ndim; i += 1) {
+		domain = isl_set_lower_bound_val(domain, isl_dim_set, i,
+
+										 isl_val_zero(isl_set_get_ctx(domain)));
+	}
+
 	std::cerr << "TEST DUMP" << std::endl;
 	isl_set_dump(domain);
 	std::cerr << std::endl << "END DUMP" << std::endl;
+	/*
+		FILE *outfd = fopen(".exec-once", "a");
+		fprintf(outfd, "trahrhe_wrapper header.%d.h ", group->id);
+		fprintf(outfd, " -d\"");
 
+		isl_printer *printer = isl_printer_to_file(isl_set_get_ctx(domain),
+	   outfd); isl_printer_print_set(printer, domain);
+		isl_printer_free(printer);
+
+		fprintf(outfd, "\"");
+		fprintf(outfd, " -e -t%d \n", ndim);
+
+		fclose(outfd);
+	*/
 	isl_set_free(domain);
 }
 
@@ -287,12 +310,19 @@ void apply_tiling(ScopNest &nest, struct clast_stmt *root,
 			}
 			std::cerr << " Outter loop: ";
 			std::cerr << outter_for->iterator << std::endl;
+			std::cerr << "Outter: " << clast_for_is_outter_tile_loop(outter_for)
+					  << std::endl;
+			std::cerr << "Depth: "
+					  << clast_for_get_outter_tile_depth(root, outter_for)
+					  << std::endl;
+			struct tiling_info tiling_info = {0};
+			tiling_info.depth =
+				clast_for_get_outter_tile_depth(root, outter_for);
+			tiling_info.inner_for = parent_for;
+			tiling_info.outter_for = outter_for;
 
-			tiling_info_list.push_back({
-				.depth = --current_tiling_depth,
-				.inner_for = parent_for,
-				.outter_for = outter_for,
-			});
+			tiling_info_list.push_back(tiling_info);
+			current_tiling_depth -= 1;
 		}
 		parent_for = clast_get_parent_clast_for(
 			(struct clast_stmt *)root, (struct clast_stmt *)parent_for);
