@@ -1,0 +1,43 @@
+{
+    "options": {
+        "input-format": "c"
+    },
+    "passes": [
+        {
+            "uuid": "pluto",
+            "options": {
+                "pluto": {
+                    "tile": false,
+                    "parallel": false,
+                    "prevector": false,
+                    "silent": true
+                }
+            }
+        },
+        {
+            "uuid": "split-nested-loops"
+        },
+        {
+            "uuid": "pluto",
+            "options": {
+                "pluto": {
+                    "tile": true,
+                    "parallel": false,
+                    "prevector": false,
+                    "intratileopt": false,
+                    "silent": false
+                }
+            }
+        },
+        {
+            "uuid": "clast-gen"
+        },
+        {
+            "uuid": "param-tiling",
+            "gen-trahrhe": true
+        },
+        {
+            "uuid": "codegen-cloog"
+        }
+    ]
+}

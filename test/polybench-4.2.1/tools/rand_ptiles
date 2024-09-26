@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+
+# Check if polybench program outupt is correct comparing with original program
+# It will run the program with different tile sizes and compare the output
+# The number of runs is given by the first argument
+# Tile sizes are randomly chosen between 2 and the second argument
+# for each run 3 combinations of random tile sizes are tested
+# usage: ./is_correct3 <run_nb> <max_tile_size> <make_target>
+RUN_NB=$1
+MIN_TILE_SIZE=2
+MAX_TILE_SIZE=$2
+prog="$3"
+USR_EXTRA_FLAGS=${4:-""}
+
+if [[ $# -lt 3 ]]; then
+    echo "usage: $0 <run_nb> <max_tile_size> <make_target> [extra_flags]"
+    exit 1
+fi
+
+DIR="./tmp"
+
+make clean
+mkdir -p $DIR
+
+EXTRA_FLAGS="-march=native -O3 -fopenmp -DPOLYBENCH_TIME -DPOLYBENCH_DUMP_ARRAYS $USR_EXTRA_FLAGS"
+echo "$EXTRA_FLAGS"
+
+get_prog_result_chksum() {
+    local file=$1
+    chk=$(sha256sum "${file}" | cut -d' ' -f1)
+    echo "$chk"
+}
+
+test_prog() {
+    prog=$1
+    d1=$2
+    d2=$3
+    d3=$4
+
+    exit_status=0
+    echo -e -n "$d1\t$d2\t$d3\t"
+    rm -f $prog "$DIR/$prog.dump"
+
+    DIVFLAGS="-DDIV0=$d1 -DDIV1=$d2 -DDIV2=$d3"
+
+    make -s EXTRA_FLAGS="$EXTRA_FLAGS $DIVFLAGS" $prog
+    if [ $? -ne 0 ]; then
+        exit_status=1
+        echo -e "compilation failed"
+        exit 1
+    fi
+    rm -f "$DIR/$prog.dump"
+    score=$(./$prog 2>${DIR}/${prog}.dump)
+    exit_status=$?
+
+    if [ $exit_status -ne 0 ]; then
+        echo -e "failed"
+        return $exit_status
+    fi
+    checksum=$(get_prog_result_chksum ${DIR}/${prog}.dump)
+
+    echo -e "$score\t$checksum"
+
+    return $exit_status
+}
+
+echo -e "$prog\t"
+
+exit_status=0
+
+div_list=$(shuf -i "$MIN_TILE_SIZE-$MAX_TILE_SIZE" -n $(($RUN_NB * 3)))
+
+for ((i = 0; i < $RUN_NB; i++)); do
+    R1=$(sed "$(($i * 3 + 1))q;d" <<<"$div_list")
+    R2=$(sed "$(($i * 3 + 1))q;d" <<<"$div_list")
+    R3=$(sed "$(($i * 3 + 2))q;d" <<<"$div_list")
+
+    test_prog $prog $R1 $R2 $R3
+    if [ $? -ne 0 ]; then
+        exit_status=1
+    fi
+
+    test_prog $prog $R3 $R1 $R2
+    if [ $? -ne 0 ]; then
+        exit_status=1
+    fi
+
+    test_prog $prog $R2 $R3 $R1
+    if [ $? -ne 0 ]; then
+        exit_status=1
+    fi
+done
+
+if [ $exit_status -ne 0 ]; then
+    echo -e "\nfailed"
+    exit 1
+else
+    echo "done!"
+fi
+# rm -rf $DIR
