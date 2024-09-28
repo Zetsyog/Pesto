@@ -22,6 +22,7 @@
 #include <pesto/passbuilder/ClastParamTilingPB.hpp>
 #include <pesto/passbuilder/CloogCodegenPB.hpp>
 #include <pesto/passbuilder/GenClastPB.hpp>
+#include <pesto/passbuilder/ParamContextPB.hpp>
 #include <pesto/passbuilder/PlutoPB.hpp>
 #include <pesto/passbuilder/SplitNestPB.hpp>
 
