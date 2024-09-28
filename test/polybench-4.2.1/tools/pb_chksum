@@ -20,7 +20,7 @@ if [ $# -eq 2 ]; then
 fi
 
 cleanup() {
-    rm -f __tmp __tmp.dump
+    rm -f __tmp __tmp.dump __out
 }
 
 source_file=$1
