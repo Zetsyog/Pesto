@@ -36,6 +36,7 @@ libpesto_la_SOURCES = \
    passbuilder/ClastParamTilingPB.cpp \
    passbuilder/CloogCodegenPB.cpp \
    passbuilder/GenClastPB.cpp \
+   passbuilder/ParamContextPB.cpp \
    passbuilder/PassBuilder.cpp \
    passbuilder/PlutoPB.cpp \
    passbuilder/PMBuilder.cpp \
