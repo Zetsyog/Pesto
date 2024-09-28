@@ -1,11 +1,13 @@
 #ifndef PESTO_CLAST_SUPPORT_H
 #define PESTO_CLAST_SUPPORT_H
 
+#include <cloog/cloog.h>
+#include <isl/set.h>
+#include <osl/osl.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <cloog/cloog.h>
 
 /**
  * Insert a statement after another following the depth first traversal of the
@@ -59,9 +61,11 @@ struct clast_user_stmt *pesto_clast_create_stmt(CloogOptions *cloogOptions,
 												CloogDomain *domain,
 												unsigned int id);
 
-int clast_for_is_outter_tile_loop(struct clast_for *for_stmt);
+int clast_for_is_outter_tile_loop(__isl_keep isl_set *domain,
+								  struct clast_for *for_stmt);
 
-int clast_for_get_outter_tile_depth(struct clast_stmt *root,
+int clast_for_get_outter_tile_depth(__isl_keep isl_set *domain,
+									struct clast_stmt *root,
 									struct clast_for *outter_for);
 
 int clast_for_is_inner_tile_loop(struct clast_for *for_stmt);
@@ -119,6 +123,17 @@ int clast_for_depth(struct clast_stmt *root, struct clast_for *for_stmt);
 struct clast_expr *
 clast_for_compute_original_bound(CloogNames *names, struct clast_for *inner_for,
 								 struct clast_for *outter_for, int bound);
+
+/**
+ * Create a hard copy of a CloogNames structure
+ */
+CloogNames *cloog_names_hard_copy(CloogNames *names);
+
+/**
+ * add tags clast loops according to information in scop's osl_loop extension
+ * Stolen from cloog source
+ */
+int clast_annotate_loops(osl_scop_p program, struct clast_stmt *root);
 
 #ifdef __cplusplus
 }

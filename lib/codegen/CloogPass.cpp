@@ -2,6 +2,8 @@
 
 #include <pesto/Pesto.hpp>
 
+#include "clast/clast_support.h"
+
 using namespace pesto;
 
 CloogCodegenPass::CloogCodegenPass(std::string prefix)
@@ -16,6 +18,8 @@ void CloogCodegenPass::run(PolyProgram &prog) {
 
 	// generate var declarations
 	VarDeclMetadata varDecls;
+	varDecls.addVar("lbp");
+	varDecls.addVar("ubp");
 	for (auto &nest : prog.getScopNests()) {
 		auto varDeclsData = nest->metadata.get<VarDeclMetadata>();
 		if (varDeclsData) {
@@ -102,6 +106,7 @@ void CloogCodegenPass::runSingleNest(ScopNest &nest) {
 		program = cloog_program_generate(program, options);
 		// input is freed by cloog_clast_create_from_input
 		root = cloog_clast_create(program, options);
+		clast_annotate_loops(scop, root);
 	}
 
 	if (root == nullptr || state == nullptr || options == nullptr) {
@@ -112,6 +117,14 @@ void CloogCodegenPass::runSingleNest(ScopNest &nest) {
 	// Add iterators to var decls
 	for (int i = 0; i < program->names->nb_scattering; i += 1) {
 		varDeclsData->addVar(program->names->scattering[i]);
+	}
+
+	osl_scatnames_p scatnames = (osl_scatnames_p)osl_generic_lookup(
+		nest.getScop()->extension, OSL_URI_SCATNAMES);
+	if (scatnames) {
+		for (int i = 0; i < osl_strings_size(scatnames->names); i++) {
+			varDeclsData->addVar(scatnames->names->string[i]);
+		}
 	}
 
 	log(std::cerr) << "Writing code to " << path << std::endl;

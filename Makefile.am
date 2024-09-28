@@ -12,9 +12,13 @@ SUBDIRS = pluto lib tool
 
 ACLOCAL_AMFLAGS = -I m4
 
-bin_SCRIPTS = pesto
+bin_SCRIPTS = pesto trahrhe_wrapper
 CLEANFILES = $(bin_SCRIPTS) 
-EXTRA_DIST = pesto.sh.in 
+EXTRA_DIST = pesto.sh.in trahrhe_wrapper.sh.in
+
+trahrhe_wrapper: trahrhe_wrapper.sh
+	cat trahrhe_wrapper.sh > trahrhe_wrapper
+	chmod ugo+x trahrhe_wrapper
 
 pesto: pesto.sh
 	cat pesto.sh > pesto

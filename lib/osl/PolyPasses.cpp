@@ -41,6 +41,9 @@ void SplitNestedLoopsPass::run(PolyProgram &prog) {
 
 		for (int i = 0; i < nest_count; i++) {
 			auto nest = new ScopNest(nextNestId++, new_scops[i]);
+			nest->metadata.getOrCreate<OpenScopMetadata>()->scops["original"] =
+				osl_scop_clone(scop);
+
 			new_nests.push_back(nest);
 		}
 
@@ -101,4 +104,12 @@ void DumpOslPass::runSingleNest(ScopNest &nest) {
 	FILE *fd = fopen(path.c_str(), "w");
 	osl_scop_print(fd, scop);
 	fclose(fd);
+}
+
+OpenScopMetadata::OpenScopMetadata() {}
+
+OpenScopMetadata::~OpenScopMetadata() {
+	for (auto i = scops.begin(); i != scops.end(); i++) {
+		osl_scop_free(i->second);
+	}
 }

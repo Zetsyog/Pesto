@@ -12,5 +12,10 @@ std::string ClastParamTilingPB::getUUID() {
 
 std::unique_ptr<pesto::IPolyhedralPass>
 ClastParamTilingPB::build(const json &j) {
-	return std::make_unique<ClastParamTilingPass>();
+	auto pass = std::make_unique<ClastParamTilingPass>();
+	if (j.contains("gen-trahrhe")) {
+		pass->gen_trahrhe = j["gen-trahrhe"];
+	}
+	// TODO: trahrhe parameters
+	return pass;
 }

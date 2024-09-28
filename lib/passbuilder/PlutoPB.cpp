@@ -2,6 +2,11 @@
 
 using namespace pesto;
 
+#define PESTO_BIND_PLUTO_OPT(json, pluto_opt, name)                            \
+	if (json.contains(#name)) {                                                \
+		json.at(#name).get_to(pluto_opt->name);                                \
+	}
+
 PlutoPB::PlutoPB() {}
 
 PlutoPB::~PlutoPB() {}
@@ -23,20 +28,17 @@ std::unique_ptr<pesto::IPolyhedralPass> PlutoPB::build(const json &j) {
 	auto pluto_opt = options["pluto"];
 
 	// TODO: parse more options
-	if (pluto_opt.contains("tile")) {
-		pluto_opt.at("tile").get_to(pass->getOptions()->tile);
-	}
-	if (pluto_opt.contains("parallel")) {
-		pluto_opt.at("parallel").get_to(pass->getOptions()->parallel);
-	}
-	if (pluto_opt.contains("prevector")) {
-		pluto_opt.at("prevector").get_to(pass->getOptions()->prevector);
-	}
-	if (pluto_opt.contains("silent")) {
-		pluto_opt.at("silent").get_to(pass->getOptions()->silent);
-	}
-	if (pluto_opt.contains("debug")) {
-		pluto_opt.at("debug").get_to(pass->getOptions()->debug);
-	}
+	PESTO_BIND_PLUTO_OPT(pluto_opt, pass->getOptions(), tile);
+	PESTO_BIND_PLUTO_OPT(pluto_opt, pass->getOptions(), parallel);
+	PESTO_BIND_PLUTO_OPT(pluto_opt, pass->getOptions(), prevector);
+	PESTO_BIND_PLUTO_OPT(pluto_opt, pass->getOptions(), intratileopt);
+	PESTO_BIND_PLUTO_OPT(pluto_opt, pass->getOptions(), unrolljam);
+
+	PESTO_BIND_PLUTO_OPT(pluto_opt, pass->getOptions(), silent);
+	PESTO_BIND_PLUTO_OPT(pluto_opt, pass->getOptions(), debug);
+
+	std::cerr << "INTRATILEOPT: " << pass->getOptions()->intratileopt
+			  << std::endl;
+
 	return pass;
 }

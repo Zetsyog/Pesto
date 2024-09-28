@@ -97,10 +97,43 @@ if [[ -d "$output_file" ]]; then
     exit 1
 fi
 
+# We work on a copy of the input file
+# Because we do in-place work
+working_file=$(mktemp)
+# Copy input file to temp file to start processing
+# input file must not be modified
+cp "$input_file" "$working_file"
+
+echo "[pesto-cli] Working on file $working_file" >&2
+
+# file to store include directives
 include_file=$(mktemp)
 pesto_gen_prefix=".pesto.gen"
 
 echo "$pesto_gen_prefix" >".pesto_prefix"
+
+# Clear the include file
+echo "" >"$include_file"
+# extract existing include directives and define macros
+grep "^#define" "$working_file" >>"$include_file"
+
+# check if include file contains a line starting with #define min(x,y)
+if ! grep -q "#define ceild(n,d)" "$include_file"; then
+    {
+        echo "#include <math.h>"
+        echo "#define ceild(n,d)  (((n)<0) ? -((-(n))/(d)) : ((n)+(d)-1)/(d))"
+        echo "#define floord(n,d) (((n)<0) ? -((-(n)+(d)-1)/(d)) : (n)/(d))"
+        echo "#define max(x,y)    (((x) > (y)) ? (x) : (y))"
+        echo "#define min(x,y)    (((x) < (y)) ? (x) : (y))"
+
+        for ((i = 0; i <= 3; i++)); do
+            echo "#ifndef DIV${i}"
+            echo "#define DIV${i} 8"
+            echo "#endif"
+        done
+
+    } >>"$include_file"
+fi
 
 # Function to process the input file and extract pragma sections
 process_file() {
@@ -110,7 +143,7 @@ process_file() {
 
     echo "[pesto-cli] Processing file $infile" >&2
 
-    # scop_file is a temporary file that contains only the code delimited by the pragmas
+    # scop_file is a temporary file that contains only the input code delimited by the pragmas
     scop_file=$(mktemp)
 
     echo "[pesto-cli] Extracting scop to $scop_file" >&2
@@ -133,6 +166,7 @@ process_file() {
 
     generated_files="${pesto_gen_prefix}.*"
 
+    # body_file is a temporary file that contains the generated code
     body_file=$(mktemp)
     echo "" >"${body_file}"
 
@@ -145,12 +179,12 @@ process_file() {
         echo "[pesto-cli] DEBUG: processing $file" >&2
 
         # extract include directives
-        grep "^#include" "${file}" >"${include_file}"
+        grep "^#include" "${file}" >>"${include_file}"
 
         # remove in place all include directives
         sed -i '/^#include/d' "${file}"
 
-        # run preprocessor on file
+        # run preprocessor on file write it to output file
         ${CC} -E -P "$file" >>"$body_file"
         if [ $? -ne 0 ]; then
             echo "[pesto-cli] ERROR: Preprocessor failed" >&2
@@ -179,7 +213,8 @@ process_file() {
     fi
 
     echo "[pesto-cli] DEBUG: replacing scop in $infile with $body_file" >&2
-    ${replace_scop_bin} "$infile" "$body_file" >".kernel"
+    cat "$include_file" >".kernel"
+    ${replace_scop_bin} "$infile" "$body_file" >>".kernel"
     mv ".kernel" "$infile"
 
     # cleanup generated files
@@ -196,16 +231,6 @@ echo "[pesto-cli] Input file: $input_file" >&2
 echo "[pesto-cli] Filename : $filename" >&2
 echo "[pesto-cli] Output file: $output_file" >&2
 echo "[pesto-cli] Include file: $include_file" >&2
-
-# We work on a copy of the input file
-# Because we do in-place work
-
-working_file=$(mktemp)
-# Copy input file to temp file to start processing
-# input file must not be modified
-cp "$input_file" "$working_file"
-
-echo "[pesto-cli] Working on file $working_file" >&2
 
 # Loop until there are no more pragmas to process
 while contains_pragma "$working_file"; do

@@ -55,14 +55,14 @@ void trahrhe_codegen_stmt(FILE *fp, struct trahrhe_codegen_data *data) {
 void trahrhe_codegen_header_stmt_algebraic(FILE *fp,
 										   struct trahrhe_codegen_data *data) {
 	/*    Tiling upper bound computation     aub0t = DIV0 - 1;   */
-	TRAHRHE_GEN_OUTTER_UB(fp, data);
+	TRAHRHE_GEN_OUTTER_UB(fprintf, fp, data);
 	fprintf(fp, " = ");
-	TRAHRHE_GEN_DIV(fp, data);
+	TRAHRHE_GEN_DIV(fprintf, fp, data);
 	fprintf(fp, " - 1;\\\n"); // new line
 
-	TRAHRHE_GEN_PCMAX(fp, data);
+	TRAHRHE_GEN_PCMAX(fprintf, fp, data);
 	fprintf(fp, " = ");
-	TRAHRHE_GEN_ERHART_FN(fp, data);
+	TRAHRHE_GEN_ERHART_FN(fprintf, fp, data);
 	fprintf(fp, "(");
 	for (int i = 0; i < data->npar; i++) {
 		fprintf(fp, "%s", data->params[i]);
@@ -76,21 +76,21 @@ void trahrhe_codegen_header_stmt_algebraic(FILE *fp,
 	// }
 	fprintf(fp, ");");
 	fprintf(fp, "\\\n"); // new line
-	TRAHRHE_GEN_TARGET_VOL(fp, data);
+	TRAHRHE_GEN_TARGET_VOL(fprintf, fp, data);
 	fprintf(fp, " = ");
-	TRAHRHE_GEN_PCMAX(fp, data);
+	TRAHRHE_GEN_PCMAX(fprintf, fp, data);
 	fprintf(fp, " / ");
-	TRAHRHE_GEN_DIV(fp, data);
+	TRAHRHE_GEN_DIV(fprintf, fp, data);
 }
 
 void trahrhe_codegen_body_stmt_algebraic(FILE *fp,
 										 struct trahrhe_codegen_data *data) {
 	// lower bound
-	TRAHRHE_GEN_INNER_LB(fp, data);
+	TRAHRHE_GEN_INNER_LB(fprintf, fp, data);
 	fprintf(fp, " = ");
-	TRAHRHE_GEN_TRAHRHE_FN(fp, data);
+	TRAHRHE_GEN_TRAHRHE_FN(fprintf, fp, data);
 	fprintf(fp, "(max(1, (%s) * ", data->iterator_name);
-	TRAHRHE_GEN_TARGET_VOL(fp, data);
+	TRAHRHE_GEN_TARGET_VOL(fprintf, fp, data);
 	fprintf(fp, ")");
 
 	// minimum args are prog parameters
@@ -107,13 +107,13 @@ void trahrhe_codegen_body_stmt_algebraic(FILE *fp,
 	fprintf(fp, "\\\n"); // new line
 
 	// upper bound
-	TRAHRHE_GEN_INNER_UB(fp, data);
+	TRAHRHE_GEN_INNER_UB(fprintf, fp, data);
 	fprintf(fp, " = ");
-	TRAHRHE_GEN_TRAHRHE_FN(fp, data);
+	TRAHRHE_GEN_TRAHRHE_FN(fprintf, fp, data);
 	fprintf(fp, "(min(");
-	TRAHRHE_GEN_PCMAX(fp, data);
+	TRAHRHE_GEN_PCMAX(fprintf, fp, data);
 	fprintf(fp, ", (%s + 1) * ", data->iterator_name);
-	TRAHRHE_GEN_TARGET_VOL(fp, data);
+	TRAHRHE_GEN_TARGET_VOL(fprintf, fp, data);
 	fprintf(fp, ")");
 
 	// minimum args are prog parameters
@@ -130,10 +130,10 @@ void trahrhe_codegen_body_stmt_algebraic(FILE *fp,
 
 	// last bound adjustment
 	fprintf(fp, "if(%s ==", data->iterator_name);
-	TRAHRHE_GEN_DIV(fp, data);
+	TRAHRHE_GEN_DIV(fprintf, fp, data);
 	fprintf(fp, " - 1) {");
 
-	TRAHRHE_GEN_INNER_UB(fp, data);
+	TRAHRHE_GEN_INNER_UB(fprintf, fp, data);
 	fprintf(fp, " = %s", data->ub_expr);
 	fprintf(fp, ";\\\n"); // new line
 

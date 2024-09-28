@@ -3,6 +3,8 @@
 
 #include <pesto/PolyhedralPass.hpp>
 
+#include <map>
+
 namespace pesto {
 
 /**
@@ -18,6 +20,14 @@ class ParamContextPass : public IPolySingleNestPass {
 
   private:
 	int contextValue;
+};
+
+class OpenScopMetadata {
+  public:
+	OpenScopMetadata();
+	virtual ~OpenScopMetadata();
+
+	std::map<std::string, osl_scop_p> scops;
 };
 
 /**

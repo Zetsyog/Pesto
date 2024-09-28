@@ -17,7 +17,7 @@
 using namespace pesto;
 
 ClastParamTilingPass::ClastParamTilingPass()
-	: IPolySingleNestPass("pass-param-tiling") {}
+	: IPolySingleNestPass("pass-param-tiling"), gen_trahrhe(false) {}
 
 ClastParamTilingPass::~ClastParamTilingPass() {}
 
@@ -39,12 +39,6 @@ void ClastParamTilingPass::run(PolyProgram &prog) {
 	}
 }
 
-struct StmtGroup {
-	int id;
-	std::vector<struct clast_stmt *> stmts;
-	struct clast_for *parent_for;
-};
-
 struct tiling_info {
 	int depth;
 	struct clast_for *inner_for;
@@ -64,7 +58,7 @@ void replace_outter_tiled_for_bounds(ClastMetadata &metadata,
 
 	char buffer[256] = {0};
 	FILE *buf_fd = fmemopen(buffer, 256, "w");
-	TRAHRHE_GEN_OUTTER_UB(buf_fd, &tiling_info.gen_data[0]);
+	TRAHRHE_GEN_OUTTER_UB(fprintf, buf_fd, &tiling_info.gen_data[0]);
 	fclose(buf_fd);
 	auto ub_var = std::make_shared<std::string>(buffer);
 	tiling_info.outter_for->UB =
@@ -90,14 +84,14 @@ void replace_inner_tiled_for_bounds(ClastMetadata &metadata,
 	char buffer[256] = {0};
 	FILE *buf_fd = fmemopen(buffer, 256, "w");
 
-	TRAHRHE_GEN_INNER_LB(buf_fd, &tiling_info.gen_data[1]);
+	TRAHRHE_GEN_INNER_LB(fprintf, buf_fd, &tiling_info.gen_data[1]);
 	fflush(buf_fd);
 	auto lb_var = std::make_shared<std::string>(buffer);
 	struct clast_name *param_lb = new_clast_name(lb_var->c_str());
 	metadata.names.push_back(lb_var);
 	rewind(buf_fd);
 
-	TRAHRHE_GEN_INNER_UB(buf_fd, &tiling_info.gen_data[1]);
+	TRAHRHE_GEN_INNER_UB(fprintf, buf_fd, &tiling_info.gen_data[1]);
 	fclose(buf_fd);
 	auto ub_var = std::make_shared<std::string>(buffer);
 	struct clast_name *param_ub = new_clast_name(ub_var->c_str());
@@ -136,10 +130,19 @@ void insert_tiling_statements(ScopNest &nest, struct clast_stmt *root,
 	char *lb_expr = (char *)malloc(512 * sizeof(char));
 	char *ub_expr = (char *)malloc(512 * sizeof(char));
 
+	CloogNames *ub_names = cloog_names_hard_copy(metadata->cloogProgram->names);
+	for (int i = 0; i < ub_names->nb_scattering; i += 1) {
+		char *it_name = ub_names->scattering[i];
+		ub_names->scattering[i] = (char *)malloc(32 * sizeof(char));
+		snprintf(ub_names->scattering[i], 32, "g%d_ub%s",
+				 tiling_info.gen_data[0].group_id, it_name);
+		free(it_name);
+	}
+
 	for (int bound = 0; bound < 2; bound += 1) {
 		struct clast_expr *expr = clast_for_compute_original_bound(
-			metadata->cloogProgram->names, tiling_info.inner_for,
-			tiling_info.outter_for, bound);
+			bound == 1 ? ub_names : metadata->cloogProgram->names,
+			tiling_info.inner_for, tiling_info.outter_for, bound);
 		FILE *fd = fmemopen(bound == 0 ? lb_expr : ub_expr, 512, "w");
 		clast_pprint_expr(metadata->cloogOptions, fd, expr);
 		fclose(fd);
@@ -154,19 +157,16 @@ void insert_tiling_statements(ScopNest &nest, struct clast_stmt *root,
 			}
 		}
 	}
+
+	cloog_names_free(ub_names);
 	free(lb_expr);
 	free(ub_expr);
 
-	std::string lb_name = "lb" + std::string(tiling_info.inner_for->iterator);
-	std::string ub_name = "ub" + std::string(tiling_info.inner_for->iterator);
-
 	for (int i = 0; i < 2; i += 1) {
 		tiling_info.gen_data[i].tiling_type = trahrhe_type_algebraic;
-		tiling_info.gen_data[i].lb_name = strdup(lb_name.c_str());
-		tiling_info.gen_data[i].ub_name = strdup(ub_name.c_str());
+
 		tiling_info.gen_data[i].inner_it_name =
 			strdup(tiling_info.inner_for->iterator);
-		tiling_info.gen_data[i].depth = 0;
 		tiling_info.gen_data[i].endline = strdup("\\\n");
 		tiling_info.gen_data[i].iterator_name =
 			strdup(tiling_info.outter_for->iterator);
@@ -178,29 +178,40 @@ void insert_tiling_statements(ScopNest &nest, struct clast_stmt *root,
 			tiling_info.gen_data[i].params[j] =
 				strdup(metadata->cloogProgram->names->parameters[j]);
 		}
+		tiling_info.gen_data[i].nest_id = nest.getId();
+
+		// generate variable bound name
+		tiling_info.gen_data[i].lb_name = (char *)malloc(256 * sizeof(char));
+		tiling_info.gen_data[i].ub_name = (char *)malloc(256 * sizeof(char));
+		FILE *fd = fmemopen(tiling_info.gen_data[i].lb_name, 256, "w");
+		TRAHRHE_GEN_INNER_LB(fprintf, fd, &tiling_info.gen_data[i]);
+		fclose(fd);
+		fd = fmemopen(tiling_info.gen_data[i].ub_name, 256, "w");
+		TRAHRHE_GEN_INNER_UB(fprintf, fd, &tiling_info.gen_data[i]);
+		fclose(fd);
 	}
 }
 void addVarDecls(ScopNest &nest, struct tiling_info &tiling_info) {
 	auto varDeclData = nest.metadata.getOrCreate<VarDeclMetadata>();
 	char buffer[256] = {0};
 	FILE *buf_fd = fmemopen(buffer, 256, "w");
-	TRAHRHE_GEN_INNER_LB(buf_fd, &tiling_info.gen_data[1]);
+	TRAHRHE_GEN_INNER_LB(fprintf, buf_fd, &tiling_info.gen_data[1]);
 	fflush(buf_fd);
 	varDeclData->addVar(buffer);
 	rewind(buf_fd);
-	TRAHRHE_GEN_INNER_UB(buf_fd, &tiling_info.gen_data[1]);
+	TRAHRHE_GEN_INNER_UB(fprintf, buf_fd, &tiling_info.gen_data[1]);
 	fflush(buf_fd);
 	varDeclData->addVar(buffer);
 	rewind(buf_fd);
-	TRAHRHE_GEN_OUTTER_UB(buf_fd, &tiling_info.gen_data[0]);
+	TRAHRHE_GEN_OUTTER_UB(fprintf, buf_fd, &tiling_info.gen_data[0]);
 	fflush(buf_fd);
 	varDeclData->addVar(buffer);
 	rewind(buf_fd);
-	TRAHRHE_GEN_PCMAX(buf_fd, &tiling_info.gen_data[0]);
+	TRAHRHE_GEN_PCMAX(fprintf, buf_fd, &tiling_info.gen_data[0]);
 	fflush(buf_fd);
 	varDeclData->addVar(buffer);
 	rewind(buf_fd);
-	TRAHRHE_GEN_TARGET_VOL(buf_fd, &tiling_info.gen_data[0]);
+	TRAHRHE_GEN_TARGET_VOL(fprintf, buf_fd, &tiling_info.gen_data[0]);
 	fflush(buf_fd);
 	varDeclData->addVar(buffer);
 	fclose(buf_fd);
@@ -225,8 +236,14 @@ void generate_stmt_macros(ScopNest &nest, struct tiling_info &tiling_info) {
 void compute_trahrhe_isl_domain(ScopNest &nest, struct StmtGroup *group,
 								std::vector<tiling_info> &tiling_info_list) {
 	auto metadata = nest.metadata.get<ClastMetadata>().value();
+	auto scopData = nest.metadata.get<OpenScopMetadata>().value();
+
+	isl_ctx *ctx = isl_ctx_alloc();
 
 	// compute isl domain to feed trahrhe software with
+	// isl_set *domain =
+	// 	isl_set_from_osl_stmt(ctx, scopData->scops["original"]->statement);
+
 	isl_set *domain =
 		isl_set_copy(isl_set_from_cloog_domain(group->parent_for->domain));
 
@@ -242,7 +259,7 @@ void compute_trahrhe_isl_domain(ScopNest &nest, struct StmtGroup *group,
 		auto &tiling_info = tiling_info_list[i];
 
 		char buffer[256] = {0};
-		snprintf(buffer, 256, "g%d_%s", group->id,
+		snprintf(buffer, 256, "n%d_g%d_%s", nest.getId(), group->id,
 				 tiling_info.inner_for->iterator);
 		domain = isl_set_set_dim_name(domain, isl_dim_set, i, buffer);
 	}
@@ -251,33 +268,36 @@ void compute_trahrhe_isl_domain(ScopNest &nest, struct StmtGroup *group,
 
 	for (int i = 0; i < ndim; i += 1) {
 		domain = isl_set_lower_bound_val(domain, isl_dim_set, i,
-
 										 isl_val_zero(isl_set_get_ctx(domain)));
 	}
 
 	std::cerr << "TEST DUMP" << std::endl;
 	isl_set_dump(domain);
 	std::cerr << std::endl << "END DUMP" << std::endl;
-	/*
-		FILE *outfd = fopen(".exec-once", "a");
-		fprintf(outfd, "trahrhe_wrapper header.%d.h ", group->id);
-		fprintf(outfd, " -d\"");
 
-		isl_printer *printer = isl_printer_to_file(isl_set_get_ctx(domain),
-	   outfd); isl_printer_print_set(printer, domain);
-		isl_printer_free(printer);
+	FILE *outfd = fopen(".exec-once", "a");
+	fprintf(outfd, "trahrhe_wrapper header.n%d.g%d.h ", nest.getId(),
+			group->id);
+	fprintf(outfd, " -d\"");
 
-		fprintf(outfd, "\"");
-		fprintf(outfd, " -e -t%d \n", ndim);
+	isl_printer *printer = isl_printer_to_file(isl_set_get_ctx(domain), outfd);
+	isl_printer_print_set(printer, domain);
+	isl_printer_free(printer);
 
-		fclose(outfd);
-	*/
+	fprintf(outfd, "\"");
+	fprintf(outfd, " -e -t%d -m\"d\" \n", ndim);
+
+	fclose(outfd);
+
 	isl_set_free(domain);
+
+	isl_ctx_free(ctx);
 }
 
-void apply_tiling(ScopNest &nest, struct clast_stmt *root,
-				  struct StmtGroup *group) {
+void ClastParamTilingPass::applyTiling(ScopNest &nest, struct clast_stmt *root,
+									   struct StmtGroup *group) {
 	auto metadata = nest.metadata.get<ClastMetadata>().value();
+	auto macrosData = nest.metadata.getOrCreate<MacroMetadata>();
 
 	// dump the group
 	std::cerr << "Group size: " << group->stmts.size() << std::endl;
@@ -310,14 +330,16 @@ void apply_tiling(ScopNest &nest, struct clast_stmt *root,
 			}
 			std::cerr << " Outter loop: ";
 			std::cerr << outter_for->iterator << std::endl;
-			std::cerr << "Outter: " << clast_for_is_outter_tile_loop(outter_for)
+			std::cerr << "Outter: "
+					  << clast_for_is_outter_tile_loop(domain, outter_for)
 					  << std::endl;
 			std::cerr << "Depth: "
-					  << clast_for_get_outter_tile_depth(root, outter_for)
+					  << clast_for_get_outter_tile_depth(domain, root,
+														 outter_for)
 					  << std::endl;
 			struct tiling_info tiling_info = {0};
 			tiling_info.depth =
-				clast_for_get_outter_tile_depth(root, outter_for);
+				clast_for_get_outter_tile_depth(domain, root, outter_for);
 			tiling_info.inner_for = parent_for;
 			tiling_info.outter_for = outter_for;
 
@@ -334,11 +356,11 @@ void apply_tiling(ScopNest &nest, struct clast_stmt *root,
 	for (int i = 0; i < tiling_info_list.size(); i++) {
 		auto &tiling_info = tiling_info_list[i];
 
-		insert_tiling_statements(nest, root, tiling_info);
 		for (int i = 0; i < 2; i += 1) {
 			tiling_info.gen_data[i].group_id = group->id;
 			tiling_info.gen_data[i].depth = tiling_info.depth;
 		}
+		insert_tiling_statements(nest, root, tiling_info);
 		for (int j = 0; j < i; j += 1) {
 			for (int k = 0; k < 2; k += 1) {
 				tiling_info.gen_data[k].npar += 2;
@@ -359,7 +381,63 @@ void apply_tiling(ScopNest &nest, struct clast_stmt *root,
 		generate_stmt_macros(nest, tiling_info);
 	}
 
-	compute_trahrhe_isl_domain(nest, group, tiling_info_list);
+	for (int i = 0; i < tiling_info_list.size(); i++) {
+		auto &tiling_info = tiling_info_list[i];
+		if (tiling_info.outter_for->parallel & CLAST_PARALLEL_OMP) {
+			log(std::cerr) << "found parallel loop" << std::endl;
+			tiling_info.outter_for->parallel |= CLAST_PARALLEL_USER;
+			char buf[256] = {0};
+			sprintf(buf, "omp parallel for firstprivate(");
+			TRAHRHE_GEN_OUTTER_UB(sprintf, buf + strlen(buf),
+								  tiling_info.gen_data);
+			sprintf(buf + strlen(buf), ", ");
+			TRAHRHE_GEN_PCMAX(sprintf, buf + strlen(buf), tiling_info.gen_data);
+			sprintf(buf + strlen(buf), ", ");
+			TRAHRHE_GEN_TARGET_VOL(sprintf, buf + strlen(buf),
+								   tiling_info.gen_data);
+			sprintf(buf + strlen(buf), ") \\\n");
+
+			tiling_info.outter_for->user_directive = strdup(buf);
+
+			memset(buf, 0, 256);
+			sprintf(buf, "%s,", tiling_info.outter_for->private_vars);
+			TRAHRHE_GEN_INNER_LB(sprintf, buf + strlen(buf),
+								 tiling_info.gen_data);
+			sprintf(buf + strlen(buf), ", ");
+			TRAHRHE_GEN_INNER_UB(sprintf, buf + strlen(buf),
+								 tiling_info.gen_data);
+			free(tiling_info.outter_for->private_vars);
+			tiling_info.outter_for->private_vars = strdup(buf);
+
+			for (int j = i + 1; j < tiling_info_list.size(); j += 1) {
+				memset(buf, 0, 256);
+				sprintf(buf, "%s,", tiling_info.outter_for->private_vars);
+				TRAHRHE_GEN_OUTTER_UB(sprintf, buf + strlen(buf),
+									  tiling_info_list[j].gen_data);
+				sprintf(buf + strlen(buf), ", ");
+				TRAHRHE_GEN_PCMAX(sprintf, buf + strlen(buf),
+								  tiling_info_list[j].gen_data);
+				sprintf(buf + strlen(buf), ", ");
+				TRAHRHE_GEN_TARGET_VOL(sprintf, buf + strlen(buf),
+									   tiling_info_list[j].gen_data);
+				sprintf(buf + strlen(buf), ", ");
+				TRAHRHE_GEN_INNER_LB(sprintf, buf + strlen(buf),
+									 tiling_info_list[j].gen_data);
+				sprintf(buf + strlen(buf), ", ");
+				TRAHRHE_GEN_INNER_UB(sprintf, buf + strlen(buf),
+									 tiling_info_list[j].gen_data);
+				free(tiling_info.outter_for->private_vars);
+				tiling_info.outter_for->private_vars = strdup(buf);
+			}
+		}
+	}
+
+	if (this->gen_trahrhe) {
+		compute_trahrhe_isl_domain(nest, group, tiling_info_list);
+	}
+	std::string macro = "#include \"header.n" + std::to_string(nest.getId()) +
+						".g" + std::to_string(group->id) + ".h\"";
+	macrosData->list.push_back(macro);
 
 	for (auto &tiling_info : tiling_info_list) {
 		// free the gen_data
@@ -428,7 +506,7 @@ void ClastParamTilingPass::runSingleNest(ScopNest &nest) {
 			.parent_for = parent_for,
 		};
 
-		apply_tiling(nest, (struct clast_stmt *)root, &group);
+		this->applyTiling(nest, (struct clast_stmt *)root, &group);
 		group_count += 1;
 	}
 

@@ -130,21 +130,21 @@ struct clast_stmt *clast_insert_before(struct clast_stmt *root,
 	return NULL;
 }
 
-int clast_for_is_outter_tile_loop(struct clast_for *for_stmt) {
+int clast_for_is_outter_tile_loop(__isl_keep isl_set *set,
+								  struct clast_for *for_stmt) {
 	assert(for_stmt->domain != NULL);
 
-	isl_set *set = isl_set_from_cloog_domain(for_stmt->domain);
 	isl_ctx *ctx = isl_set_get_ctx(set);
 
 	isl_set *domain = isl_set_copy(set);
 
-	// idx is the index of the iterator dimension in the domain
-	int ndim = isl_set_n_dim(domain);
-	int idx = ndim - 1;
+	int n_dim =
+		isl_set_dim(isl_set_from_cloog_domain(for_stmt->domain), isl_dim_set);
+	int idx = n_dim - 1;
 
 	// only keep constraints involving the iterator
-	domain = isl_set_drop_constraints_not_involving_dims(domain, isl_dim_set,
-														 idx, 1);
+	// domain = isl_set_drop_constraints_not_involving_dims(domain, isl_dim_set,
+	// 													 idx, 1);
 
 	isl_basic_set_list *bset_list = isl_set_get_basic_set_list(domain);
 	isl_size n_bset = isl_basic_set_list_n_basic_set(bset_list);
@@ -158,40 +158,46 @@ int clast_for_is_outter_tile_loop(struct clast_for *for_stmt) {
 
 		for (int j = 0; j < n_cst; j += 1) {
 			isl_constraint *cst = isl_constraint_list_get_at(cst_list, j);
+			// if there is a constraint of the form
+			// -32 * t[k] + t[idx] >= 0
+			// or - t[idx] + 32 * t[k] + 31 >= 0
+			// then this loop is tiled by the k-th dimension
+
 			isl_val *val =
 				isl_constraint_get_coefficient_val(cst, isl_dim_set, idx);
-			// TODO: remove hard-coded value
+
 			if (isl_val_eq_si(val, 32) || isl_val_eq_si(val, -32)) {
 				is_outter_tile = 1;
 			}
+
 			isl_val_free(val);
+
 			isl_constraint_free(cst);
-			if (is_outter_tile) {
+			if (is_outter_tile == 1) {
 				break;
 			}
 		}
 		isl_constraint_list_free(cst_list);
 		isl_basic_set_free(bset);
-		if (is_outter_tile) {
+		if (is_outter_tile == 1) {
 			break;
 		}
 	}
 
 	isl_basic_set_list_free(bset_list);
 	isl_set_free(domain);
-
 	return is_outter_tile;
 }
 
-int clast_for_get_outter_tile_depth(struct clast_stmt *root,
+int clast_for_get_outter_tile_depth(__isl_keep isl_set *domain,
+									struct clast_stmt *root,
 									struct clast_for *outter_for) {
 	int depth = 0;
-	while (outter_for != NULL) {
-		if (clast_for_is_outter_tile_loop(outter_for)) {
+	while ((outter_for = clast_get_parent_clast_for(
+				root, (struct clast_stmt *)outter_for)) != NULL) {
+		if (clast_for_is_outter_tile_loop(domain, outter_for)) {
 			depth += 1;
 		}
-		outter_for =
-			clast_get_parent_clast_for(root, (struct clast_stmt *)outter_for);
 	}
 	return depth;
 }
@@ -376,7 +382,7 @@ clast_for_compute_original_bound(CloogNames *names, struct clast_for *inner_for,
 
 	set = isl_set_drop_tiling_constraints(set);
 	if (bound == 0) {
-		// TODO: bound could be other than 0
+		// TODO: bound min could be other than 0
 		if (isl_set_dim_has_lower_bound(set, isl_dim_set, ndim - 1) ==
 			isl_bool_false) {
 			isl_set_lower_bound_si(set, isl_dim_set, ndim - 1, 0);
@@ -425,4 +431,103 @@ clast_for_compute_original_bound(CloogNames *names, struct clast_for *inner_for,
 	isl_set_free(set);
 
 	return result_expr;
+}
+
+CloogNames *cloog_names_hard_copy(CloogNames *names) {
+	CloogNames *copy = cloog_names_malloc();
+	copy->nb_scalars = names->nb_scalars;
+	copy->nb_scattering = names->nb_scattering;
+	copy->nb_iterators = names->nb_iterators;
+	copy->nb_parameters = names->nb_parameters;
+	copy->references = 1;
+
+	copy->scalars = malloc(names->nb_scalars * sizeof(char *));
+	copy->scattering = malloc(names->nb_scattering * sizeof(char *));
+	copy->iterators = malloc(names->nb_iterators * sizeof(char *));
+	copy->parameters = malloc(names->nb_parameters * sizeof(char *));
+
+	for (int i = 0; i < names->nb_scalars; i += 1) {
+		copy->scalars[i] = strdup(names->scalars[i]);
+	}
+	for (int i = 0; i < names->nb_scattering; i += 1) {
+		copy->scattering[i] = strdup(names->scattering[i]);
+	}
+	for (int i = 0; i < names->nb_iterators; i += 1) {
+		copy->iterators[i] = strdup(names->iterators[i]);
+	}
+	for (int i = 0; i < names->nb_parameters; i += 1) {
+		copy->parameters[i] = strdup(names->parameters[i]);
+	}
+
+	return copy;
+}
+
+int clast_annotate_loops(osl_scop_p program, struct clast_stmt *root) {
+
+	int j, nclastloops, nclaststmts;
+	struct clast_for **clastloops = NULL;
+	int *claststmts = NULL;
+	int ret = 0;
+
+	if (program == NULL) {
+		return ret;
+	}
+
+	osl_loop_p ll = osl_generic_lookup(program->extension, OSL_URI_LOOP);
+	while (ll) {
+		// for each loop
+		osl_loop_p loop = ll;
+		ClastFilter filter = {loop->iter, loop->stmt_ids, loop->nb_stmts,
+							  subset};
+
+		clast_filter(root, filter, &clastloops, &nclastloops, &claststmts,
+					 &nclaststmts);
+
+		if (claststmts) {
+			free(claststmts);
+			claststmts = NULL;
+		}
+
+		/* There should be at least one */
+		if (nclastloops == 0) { // FROM PLUTO
+			/* Sometimes loops may disappear (1) tile size larger than trip
+			 * count 2) it's a scalar dimension but can't be determined from the
+			 * trans matrix */
+			printf("Warning: parallel poly loop not found in AST\n");
+			ll = ll->next;
+			continue;
+		}
+		for (j = 0; j < nclastloops; j++) {
+
+			if (loop->directive & CLAST_PARALLEL_VEC) {
+				clastloops[j]->parallel |= CLAST_PARALLEL_VEC;
+				ret |= CLAST_PARALLEL_VEC;
+			}
+
+			if (loop->directive & CLAST_PARALLEL_OMP) {
+				clastloops[j]->parallel |= CLAST_PARALLEL_OMP;
+				ret |= CLAST_PARALLEL_OMP;
+				if (loop->private_vars) {
+					clastloops[j]->private_vars = strdup(loop->private_vars);
+				}
+			}
+
+			if (loop->directive & CLAST_PARALLEL_USER) {
+				clastloops[j]->parallel |= CLAST_PARALLEL_USER;
+				ret |= CLAST_PARALLEL_USER;
+				if (loop->user) {
+					clastloops[j]->user_directive = strdup(loop->user);
+				}
+			}
+		}
+
+		if (clastloops) {
+			free(clastloops);
+			clastloops = NULL;
+		}
+
+		ll = ll->next;
+	}
+
+	return ret;
 }

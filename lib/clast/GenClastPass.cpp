@@ -2,6 +2,8 @@
 
 #include "osl_support.h"
 
+#include "clast/clast_support.h"
+
 using namespace pesto;
 
 GenClastPass::GenClastPass() : IPolySingleNestPass("pass-clast-gen") {}
@@ -46,6 +48,7 @@ void GenClastPass::runSingleNest(ScopNest &nest) {
 	data->cloogProgram = program;
 
 	data->root = cloog_clast_create(program, data->cloogOptions);
+	clast_annotate_loops(scop, data->root);
 }
 
 ClastMetadata::ClastMetadata()
