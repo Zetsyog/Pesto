@@ -17,7 +17,8 @@
 using namespace pesto;
 
 ClastParamTilingPass::ClastParamTilingPass()
-	: IPolySingleNestPass("pass-param-tiling"), gen_trahrhe(false) {}
+	: IPestoSingleNestPass("pass-param-tiling"), gen_trahrhe(false),
+	  is_stencil(false) {}
 
 ClastParamTilingPass::~ClastParamTilingPass() {}
 
@@ -235,6 +236,18 @@ void generate_stmt_macros(ScopNest &nest, struct tiling_info &tiling_info) {
 
 void compute_trahrhe_isl_domain(ScopNest &nest, struct StmtGroup *group,
 								std::vector<tiling_info> &tiling_info_list) {
+	if (nest.metadata.get<OpenScopMetadata>().has_value() == false) {
+		std::cerr << "[warning] Scop does not have OpenScopMetadata. Stopped "
+					 "trahrhe gen"
+				  << std::endl;
+		return;
+	}
+	if (nest.metadata.get<ClastMetadata>().has_value() == false) {
+		std::cerr << "[warning] Scop does not have ClastMetadata. Stopped "
+					 "trahrhe gen"
+				  << std::endl;
+		return;
+	}
 	auto metadata = nest.metadata.get<ClastMetadata>().value();
 	auto scopData = nest.metadata.get<OpenScopMetadata>().value();
 
@@ -276,7 +289,7 @@ void compute_trahrhe_isl_domain(ScopNest &nest, struct StmtGroup *group,
 	std::cerr << std::endl << "END DUMP" << std::endl;
 
 	FILE *outfd = fopen(".exec-once", "a");
-	fprintf(outfd, "trahrhe_wrapper header.n%d.g%d.h ", nest.getId(),
+	fprintf(outfd, "trahrhe_wrapper trahrhe_header.n%d.g%d.h ", nest.getId(),
 			group->id);
 	fprintf(outfd, " -d\"");
 
@@ -361,6 +374,16 @@ void ClastParamTilingPass::applyTiling(ScopNest &nest, struct clast_stmt *root,
 			tiling_info.gen_data[i].depth = tiling_info.depth;
 		}
 		insert_tiling_statements(nest, root, tiling_info);
+		is_stencil = true;
+		if (is_stencil) {
+			if (tiling_info.depth < 2) {
+				tiling_info.gen_data[0].tiling_type = trahrhe_type_scheduled;
+				tiling_info.gen_data[1].tiling_type = trahrhe_type_scheduled;
+			} else {
+				tiling_info.gen_data[0].tiling_type = trahrhe_type_rectangular;
+				tiling_info.gen_data[1].tiling_type = trahrhe_type_rectangular;
+			}
+		}
 		for (int j = 0; j < i; j += 1) {
 			for (int k = 0; k < 2; k += 1) {
 				tiling_info.gen_data[k].npar += 2;
@@ -381,12 +404,13 @@ void ClastParamTilingPass::applyTiling(ScopNest &nest, struct clast_stmt *root,
 		generate_stmt_macros(nest, tiling_info);
 	}
 
+	// parallel loop
 	for (int i = 0; i < tiling_info_list.size(); i++) {
 		auto &tiling_info = tiling_info_list[i];
 		if (tiling_info.outter_for->parallel & CLAST_PARALLEL_OMP) {
 			log(std::cerr) << "found parallel loop" << std::endl;
 			tiling_info.outter_for->parallel |= CLAST_PARALLEL_USER;
-			char buf[256] = {0};
+			char buf[512] = {0};
 			sprintf(buf, "omp parallel for firstprivate(");
 			TRAHRHE_GEN_OUTTER_UB(sprintf, buf + strlen(buf),
 								  tiling_info.gen_data);
@@ -435,8 +459,10 @@ void ClastParamTilingPass::applyTiling(ScopNest &nest, struct clast_stmt *root,
 	if (this->gen_trahrhe) {
 		compute_trahrhe_isl_domain(nest, group, tiling_info_list);
 	}
-	std::string macro = "#include \"header.n" + std::to_string(nest.getId()) +
-						".g" + std::to_string(group->id) + ".h\"";
+	// TODO: function to generate the header file name
+	std::string macro = "#include \"trahrhe_header.n" +
+						std::to_string(nest.getId()) + ".g" +
+						std::to_string(group->id) + ".h\"";
 	macrosData->list.push_back(macro);
 
 	for (auto &tiling_info : tiling_info_list) {
@@ -445,6 +471,31 @@ void ClastParamTilingPass::applyTiling(ScopNest &nest, struct clast_stmt *root,
 			trahrhe_codegen_free(&tiling_info.gen_data[i]);
 		}
 	}
+}
+
+/**
+ * Check if the scop can be tiled
+ * Prevent errors when the scop is not well formed
+ */
+bool canBeTiled(osl_scop_p scop, struct clast_root *root) {
+	// TODO: this function need a lot of work
+	if (scop == NULL || root == NULL) {
+		return false;
+	}
+	if (scop->statement == NULL) {
+		return false;
+	}
+	osl_statement_p stmt = scop->statement;
+	while (stmt != NULL) {
+		if (stmt->domain->nb_output_dims == 0) {
+			return false;
+		}
+		if (stmt->domain->nb_rows == 0) {
+			return false;
+		}
+		stmt = stmt->next;
+	}
+	return true;
 }
 
 void ClastParamTilingPass::runSingleNest(ScopNest &nest) {
@@ -456,6 +507,10 @@ void ClastParamTilingPass::runSingleNest(ScopNest &nest) {
 		return;
 	}
 	log(std::cerr) << "Running pass on nest " << nest.getId() << std::endl;
+	if (!canBeTiled(nest.getScop(), root)) {
+		log(std::cerr) << "can't apply pass on this scop " << std::endl;
+		return;
+	}
 
 	// we retrieve all statements of the nest
 	int stmt_count = 0;
