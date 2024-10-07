@@ -10,10 +10,10 @@
 #include <pesto/Utils.hpp>
 
 #include <pesto/CodegenPasses.hpp>
-#include <pesto/OslPasses.hpp>
+#include <pesto/OslPass.hpp>
 #include <pesto/Pass.hpp>
 #include <pesto/PassManager.hpp>
-#include <pesto/PlutoPasses.hpp>
+#include <pesto/PlutoPass.hpp>
 
 #include <pesto/clast/GenClastPass.hpp>
 #include <pesto/clast/ParamTilingPass.hpp>
