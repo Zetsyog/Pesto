@@ -13,7 +13,6 @@ class SplitNestPB : public IPassBuilder {
 	SplitNestPB();
 	virtual ~SplitNestPB();
 
-	virtual std::string getUUID();
 	virtual std::unique_ptr<pesto::IPestoPass> build(PMBuilder &builder,
 													 const json &j);
 };

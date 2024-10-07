@@ -13,7 +13,6 @@ class GenClastPB : public IPassBuilder {
 	GenClastPB();
 	virtual ~GenClastPB();
 
-	virtual std::string getUUID();
 	virtual std::unique_ptr<pesto::IPestoPass> build(PMBuilder &builder,
 													 const json &j);
 };

@@ -13,7 +13,6 @@ class ClastParamTilingPB : public IPassBuilder {
 	ClastParamTilingPB();
 	virtual ~ClastParamTilingPB();
 
-	virtual std::string getUUID();
 	virtual std::unique_ptr<pesto::IPestoPass> build(PMBuilder &builder,
 													 const json &j);
 };

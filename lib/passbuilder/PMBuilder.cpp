@@ -13,19 +13,26 @@ std::unique_ptr<PMBuilder> PMBuilder::createDefault() {
 	std::unique_ptr<PMBuilder> pm = std::make_unique<PMBuilder>();
 
 	// Register the pass builders
-	pm->registerPassBuilder(std::make_unique<GenClastPB>());
-	pm->registerPassBuilder(std::make_unique<CloogCodegenPB>());
-	pm->registerPassBuilder(std::make_unique<PlutoPB>());
-	pm->registerPassBuilder(std::make_unique<SplitNestPB>());
-	pm->registerPassBuilder(std::make_unique<ClastParamTilingPB>());
-	pm->registerPassBuilder(std::make_unique<ParamContextPB>());
+	pm->registerPassBuilder(PESTO_UUID_PASS_CLAST_GEN,
+							std::make_unique<GenClastPB>());
+	pm->registerPassBuilder(PESTO_UUID_PASS_GEN_CLOOG,
+							std::make_unique<CloogCodegenPB>());
+	pm->registerPassBuilder(PESTO_UUID_PASS_PLUTO_GENERIC,
+							std::make_unique<PlutoPB>());
+	pm->registerPassBuilder(PESTO_UUID_PASS_SPLIT_NESTED_LOOPS,
+							std::make_unique<SplitNestPB>());
+	pm->registerPassBuilder(PESTO_UUID_PASS_PARAM_TILING,
+							std::make_unique<ClastParamTilingPB>());
+	pm->registerPassBuilder(PESTO_UUID_PASS_PARAM_CONTEXT,
+							std::make_unique<ParamContextPB>());
 
 	return pm;
 }
 
-void PMBuilder::registerPassBuilder(std::unique_ptr<IPassBuilder> pb) {
+void PMBuilder::registerPassBuilder(std::string uuid,
+									std::unique_ptr<IPassBuilder> pb) {
 	// Register the pass builder
-	builders[pb->getUUID()] = std::move(pb);
+	builders[uuid] = std::move(pb);
 }
 
 std::unique_ptr<PassManager> PMBuilder::build(std::string path) {
@@ -51,17 +58,9 @@ std::unique_ptr<PassManager> PMBuilder::build(std::string path) {
 
 	try {
 		for (const auto &json_pass : j.at("passes")) {
-			std::string uuid = json_pass.at("uuid");
-
-			auto builder = builders.find(uuid);
-			if (builder == builders.end()) {
-				std::cerr << "Error: could not find pass builder with uuid "
-						  << uuid << std::endl;
-				continue;
-			}
-			auto pass = builder->second->build(*this, json_pass);
-			if (pass.get() != nullptr) {
-				pm->addPass(std::move(pass));
+			auto pass = this->buildPass(json_pass);
+			if (pass.has_value()) {
+				pm->addPass(std::move(pass.value()));
 			}
 		}
 	} catch (const json::out_of_range &e) {
@@ -70,4 +69,29 @@ std::unique_ptr<PassManager> PMBuilder::build(std::string path) {
 	}
 
 	return pm;
+}
+
+bool PMBuilder::hasPassBuilder(std::string uuid) {
+	// Check if a pass builder is registered with the given uuid
+	return builders.find(uuid) != builders.end();
+}
+
+std::optional<std::unique_ptr<IPestoPass>> PMBuilder::buildPass(const json &j) {
+	// Build a pass from a JSON object
+	if (j.contains("uuid") == false) {
+		std::cerr << "Error: can't parse pass. JSON object does not contain a "
+					 "uuid field"
+				  << std::endl;
+		return std::nullopt;
+	}
+	std::string uuid = j["uuid"];
+	if (this->hasPassBuilder(uuid) == false) {
+		std::cerr << "Error: could not find pass builder with uuid " << uuid
+				  << std::endl;
+		return std::nullopt;
+	}
+
+	std::unique_ptr<IPestoPass> pass = builders[uuid]->build(*this, j);
+
+	return std::optional<std::unique_ptr<IPestoPass>>(std::move(pass));
 }

@@ -13,7 +13,6 @@ class PlutoPB : public IPassBuilder {
 	PlutoPB();
 	virtual ~PlutoPB();
 
-	virtual std::string getUUID();
 	virtual std::unique_ptr<pesto::IPestoPass> build(PMBuilder &builder,
 													 const json &j);
 };

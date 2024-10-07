@@ -26,12 +26,6 @@ class IPassBuilder {
 	virtual ~IPassBuilder();
 
 	/**
-	 * @brief unique identifier for this pass
-	 * @return the string uuid
-	 */
-	virtual std::string getUUID() = 0;
-
-	/**
 	 * @brief Creates a new pass from json context
 	 * @param builder the pass manager builder
 	 * @param j the json object containing the pass configuration
@@ -53,23 +47,28 @@ class PMBuilder {
 	virtual ~PMBuilder();
 
 	/**
-	 * @brief return a pass builder corresponding to the given id
-	 * Pass builders must be registered before calling this function
-	 * using the registerPassBuilder function
-	 *
-	 * @param uuid the unique identifier of the pass builder
-	 * @return a pointer to the pass builder or an empty optional if no pass
-	 * builder is found
+	 * @brief check if a pass builder is registered with the given uuid
+	 * @param uuid the uuid of the pass builder
+	 * @return true if the pass builder is registered, false otherwise
 	 */
-	std::optional<IPassBuilder> getPassBuilder(std::string uuid);
+	bool hasPassBuilder(std::string uuid);
 
-	std::unique_ptr<IPestoPass> buildPass(std::string uuid, const json &j);
+	/**
+	 * @brief Creates a new pass from json context
+	 * The json object MUST have at least a "uuid" field that will be used to
+	 * identify the pass builder
+	 * @param j the json object containing the pass configuration
+	 *
+	 * @return A pointer to the newly created pass
+	 */
+	std::optional<std::unique_ptr<IPestoPass>> buildPass(const json &j);
 
 	/**
 	 * @brief register a pass builder
 	 * @param pb a pointer to the pass builder
 	 */
-	void registerPassBuilder(std::unique_ptr<IPassBuilder> pb);
+	void registerPassBuilder(std::string uuid,
+							 std::unique_ptr<IPassBuilder> pb);
 
 	/**
 	 * @brief Creates a new pass manager from json context
