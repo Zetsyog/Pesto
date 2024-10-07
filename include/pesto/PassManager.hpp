@@ -3,8 +3,8 @@
 
 #include <memory>
 #include <osl/osl.h>
+#include <pesto/Pass.hpp>
 #include <pesto/PolyProgram.hpp>
-#include <pesto/PolyhedralPass.hpp>
 #include <pesto/ScopNest.hpp>
 #include <vector>
 
@@ -32,10 +32,10 @@ class PassManager {
 	 */
 	void runPasses(PolyProgram &prog);
 
-	void addPass(std::unique_ptr<IPolyhedralPass> pass);
+	void addPass(std::unique_ptr<IPestoPass> pass);
 
   private:
-	std::vector<std::unique_ptr<IPolyhedralPass>> passes;
+	std::vector<std::unique_ptr<IPestoPass>> passes;
 };
 
 } // namespace pesto

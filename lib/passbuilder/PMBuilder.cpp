@@ -28,7 +28,7 @@ void PMBuilder::registerPassBuilder(std::unique_ptr<IPassBuilder> pb) {
 	builders[pb->getUUID()] = std::move(pb);
 }
 
-std::unique_ptr<PassManager> PMBuilder::fromJSON(std::string path) {
+std::unique_ptr<PassManager> PMBuilder::build(std::string path) {
 	// Parse the JSON file and build the pass manager
 	std::ifstream file(path);
 
@@ -59,7 +59,7 @@ std::unique_ptr<PassManager> PMBuilder::fromJSON(std::string path) {
 						  << uuid << std::endl;
 				continue;
 			}
-			auto pass = builder->second->build(json_pass);
+			auto pass = builder->second->build(*this, json_pass);
 			if (pass.get() != nullptr) {
 				pm->addPass(std::move(pass));
 			}

@@ -7,14 +7,14 @@
 using namespace pesto;
 
 CloogCodegenPass::CloogCodegenPass(std::string prefix)
-	: path_prefix(prefix), IPolySingleNestPass("pass-gen-cloog") {}
+	: path_prefix(prefix), IPestoSingleNestPass("pass-gen-cloog") {}
 
 CloogCodegenPass::~CloogCodegenPass() {}
 
 void CloogCodegenPass::run(PolyProgram &prog) {
 	log(std::cerr) << "Starting Cloog codegen using prefix '" << path_prefix
 				   << "'" << std::endl;
-	IPolySingleNestPass::run(prog);
+	IPestoSingleNestPass::run(prog);
 
 	// generate var declarations
 	VarDeclMetadata varDecls;

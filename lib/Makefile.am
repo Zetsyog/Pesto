@@ -22,17 +22,19 @@ libpesto_la_SOURCES = \
    isl_support.c \
    osl_support.c \
    PassManager.cpp \
+   PestoProgram.cpp \
+   ScopNest.cpp \
    clast/clast_support.c \
    clast/GenClastPass.cpp \
    clast/ParamTilingPass.cpp \
    codegen/CloogPass.cpp \
    codegen/trahrhe.c \
    codegen/VarDecls.cpp \
-   osl/PlutoPasses.cpp \
-   osl/PolyhedralPass.cpp \
-   osl/PolyPasses.cpp \
-   osl/PolyProgram.cpp \
-   osl/ScopNest.cpp \
+   pass/DumpOslPass.cpp \
+   pass/ParamContextPass.cpp \
+   pass/PlutoPass.cpp \
+   pass/SplitNestPass.cpp \
+   pass/Pass.cpp \
    passbuilder/ClastParamTilingPB.cpp \
    passbuilder/CloogCodegenPB.cpp \
    passbuilder/GenClastPB.cpp \

@@ -12,6 +12,10 @@ void trahrhe_codegen_header_stmt_rectangular(FILE *fp,
 											 struct trahrhe_codegen_data *data);
 void trahrhe_codegen_body_stmt_rectangular(FILE *fp,
 										   struct trahrhe_codegen_data *data);
+void trahrhe_codegen_header_stmt_schedule(FILE *fp,
+										  struct trahrhe_codegen_data *data);
+void trahrhe_codegen_body_stmt_schedule(FILE *fp,
+										struct trahrhe_codegen_data *data);
 
 void trahrhe_codegen_header_stmt(FILE *fp, struct trahrhe_codegen_data *data) {
 	switch (data->tiling_type) {
@@ -20,6 +24,9 @@ void trahrhe_codegen_header_stmt(FILE *fp, struct trahrhe_codegen_data *data) {
 		break;
 	case trahrhe_type_rectangular:
 		trahrhe_codegen_header_stmt_rectangular(fp, data);
+		break;
+	case trahrhe_type_scheduled:
+		trahrhe_codegen_header_stmt_schedule(fp, data);
 		break;
 	default:
 		fprintf(stderr, "Not implemented yet\n");
@@ -34,6 +41,9 @@ void trahrhe_codegen_body_stmt(FILE *fp, struct trahrhe_codegen_data *data) {
 		break;
 	case trahrhe_type_rectangular:
 		trahrhe_codegen_body_stmt_rectangular(fp, data);
+		break;
+	case trahrhe_type_scheduled:
+		trahrhe_codegen_body_stmt_schedule(fp, data);
 		break;
 	default:
 		fprintf(stderr, "Not implemented yet\n");
@@ -189,5 +199,33 @@ void trahrhe_codegen_free(struct trahrhe_codegen_data *data) {
 			free(data->params[i]);
 		}
 		free(data->params);
+	}
+}
+
+void trahrhe_codegen_header_stmt_schedule(FILE *fp,
+										  struct trahrhe_codegen_data *data) {
+	if (data->depth > 1) {
+		// we have a problem here
+		return;
+	}
+	if (data->depth == 0) {
+		TRAHRHE_GEN_OUTTER_UB(fprintf, fp, data);
+		fprintf(fp, " = schedule.len - 1;\\\n");
+		return;
+	}
+	if (data->depth == 1) {
+
+		return;
+	}
+}
+void trahrhe_codegen_body_stmt_schedule(FILE *fp,
+										struct trahrhe_codegen_data *data) {
+	if (data->depth > 1) {
+		// we have a problem here
+		return;
+	}
+	if (data->depth == 0) {
+		TRAHRHE_GEN_OUTTER_UB(fprintf, fp, data);
+		fprintf(fp, " = schedule.fronts[%s].len - 1;\\\n", data->iterator_name);
 	}
 }

@@ -1,8 +1,8 @@
 #ifndef PESTO_PLUTO_PASSSES_H
 #define PESTO_PLUTO_PASSSES_H
 
+#include <pesto/Pass.hpp>
 #include <pesto/PolyProgram.hpp>
-#include <pesto/PolyhedralPass.hpp>
 #include <pesto/ScopNest.hpp>
 #include <string>
 
@@ -13,7 +13,7 @@ namespace pesto {
 /**
  * A generic pass that runs Pluto on each ScopNest of the program
  */
-class PlutoPass : public IPolySingleNestPass {
+class PlutoPass : public IPestoSingleNestPass {
   public:
 	PlutoPass();
 	virtual ~PlutoPass();

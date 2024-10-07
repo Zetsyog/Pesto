@@ -5,8 +5,7 @@
 
 using namespace pesto;
 
-SplitNestedLoopsPass::SplitNestedLoopsPass()
-	: IPolyhedralPass("pass-split-nest") {}
+SplitNestedLoopsPass::SplitNestedLoopsPass() : IPestoPass("pass-split-nest") {}
 
 SplitNestedLoopsPass::~SplitNestedLoopsPass() {}
 
@@ -63,53 +62,5 @@ void SplitNestedLoopsPass::run(PolyProgram &prog) {
 	prog.clearScopNests();
 	for (auto &nest : new_nests) {
 		prog.addScopNest(nest);
-	}
-}
-
-// ParamContextPass
-ParamContextPass::ParamContextPass(int contextValue)
-	: contextValue(contextValue), IPolySingleNestPass("pass-param-context") {}
-
-ParamContextPass::~ParamContextPass() {}
-
-void ParamContextPass::runSingleNest(ScopNest &nest) {
-	osl_scop_p scop = nest.getScop();
-	int nparam = osl_scop_get_nb_parameters(scop);
-	for (int i = 0; i < nparam; i += 1) {
-		osl_relation_insert_blank_row(scop->context, scop->context->nb_rows);
-		osl_int_set_long(scop->context->precision,
-						 &scop->context->m[scop->context->nb_rows - 1][0], 1);
-		osl_int_set_long(scop->context->precision,
-						 &scop->context->m[scop->context->nb_rows - 1][1 + i],
-						 1);
-		osl_int_set_long(
-			scop->context->precision,
-			&scop->context->m[scop->context->nb_rows - 1][1 + nparam],
-			-this->contextValue);
-	}
-}
-
-// DumpOslPass
-
-DumpOslPass::DumpOslPass(std::string prefix)
-	: path_prefix(prefix), IPolySingleNestPass("pass-dump-osl") {}
-
-DumpOslPass::~DumpOslPass() {}
-
-void DumpOslPass::runSingleNest(ScopNest &nest) {
-	osl_scop_p scop = nest.getScop();
-	std::string path =
-		path_prefix + "." + std::to_string(nest.getId()) + ".scop";
-	log(std::cerr) << "Dumping scop to " << path << std::endl;
-	FILE *fd = fopen(path.c_str(), "w");
-	osl_scop_print(fd, scop);
-	fclose(fd);
-}
-
-OpenScopMetadata::OpenScopMetadata() {}
-
-OpenScopMetadata::~OpenScopMetadata() {
-	for (auto i = scops.begin(); i != scops.end(); i++) {
-		osl_scop_free(i->second);
 	}
 }

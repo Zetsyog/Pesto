@@ -1,7 +1,7 @@
 #ifndef PESTO_OSL_PASSES_H
 #define PESTO_OSL_PASSES_H
 
-#include <pesto/PolyhedralPass.hpp>
+#include <pesto/Pass.hpp>
 
 #include <map>
 
@@ -11,7 +11,7 @@ namespace pesto {
  * A pass that adds a minimal value to global parameters of each scop of the
  * program
  */
-class ParamContextPass : public IPolySingleNestPass {
+class ParamContextPass : public IPestoSingleNestPass {
   public:
 	ParamContextPass(int contextValue);
 	virtual ~ParamContextPass();
@@ -33,7 +33,7 @@ class OpenScopMetadata {
 /**
  * A pass that splits nested loops in each scop of the program
  */
-class SplitNestedLoopsPass : public IPolyhedralPass {
+class SplitNestedLoopsPass : public IPestoPass {
   public:
 	SplitNestedLoopsPass();
 	virtual ~SplitNestedLoopsPass();
@@ -45,7 +45,7 @@ class SplitNestedLoopsPass : public IPolyhedralPass {
  * A pass that dumps the osl representation of each scop of the program
  * Useful for debugging
  */
-class DumpOslPass : public IPolySingleNestPass {
+class DumpOslPass : public IPestoSingleNestPass {
   public:
 	DumpOslPass(std::string prefix);
 	virtual ~DumpOslPass();

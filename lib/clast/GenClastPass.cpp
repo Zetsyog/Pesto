@@ -6,7 +6,7 @@
 
 using namespace pesto;
 
-GenClastPass::GenClastPass() : IPolySingleNestPass("pass-clast-gen") {}
+GenClastPass::GenClastPass() : IPestoSingleNestPass("pass-clast-gen") {}
 
 GenClastPass::~GenClastPass() {}
 

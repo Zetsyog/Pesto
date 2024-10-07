@@ -14,7 +14,8 @@ class ParamContextPB : public IPassBuilder {
 	virtual ~ParamContextPB();
 
 	virtual std::string getUUID();
-	virtual std::unique_ptr<pesto::IPolyhedralPass> build(const json &j);
+	virtual std::unique_ptr<pesto::IPestoPass> build(PMBuilder &builder,
+													 const json &j);
 };
 
 }; // namespace pesto

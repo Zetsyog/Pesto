@@ -6,7 +6,7 @@
 #include <vector>
 
 #include <cloog/cloog.h>
-#include <pesto/PolyhedralPass.hpp>
+#include <pesto/Pass.hpp>
 
 namespace pesto {
 
@@ -32,7 +32,7 @@ class ClastMetadata {
  * A pass that generates a clast from an openscop representation
  * The clast is stored in a ClastMetadata for each ScopNest
  */
-class GenClastPass : public IPolySingleNestPass {
+class GenClastPass : public IPestoSingleNestPass {
   public:
 	GenClastPass();
 	virtual ~GenClastPass();

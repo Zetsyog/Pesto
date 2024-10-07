@@ -13,7 +13,8 @@ PlutoPB::~PlutoPB() {}
 
 std::string PlutoPB::getUUID() { return PESTO_UUID_PASS_PLUTO_GENERIC; }
 
-std::unique_ptr<pesto::IPolyhedralPass> PlutoPB::build(const json &j) {
+std::unique_ptr<pesto::IPestoPass> PlutoPB::build(PMBuilder &builder,
+												  const json &j) {
 	// TODO Parse the JSON object and build the pass
 	auto pass = std::make_unique<PlutoPass>();
 	if (!j.contains("options")) {

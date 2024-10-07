@@ -17,10 +17,10 @@ namespace pesto {
  * A pass must implement the run method that will be called on the PolyProgram
  * by the PassManager
  */
-class IPolyhedralPass {
+class IPestoPass {
   public:
-	IPolyhedralPass(std::string name);
-	virtual ~IPolyhedralPass();
+	IPestoPass(std::string name);
+	virtual ~IPestoPass();
 
 	virtual void run(PolyProgram &prog) = 0;
 
@@ -31,10 +31,10 @@ class IPolyhedralPass {
 	virtual std::ostream &log(std::ostream &os);
 };
 
-class IPolySingleNestPass : public IPolyhedralPass {
+class IPestoSingleNestPass : public IPestoPass {
   public:
-	IPolySingleNestPass(std::string name);
-	virtual ~IPolySingleNestPass();
+	IPestoSingleNestPass(std::string name);
+	virtual ~IPestoSingleNestPass();
 
 	virtual void runSingleNest(ScopNest &nest) = 0;
 	virtual void run(PolyProgram &prog);

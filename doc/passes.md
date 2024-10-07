@@ -112,11 +112,11 @@ See [Cloog](https://github.com/periscop/cloog)
 
 ## Write your own pass
 
-Pesto passes are very simple. There are two main interfaces: `pesto::IPolyhedralPass` and `pesto::IPolySingleNestPass`.
+Pesto passes are very simple. There are two main interfaces: `pesto::IPestoPass` and `pesto::IPolySingleNestPass`.
 Note that the second one inherits from the first one.
 
 A pass is very simple, it has a name, and will perform transformations over a `pesto::PolyProgram`.
-The `pesto::IPolyhedralPass::run(pesto::PolyProgram &prog)` will be called to apply those transformations.
+The `pesto::IPestoPass::run(pesto::PolyProgram &prog)` will be called to apply those transformations.
 The `pesto::IPolySingleNestPass::runSingleNest(pesto::ScopNest &nest)` is very similar but is called for each `pesto::ScopNest` of the program.
 
 Below is an example of a pass:

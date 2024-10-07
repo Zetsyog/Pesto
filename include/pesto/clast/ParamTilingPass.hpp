@@ -1,7 +1,7 @@
 #ifndef PESTO_PARAM_TILING_PASS_H
 #define PESTO_PARAM_TILING_PASS_H
 
-#include <pesto/PolyhedralPass.hpp>
+#include <pesto/Pass.hpp>
 
 namespace pesto {
 
@@ -14,7 +14,7 @@ struct StmtGroup {
 /**
  * A pass that performs a parametric tiling over the Clast of each ScopNest
  */
-class ClastParamTilingPass : public IPolySingleNestPass {
+class ClastParamTilingPass : public IPestoSingleNestPass {
   public:
 	bool gen_trahrhe;
 
@@ -25,6 +25,7 @@ class ClastParamTilingPass : public IPolySingleNestPass {
 	virtual void runSingleNest(ScopNest &nest);
 
   private:
+	bool is_stencil;
 	void applyTiling(ScopNest &nest, struct clast_stmt *root,
 					 struct StmtGroup *group);
 };

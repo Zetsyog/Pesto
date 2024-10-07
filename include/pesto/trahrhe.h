@@ -41,8 +41,7 @@ enum trahrhe_stmt_type { trahrhe_stmt_head, trahrhe_stmt_body };
 enum ptile_type {
 	trahrhe_type_rectangular,
 	trahrhe_type_algebraic,
-	trahrhe_type_algebraic_standalone,
-	trahrhe_type_rectangular_standalone
+	trahrhe_type_scheduled
 };
 
 struct trahrhe_codegen_data {

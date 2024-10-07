@@ -18,6 +18,6 @@ void PassManager::runPasses(PolyProgram &prog) {
 	}
 }
 
-void PassManager::addPass(std::unique_ptr<IPolyhedralPass> pass) {
+void PassManager::addPass(std::unique_ptr<IPestoPass> pass) {
 	this->passes.push_back(std::move(pass));
 }

@@ -24,7 +24,7 @@
 
 using namespace pesto;
 
-PlutoPass::PlutoPass() : IPolySingleNestPass("pass-pluto") {
+PlutoPass::PlutoPass() : IPestoSingleNestPass("pass-pluto") {
 	this->context = pluto_context_alloc();
 	this->getOptions()->silent = !PLUTO_DEBUG;
 	this->getOptions()->quiet = !PLUTO_DEBUG;

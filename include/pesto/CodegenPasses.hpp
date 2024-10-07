@@ -1,8 +1,8 @@
 #ifndef PESTO_CODEGEN_PASSES_H
 #define PESTO_CODEGEN_PASSES_H
 
+#include <pesto/Pass.hpp>
 #include <pesto/PolyProgram.hpp>
-#include <pesto/PolyhedralPass.hpp>
 #include <pesto/ScopNest.hpp>
 #include <string>
 #include <vector>
@@ -29,7 +29,7 @@ class VarDeclMetadata {
  * generate C code
  * Else it will use cloog on the openscop representation of the ScopNest
  */
-class CloogCodegenPass : public IPolySingleNestPass {
+class CloogCodegenPass : public IPestoSingleNestPass {
   public:
 	CloogCodegenPass(std::string prefix);
 	virtual ~CloogCodegenPass();

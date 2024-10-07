@@ -83,7 +83,7 @@ int main(int argc, char **argv) {
 		std::unique_ptr<pesto::PMBuilder> pmBuilder =
 			pesto::PMBuilder::createDefault();
 
-		pestoPM = pmBuilder->fromJSON(options->getConfigPath().value());
+		pestoPM = pmBuilder->build(options->getConfigPath().value());
 		if (pestoPM == nullptr) {
 			std::cerr << "[pesto-tool] Error while building pass manager"
 					  << std::endl;
