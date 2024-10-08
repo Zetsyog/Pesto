@@ -20,11 +20,8 @@ std::unique_ptr<pesto::IPestoPass> PlutoPB::build(PMBuilder &builder,
 	}
 
 	auto options = j["options"];
-	if (!options.contains("pluto")) {
-		return pass;
-	}
 
-	auto pluto_opt = options["pluto"];
+	auto pluto_opt = options;
 
 	// TODO: parse more options
 	PESTO_BIND_PLUTO_OPT(pluto_opt, pass->getOptions(), tile);

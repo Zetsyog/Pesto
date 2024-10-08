@@ -385,9 +385,13 @@ clast_for_compute_original_bound(CloogNames *names, struct clast_for *inner_for,
 		// TODO: bound min could be other than 0
 		if (isl_set_dim_has_lower_bound(set, isl_dim_set, ndim - 1) ==
 			isl_bool_false) {
-			isl_set_lower_bound_si(set, isl_dim_set, ndim - 1, 0);
+			set = isl_set_lower_bound_si(set, isl_dim_set, ndim - 1, 0);
 		}
 	}
+
+	fprintf(stderr, "set: \n");
+	isl_set_dump(set);
+	fprintf(stderr, "\n");
 
 	isl_basic_set_list *bset_list = isl_set_get_basic_set_list(set);
 	isl_basic_set *bset = isl_basic_set_list_get_at(bset_list, 0);

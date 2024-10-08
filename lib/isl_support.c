@@ -323,24 +323,39 @@ int isl_set_count_tiling_dimensions(__isl_keep isl_set *set) {
 isl_bool isl_basic_set_is_tiling_dim(__isl_keep isl_basic_set *bset, int pos) {
 	isl_ctx *ctx = isl_basic_set_get_ctx(bset);
 
+	int ndim = isl_basic_set_dim(bset, isl_dim_set);
 	isl_constraint_list *cst_list = isl_basic_set_get_constraint_list(bset);
 	isl_size list_len = isl_constraint_list_size(cst_list);
 	isl_bool result = isl_bool_false;
-	isl_val *cmp = isl_val_int_from_ui(ctx, 32);
 
-	for (isl_size i = 0; i < list_len; i++) {
+	isl_val *cmp = NULL;
+
+	for (isl_size i = 0; i < list_len; i += 1) {
 		isl_constraint *cst = isl_constraint_list_get_at(cst_list, i);
+
 		isl_val *val =
 			isl_constraint_get_coefficient_val(cst, isl_dim_set, pos);
-		if (isl_val_abs_eq(val, cmp)) {
-			result = isl_bool_true;
-			i = list_len;
+		// val is non-zero and not 1 or -1
+		if (isl_val_is_zero(val) == isl_bool_false &&
+			isl_val_is_negone(val) == isl_bool_false &&
+			isl_val_is_one(val) == isl_bool_false) {
+			// we need to ensure that we have at least two constraints with the
+			// same coefficient in absolute value for the given dimension
+			if (cmp == NULL) {
+				cmp = isl_val_abs(isl_val_copy(val));
+			} else {
+				if (isl_val_abs_eq(val, cmp) == isl_bool_true) {
+					result = isl_bool_true;
+					i = list_len;
+				}
+			}
 		}
+
 		isl_val_free(val);
 		isl_constraint_free(cst);
 	}
-
-	isl_val_free(cmp);
+	if (cmp != NULL)
+		isl_val_free(cmp);
 	isl_constraint_list_free(cst_list);
 
 	return result;

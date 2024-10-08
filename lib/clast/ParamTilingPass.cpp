@@ -18,34 +18,24 @@ using namespace pesto;
 
 ClastParamTilingPass::ClastParamTilingPass()
 	: IPestoSingleNestPass("pass-param-tiling"), gen_trahrhe(false),
-	  is_stencil(false) {}
+	  is_stencil(false), tiling_types() {
+	this->pluto_pass = std::make_unique<PlutoPass>();
+	this->tiling_pass = std::make_unique<PlutoPass>();
+	this->gen_clast_pass = std::make_unique<GenClastPass>();
+
+	this->tiling_pass->getOptions()->parallel = 1;
+	this->tiling_pass->getOptions()->tile = 1;
+	this->tiling_pass->getOptions()->intratileopt = 0;
+}
 
 ClastParamTilingPass::~ClastParamTilingPass() {}
 
 void ClastParamTilingPass::run(PolyProgram &prog) {
-	// ensure each nest has a clast metadata
-	for (auto &nest : prog.getScopNests()) {
-		if (!nest->metadata.get<ClastMetadata>().has_value()) {
-			log(std::cerr) << "Nest does not have clast metadata. You must "
-							  "run the 'clast-gen' pass before this one."
-						   << std::endl;
-			log(std::cerr) << "Aborting pass." << std::endl;
-			return;
-		}
-	}
-
 	// run the pass on each nest
 	for (auto &nest : prog.getScopNests()) {
 		runSingleNest(*nest);
 	}
 }
-
-struct tiling_info {
-	int depth;
-	struct clast_for *inner_for;
-	struct clast_for *outter_for;
-	struct trahrhe_codegen_data gen_data[2];
-};
 
 void replace_outter_tiled_for_bounds(ClastMetadata &metadata,
 									 struct tiling_info &tiling_info) {
@@ -76,6 +66,8 @@ void replace_inner_tiled_for_bounds(ClastMetadata &metadata,
 
 	free_clast_expr(inner_for->LB);
 	free_clast_expr(inner_for->UB);
+
+	std::cerr << "replace inner bounds of " << inner_for->iterator << std::endl;
 
 	inner_for->LB = clast_for_compute_original_bound(
 		metadata.cloogProgram->names, inner_for, outter_for, 0);
@@ -131,6 +123,7 @@ void insert_tiling_statements(ScopNest &nest, struct clast_stmt *root,
 	char *lb_expr = (char *)malloc(512 * sizeof(char));
 	char *ub_expr = (char *)malloc(512 * sizeof(char));
 
+	// TODO: do not hard code the bound variable names
 	CloogNames *ub_names = cloog_names_hard_copy(metadata->cloogProgram->names);
 	for (int i = 0; i < ub_names->nb_scattering; i += 1) {
 		char *it_name = ub_names->scattering[i];
@@ -140,10 +133,19 @@ void insert_tiling_statements(ScopNest &nest, struct clast_stmt *root,
 		free(it_name);
 	}
 
+	CloogNames *lb_names = cloog_names_hard_copy(metadata->cloogProgram->names);
+	for (int i = 0; i < lb_names->nb_scattering; i += 1) {
+		char *it_name = lb_names->scattering[i];
+		lb_names->scattering[i] = (char *)malloc(32 * sizeof(char));
+		snprintf(lb_names->scattering[i], 32, "g%d_lb%s",
+				 tiling_info.gen_data[0].group_id, it_name);
+		free(it_name);
+	}
+
 	for (int bound = 0; bound < 2; bound += 1) {
 		struct clast_expr *expr = clast_for_compute_original_bound(
-			bound == 1 ? ub_names : metadata->cloogProgram->names,
-			tiling_info.inner_for, tiling_info.outter_for, bound);
+			bound == 1 ? ub_names : lb_names, tiling_info.inner_for,
+			tiling_info.outter_for, bound);
 		FILE *fd = fmemopen(bound == 0 ? lb_expr : ub_expr, 512, "w");
 		clast_pprint_expr(metadata->cloogOptions, fd, expr);
 		fclose(fd);
@@ -160,6 +162,7 @@ void insert_tiling_statements(ScopNest &nest, struct clast_stmt *root,
 	}
 
 	cloog_names_free(ub_names);
+	cloog_names_free(lb_names);
 	free(lb_expr);
 	free(ub_expr);
 
@@ -234,14 +237,10 @@ void generate_stmt_macros(ScopNest &nest, struct tiling_info &tiling_info) {
 	}
 }
 
-void compute_trahrhe_isl_domain(ScopNest &nest, struct StmtGroup *group,
-								std::vector<tiling_info> &tiling_info_list) {
-	if (nest.metadata.get<OpenScopMetadata>().has_value() == false) {
-		std::cerr << "[warning] Scop does not have OpenScopMetadata. Stopped "
-					 "trahrhe gen"
-				  << std::endl;
-		return;
-	}
+void ClastParamTilingPass::compute_trahrhe_isl_domain(
+	ScopNest &nest, struct StmtGroup *group,
+	std::vector<tiling_info> &tiling_info_list) {
+
 	if (nest.metadata.get<ClastMetadata>().has_value() == false) {
 		std::cerr << "[warning] Scop does not have ClastMetadata. Stopped "
 					 "trahrhe gen"
@@ -249,13 +248,26 @@ void compute_trahrhe_isl_domain(ScopNest &nest, struct StmtGroup *group,
 		return;
 	}
 	auto metadata = nest.metadata.get<ClastMetadata>().value();
-	auto scopData = nest.metadata.get<OpenScopMetadata>().value();
+	// auto scopData = nest.metadata.get<OpenScopMetadata>().value();
 
 	isl_ctx *ctx = isl_ctx_alloc();
 
 	// compute isl domain to feed trahrhe software with
 	// isl_set *domain =
 	// 	isl_set_from_osl_stmt(ctx, scopData->scops["original"]->statement);
+
+	// TODO
+	for (auto &stmt : group->stmts) {
+		if (CLAST_STMT_IS_A(stmt, stmt_user)) {
+			struct clast_user_stmt *user_stmt = (struct clast_user_stmt *)stmt;
+			std::cerr << "nb stmt = " << user_stmt->statement->number
+					  << std::endl;
+			isl_set *tmp =
+				isl_set_from_osl_stmt(ctx, nest.getScop()->statement);
+			isl_set_dump(tmp);
+			isl_set_free(tmp);
+		}
+	}
 
 	isl_set *domain =
 		isl_set_copy(isl_set_from_cloog_domain(group->parent_for->domain));
@@ -284,6 +296,13 @@ void compute_trahrhe_isl_domain(ScopNest &nest, struct StmtGroup *group,
 										 isl_val_zero(isl_set_get_ctx(domain)));
 	}
 
+	int ntiled_dim = 0;
+	for (int i = 0; i < ndim; i += 1) {
+		if (this->getTilingType(i) != ParamTilingType::RECTANGULAR) {
+			ntiled_dim += 1;
+		}
+	}
+
 	std::cerr << "TEST DUMP" << std::endl;
 	isl_set_dump(domain);
 	std::cerr << std::endl << "END DUMP" << std::endl;
@@ -298,7 +317,7 @@ void compute_trahrhe_isl_domain(ScopNest &nest, struct StmtGroup *group,
 	isl_printer_free(printer);
 
 	fprintf(outfd, "\"");
-	fprintf(outfd, " -e -t%d -m\"d\" \n", ndim);
+	fprintf(outfd, " -e -t%d -m\"d\" \n", ntiled_dim);
 
 	fclose(outfd);
 
@@ -329,7 +348,8 @@ void ClastParamTilingPass::applyTiling(ScopNest &nest, struct clast_stmt *root,
 	int current_tiling_depth = isl_set_count_tiling_dimensions(domain);
 	std::cerr << "ntiled dim " << current_tiling_depth << std::endl;
 
-	// apply tiling
+	// first we need to find all inner tile loops
+	// and associate them with their outter loop
 	while (parent_for != NULL) {
 		if (clast_for_is_inner_tile_loop(parent_for)) {
 			std::cerr << parent_for->iterator << " is inner tile loop ";
@@ -363,27 +383,30 @@ void ClastParamTilingPass::applyTiling(ScopNest &nest, struct clast_stmt *root,
 			(struct clast_stmt *)root, (struct clast_stmt *)parent_for);
 	}
 
+	// sort the tiling info by depth
 	std::sort(tiling_info_list.begin(), tiling_info_list.end(),
 			  [](tiling_info &a, tiling_info &b) { return a.depth < b.depth; });
 
 	for (int i = 0; i < tiling_info_list.size(); i++) {
 		auto &tiling_info = tiling_info_list[i];
 
+		ParamTilingType type = this->getTilingType(tiling_info.depth);
+
 		for (int i = 0; i < 2; i += 1) {
 			tiling_info.gen_data[i].group_id = group->id;
 			tiling_info.gen_data[i].depth = tiling_info.depth;
 		}
 		insert_tiling_statements(nest, root, tiling_info);
-		is_stencil = true;
-		if (is_stencil) {
-			if (tiling_info.depth < 2) {
-				tiling_info.gen_data[0].tiling_type = trahrhe_type_scheduled;
-				tiling_info.gen_data[1].tiling_type = trahrhe_type_scheduled;
-			} else {
-				tiling_info.gen_data[0].tiling_type = trahrhe_type_rectangular;
-				tiling_info.gen_data[1].tiling_type = trahrhe_type_rectangular;
-			}
+		// is_stencil = true;
+		if (type == ParamTilingType::ALGEBRAIC) {
+			tiling_info.gen_data[0].tiling_type = trahrhe_type_algebraic;
+			tiling_info.gen_data[1].tiling_type = trahrhe_type_algebraic;
 		}
+		if (type == ParamTilingType::RECTANGULAR) {
+			tiling_info.gen_data[0].tiling_type = trahrhe_type_rectangular;
+			tiling_info.gen_data[1].tiling_type = trahrhe_type_rectangular;
+		}
+
 		for (int j = 0; j < i; j += 1) {
 			for (int k = 0; k < 2; k += 1) {
 				tiling_info.gen_data[k].npar += 2;
@@ -401,12 +424,44 @@ void ClastParamTilingPass::applyTiling(ScopNest &nest, struct clast_stmt *root,
 		replace_inner_tiled_for_bounds(*metadata, root, tiling_info);
 		replace_outter_tiled_for_bounds(*metadata, tiling_info);
 		addVarDecls(nest, tiling_info);
-		generate_stmt_macros(nest, tiling_info);
+
+		// algebraic scheduling is a special case
+		if (type == ParamTilingType::SCHEDULED) {
+			log(std::cerr) << "SCHEDULING" << std::endl;
+			if (i == 0) {
+				continue;
+			}
+			auto &prev_tiling_info = tiling_info_list[i - 1];
+			ParamTilingType prev_type =
+				this->getTilingType(prev_tiling_info.depth);
+			if (prev_type != ParamTilingType::SCHEDULED) {
+
+				log(std::cerr) << "Error: Algebraic scheduling must have two "
+								  "consecutive scheduled loops"
+							   << std::endl;
+				exit(1);
+			}
+
+			this->algebraicScheduleCodegen(nest, tiling_info, prev_tiling_info);
+			this->algebraicScheduleHeaderGen(nest, tiling_info,
+											 prev_tiling_info);
+
+		} else {
+			generate_stmt_macros(nest, tiling_info);
+		}
 	}
 
 	// parallel loop
+	// TODO: wrap this in a function
 	for (int i = 0; i < tiling_info_list.size(); i++) {
 		auto &tiling_info = tiling_info_list[i];
+		if (i + 1 < tiling_info_list.size() &&
+			getTilingType(tiling_info.depth) == ParamTilingType::SCHEDULED &&
+			getTilingType(tiling_info.depth + 1) ==
+				ParamTilingType::SCHEDULED) {
+			tiling_info_list[i + 1].outter_for->parallel |= CLAST_PARALLEL_OMP;
+		}
+
 		if (tiling_info.outter_for->parallel & CLAST_PARALLEL_OMP) {
 			log(std::cerr) << "found parallel loop" << std::endl;
 			tiling_info.outter_for->parallel |= CLAST_PARALLEL_USER;
@@ -430,6 +485,17 @@ void ClastParamTilingPass::applyTiling(ScopNest &nest, struct clast_stmt *root,
 			sprintf(buf + strlen(buf), ", ");
 			TRAHRHE_GEN_INNER_UB(sprintf, buf + strlen(buf),
 								 tiling_info.gen_data);
+			if (getTilingType(tiling_info.depth) ==
+				ParamTilingType::SCHEDULED) {
+				auto &prev = tiling_info_list[i - 1];
+				sprintf(buf + strlen(buf), ", ");
+				TRAHRHE_GEN_INNER_LB(sprintf, buf + strlen(buf),
+									 &prev.gen_data[1]);
+				sprintf(buf + strlen(buf), ", ");
+				TRAHRHE_GEN_INNER_UB(sprintf, buf + strlen(buf),
+									 &prev.gen_data[1]);
+			}
+
 			free(tiling_info.outter_for->private_vars);
 			tiling_info.outter_for->private_vars = strdup(buf);
 
@@ -450,6 +516,7 @@ void ClastParamTilingPass::applyTiling(ScopNest &nest, struct clast_stmt *root,
 				sprintf(buf + strlen(buf), ", ");
 				TRAHRHE_GEN_INNER_UB(sprintf, buf + strlen(buf),
 									 tiling_info_list[j].gen_data);
+
 				free(tiling_info.outter_for->private_vars);
 				tiling_info.outter_for->private_vars = strdup(buf);
 			}
@@ -499,7 +566,24 @@ bool canBeTiled(osl_scop_p scop, struct clast_root *root) {
 }
 
 void ClastParamTilingPass::runSingleNest(ScopNest &nest) {
+	// this nest will only be used for trahrhe domain calculations
+	ScopNest tiled_nest = ScopNest(nest);
+	this->tiling_pass->runSingleNest(tiled_nest);
+
+	// First we apply pluto
+	log(std::cerr) << "Running pluto pass on nest " << nest.getId()
+				   << std::endl;
+	((PlutoPass *)this->pluto_pass.get())->runSingleNest(nest);
+
+	// Then we generate the clast
+	log(std::cerr) << "Generating clast for nest " << nest.getId() << std::endl;
+	this->gen_clast_pass->runSingleNest(nest);
+
 	// We made sure in the run() function that the nest has a clast metadata
+	if (nest.metadata.get<ClastMetadata>().has_value() == false) {
+		log(std::cerr) << "Clast generation failed" << std::endl;
+		return;
+	}
 	auto metadata = nest.metadata.get<ClastMetadata>().value();
 
 	struct clast_root *root = (struct clast_root *)metadata->root;
@@ -566,4 +650,223 @@ void ClastParamTilingPass::runSingleNest(ScopNest &nest) {
 	}
 
 	free(stmt);
+}
+
+void ClastParamTilingPass::setPlutoPass(
+	std::unique_ptr<IPestoPass> pluto_pass) {
+	this->pluto_pass = std::move(pluto_pass);
+}
+
+void ClastParamTilingPass::pushTilingType(ParamTilingType type) {
+	this->tiling_types.push_back(type);
+}
+
+ParamTilingType ClastParamTilingPass::getTilingType(int depth) {
+	if (this->tiling_types.size() == 0) {
+		return ParamTilingType::ALGEBRAIC;
+	}
+	if (depth < this->tiling_types.size()) {
+		return this->tiling_types[depth];
+	}
+	return this->tiling_types[this->tiling_types.size() - 1];
+}
+
+void ClastParamTilingPass::algebraicScheduleCodegen(ScopNest &nest,
+													tiling_info &current,
+													tiling_info &prev) {
+	auto macrosData = nest.metadata.getOrCreate<MacroMetadata>();
+
+	// generate the scheduling macros
+	char *buffer = (char *)malloc(1024 * sizeof(char));
+
+	FILE *buffer_fp = fmemopen(buffer, 1024, "w");
+	trahrhe_codegen_body_stmt_schedule(buffer_fp, &current.gen_data[1],
+									   &prev.gen_data[1]);
+	fflush(buffer_fp);
+	std::string macro = "#define S" +
+						std::to_string(current.gen_data[1].stmt_id) + "() " +
+						buffer;
+	macrosData->list.push_back(macro);
+	memset(buffer, 0, 1024);
+
+	rewind(buffer_fp);
+	trahrhe_codegen_header_stmt_schedule(buffer_fp, &current.gen_data[0],
+										 &prev.gen_data[0]);
+	fflush(buffer_fp);
+
+	macro = "#define S" + std::to_string(current.gen_data[0].stmt_id) + "() " +
+			buffer;
+	macrosData->list.push_back(macro);
+	memset(buffer, 0, 1024);
+
+	trahrhe_codegen_body_stmt_schedule(buffer_fp, &prev.gen_data[1],
+									   &current.gen_data[1]);
+	fflush(buffer_fp);
+	macro =
+		"#define S" + std::to_string(prev.gen_data[1].stmt_id) + "() " + buffer;
+	macrosData->list.push_back(macro);
+	memset(buffer, 0, 1024);
+
+	rewind(buffer_fp);
+	trahrhe_codegen_header_stmt_schedule(buffer_fp, &prev.gen_data[0],
+										 &current.gen_data[0]);
+	fflush(buffer_fp);
+
+	macro =
+		"#define S" + std::to_string(prev.gen_data[0].stmt_id) + "() " + buffer;
+	macrosData->list.push_back(macro);
+	memset(buffer, 0, 1024);
+
+	// insert schedule free statement
+	auto metadata = nest.metadata.get<ClastMetadata>().value();
+
+	int stmt_id = ++metadata->stmtsNb;
+	struct clast_user_stmt *footer_stmt =
+		pesto_clast_create_stmt(metadata->cloogOptions, NULL, stmt_id);
+	clast_insert_after(&prev.outter_for->stmt, &footer_stmt->stmt);
+
+	macro = "#define S" + std::to_string(stmt_id) + "() " +
+			"SCHEDULE_FREE(tiles, schedule);";
+	macrosData->list.push_back(macro);
+
+	fclose(buffer_fp);
+	free(buffer);
+}
+
+void ClastParamTilingPass::algebraicScheduleHeaderGen(ScopNest &nest,
+													  tiling_info &current,
+													  tiling_info &prev) {
+	auto macrosData = nest.metadata.getOrCreate<MacroMetadata>();
+
+	macrosData->list.push_back("#include \"schedule.h\"");
+
+	std::string name =
+		"trahrhe_schedule.n" + std::to_string(nest.getId()) + ".h";
+
+	macrosData->list.push_back("#include \"" + name + "\"");
+
+	FILE *fd = fopen(name.c_str(), "w");
+	fprintf(fd, "#ifndef _TRAHRHE_SCHEDULE_N%d_H_\n", nest.getId());
+	fprintf(fd, "#define _TRAHRHE_SCHEDULE_N%d_H_\n", nest.getId());
+
+	fprintf(fd, "INIT_TILES_PROTO(");
+	for (int i = 0; i < prev.gen_data[0].npar; i += 1) {
+		if (i != 0) {
+			fprintf(fd, ", ");
+		}
+		fprintf(fd, "long int %s", prev.gen_data[0].params[i]);
+	}
+	fprintf(fd, ") {\n");
+	fprintf(fd, "long int t0_pcmax = ");
+	TRAHRHE_GEN_ERHART_FN(fprintf, fd, &prev.gen_data[0]);
+	fprintf(fd, "(");
+	for (int i = 0; i < prev.gen_data[0].npar; i += 1) {
+		if (i != 0) {
+			fprintf(fd, ", ");
+		}
+		fprintf(fd, "%s", prev.gen_data[0].params[i]);
+	}
+	fprintf(fd, ");\n");
+	fprintf(fd, "long int target_vol_l0 = t0_pcmax / ");
+	TRAHRHE_GEN_DIV(fprintf, fd, &prev.gen_data[0]);
+	fprintf(fd, ";\n");
+	fprintf(fd, "long int t1_pcmax, target_vol_l1;\n");
+	fprintf(fd, "long int ");
+	TRAHRHE_GEN_INNER_LB(fprintf, fd, &prev.gen_data[1]);
+	fprintf(fd, ", ");
+	TRAHRHE_GEN_INNER_UB(fprintf, fd, &prev.gen_data[1]);
+	fprintf(fd, ";\n");
+
+	fprintf(fd, "for(long int i = 0; i < "); // begin for i
+	TRAHRHE_GEN_DIV(fprintf, fd, &prev.gen_data[0]);
+	fprintf(fd, "; i++) {\n");
+	TRAHRHE_GEN_INNER_LB(fprintf, fd, &prev.gen_data[1]);
+	fprintf(fd, " = ");
+	TRAHRHE_GEN_TRAHRHE_FN(fprintf, fd, &prev.gen_data[0]);
+	fprintf(fd, "(max(1, i * target_vol_l0), ");
+	for (int i = 0; i < prev.gen_data[0].npar; i += 1) {
+		if (i != 0) {
+			fprintf(fd, ", ");
+		}
+		fprintf(fd, "%s", prev.gen_data[0].params[i]);
+	}
+	fprintf(fd, ");\n");
+	TRAHRHE_GEN_INNER_UB(fprintf, fd, &prev.gen_data[1]);
+	fprintf(fd, " = ");
+	TRAHRHE_GEN_TRAHRHE_FN(fprintf, fd, &prev.gen_data[1]);
+	fprintf(fd, "(min(t0_pcmax, (i + 1) * target_vol_l0), ");
+	for (int i = 0; i < prev.gen_data[0].npar; i += 1) {
+		if (i != 0) {
+			fprintf(fd, ", ");
+		}
+		fprintf(fd, "%s", prev.gen_data[0].params[i]);
+	}
+	fprintf(fd, ") - 1;\n");
+
+	fprintf(fd, "if (i == ");
+	TRAHRHE_GEN_DIV(fprintf, fd, &prev.gen_data[0]);
+	fprintf(fd, " - 1) {\n");
+	TRAHRHE_GEN_INNER_UB(fprintf, fd, &prev.gen_data[1]);
+	fprintf(fd, " = %s;\n", prev.gen_data[1].ub_expr);
+	fprintf(fd, "}\n");
+
+	fprintf(fd, "t1_pcmax = ");
+	TRAHRHE_GEN_ERHART_FN(fprintf, fd, &current.gen_data[0]);
+	fprintf(fd, "(");
+	for (int i = 0; i < current.gen_data[0].npar; i += 1) {
+		if (i != 0) {
+			fprintf(fd, ", ");
+		}
+		fprintf(fd, "%s", current.gen_data[0].params[i]);
+	}
+	fprintf(fd, ");\n");
+	fprintf(fd, "target_vol_l1 = t1_pcmax / ");
+	TRAHRHE_GEN_DIV(fprintf, fd, &current.gen_data[0]);
+	fprintf(fd, ";\n");
+
+	fprintf(fd, "for(long int j = 0; j < "); // begin for j
+	TRAHRHE_GEN_DIV(fprintf, fd, &current.gen_data[0]);
+	fprintf(fd, "; j++) {\n");
+
+	fprintf(fd, "tiles[i][j].lb0 = ");
+	TRAHRHE_GEN_INNER_LB(fprintf, fd, &prev.gen_data[1]);
+	fprintf(fd, ";\n");
+	fprintf(fd, "tiles[i][j].ub0 = ");
+	TRAHRHE_GEN_INNER_UB(fprintf, fd, &prev.gen_data[1]);
+	fprintf(fd, ";\n");
+
+	fprintf(fd, "tiles[i][j].lb1 = ");
+	TRAHRHE_GEN_TRAHRHE_FN(fprintf, fd, &current.gen_data[0]);
+	fprintf(fd, "(max(1, j * target_vol_l1), ");
+	for (int i = 0; i < current.gen_data[0].npar; i += 1) {
+		if (i != 0) {
+			fprintf(fd, ", ");
+		}
+		fprintf(fd, "%s", current.gen_data[0].params[i]);
+	}
+	fprintf(fd, ");\n");
+	fprintf(fd, "tiles[i][j].ub1 = ");
+	TRAHRHE_GEN_TRAHRHE_FN(fprintf, fd, &current.gen_data[1]);
+	fprintf(fd, "(min(t1_pcmax, (j + 1) * target_vol_l1), ");
+	for (int i = 0; i < current.gen_data[0].npar; i += 1) {
+		if (i != 0) {
+			fprintf(fd, ", ");
+		}
+		fprintf(fd, "%s", current.gen_data[0].params[i]);
+	}
+	fprintf(fd, ") - 1;\n");
+	fprintf(fd, "tiles[i][j].marked = 0;\n");
+	fprintf(fd, "if(j == ");
+	TRAHRHE_GEN_DIV(fprintf, fd, &current.gen_data[0]);
+	fprintf(fd, " - 1) {\n");
+	fprintf(fd, "tiles[i][j].ub1 = %s;\n", current.gen_data[1].ub_expr);
+	fprintf(fd, "}\n");
+
+	fprintf(fd, "}\n"); // end for j
+	fprintf(fd, "}\n"); // end for i
+	fprintf(fd, "}\n"); // end init_tile fn
+
+	fprintf(fd, "#endif // _TRAHRHE_SCHEDULE_N%d_H_\n", nest.getId());
+
+	fclose(fd);
 }

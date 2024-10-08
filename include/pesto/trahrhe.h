@@ -41,7 +41,6 @@ enum trahrhe_stmt_type { trahrhe_stmt_head, trahrhe_stmt_body };
 enum ptile_type {
 	trahrhe_type_rectangular,
 	trahrhe_type_algebraic,
-	trahrhe_type_scheduled
 };
 
 struct trahrhe_codegen_data {
@@ -63,6 +62,13 @@ struct trahrhe_codegen_data {
 };
 
 void trahrhe_codegen_stmt(FILE *fp, struct trahrhe_codegen_data *data);
+
+void trahrhe_codegen_header_stmt_schedule(FILE *fp,
+										  struct trahrhe_codegen_data *data,
+										  struct trahrhe_codegen_data *pair);
+void trahrhe_codegen_body_stmt_schedule(FILE *fp,
+										struct trahrhe_codegen_data *data,
+										struct trahrhe_codegen_data *pair);
 
 void trahrhe_codegen_free(struct trahrhe_codegen_data *data);
 
