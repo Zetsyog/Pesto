@@ -6,18 +6,26 @@ This folder contains some of the polybench benchmarks adapted for a pesto usage.
 
 | Benchmark name | Status |
 | -------------- | ------ |
-| linear-algebra/blas/gemm       | not tested |
-| linear-algebra/blas/gemver     | not tested |
-| linear-algebra/blas/gesummv    | not tested |
-| linear-algebra/blas/symm       | not tested |
-| linear-algebra/blas/syr2k      | not tested |
-| linear-algebra/blas/syrk       | not tested |
-| linear-algebra/blas/trmm       | not tested |
-| linear-algebra/kernels/2mm     | not tested |
-| linear-algebra/kernels/3mm     | not tested |
-| linear-algebra/kernels/atax    | not tested |
-| linear-algebra/kernels/bicg    | not tested |
-| linear-algebra/kernels/doitgen | not tested |
-| linear-algebra/kernels/mv      | not tested |
+| datamining/correlation | OK (nointratile-opt) |
+| datamining/covariance | OK (nointratile-opt) |
+| linear-algebra/blas/gemm       | OK (nointratile-opt) |
+| linear-algebra/blas/gemver     | OK (nointratile-opt) |
+| linear-algebra/blas/gesummv    | OK (nointratile-opt) |
+| linear-algebra/blas/symm       | no tiling available |
+| linear-algebra/blas/syr2k      | OK (nointratile-opt) |
+| linear-algebra/blas/syrk       | OK (nointratile-opt) |
+| linear-algebra/blas/trmm       | OK (nointratile-opt) |
+| linear-algebra/kernels/2mm     | OK (nointratile-opt) |
+| linear-algebra/kernels/3mm     | OK (nointratile-opt) |
+| linear-algebra/kernels/atax    | OK (nointratile-opt) |
+| linear-algebra/kernels/bicg    | OK (nointratile-opt) |
+| linear-algebra/kernels/doitgen | FAIL |
+| linear-algebra/kernels/mvt      | FAIL |
+| stencils/adi | not tested |
+| stencils/fdtd-2d | not tested |
+| stencils/heat-3d | not tested |
+| stencils/jacobi-1d | not tested |
+| stencils/jacobi-2d | not tested |
+| stencils/seidel-2d | not tested |
 
 ## Credit

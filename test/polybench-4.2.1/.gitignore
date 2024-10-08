@@ -1,7 +1,17 @@
 *.pluto.c
 *.pesto.c
 header.*.h
+trahrhe_header.*.h
 
+# datamining
+datamining/correlation/correlation
+datamining/correlation/correlation_pesto
+datamining/correlation/correlation_pluto
+datamining/covariance/covariance
+datamining/covariance/covariance_pesto
+datamining/covariance/covariance_pluto
+
+# blas
 linear-algebra/blas/trmm/trmm
 linear-algebra/blas/trmm/trmm_pesto
 linear-algebra/blas/trmm/trmm_pluto
@@ -23,3 +33,25 @@ linear-algebra/blas/gesummv/gesummv_pluto
 linear-algebra/blas/symm/symm
 linear-algebra/blas/symm/symm_pesto
 linear-algebra/blas/symm/symm_pluto
+
+# kernels
+linear-algebra/kernels/2mm/2mm
+linear-algebra/kernels/2mm/2mm_pesto
+linear-algebra/kernels/2mm/2mm_pluto
+linear-algebra/kernels/3mm/3mm
+linear-algebra/kernels/3mm/3mm_pesto
+linear-algebra/kernels/3mm/3mm_pluto
+linear-algebra/kernels/atax/atax
+linear-algebra/kernels/atax/atax_pesto
+linear-algebra/kernels/atax/atax_pluto
+linear-algebra/kernels/bicg/bicg
+linear-algebra/kernels/bicg/bicg_pesto
+linear-algebra/kernels/bicg/bicg_pluto
+linear-algebra/kernels/doitgen/doitgen
+linear-algebra/kernels/doitgen/doitgen_pesto
+linear-algebra/kernels/doitgen/doitgen_pluto
+linear-algebra/kernels/mvt/mvt
+linear-algebra/kernels/mvt/mvt_pesto
+linear-algebra/kernels/mvt/mvt_pluto
+
+# stencils

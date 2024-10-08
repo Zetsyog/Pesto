@@ -8,9 +8,10 @@ PESTO_FLAGS=--indent
 PLUTO_CONFIG=$(BASEDIR)/config/pluto.json
 PESTO_CONFIG=$(BASEDIR)/config/ptile.json
 
-CLEANFILES=$(SRC) $(SRC)_pluto $(SRC)_pesto $(SRC).pluto.c $(SRC).pesto.c
+CLEANFILES=$(SRC) $(SRC)_pluto $(SRC)_pesto $(SRC).pluto.c $(SRC).pesto.c header.*.h 
 
-all: $(SRC)_pluto $(SRC)_pesto
+
+all: $(SRC)_pesto
 
 $(SRC): $(SRC).c
 	$(CC) $(CFLAGS) -o $@ -I $(BASEDIR)/include/ $(BASEDIR)/polybench.c $< $(LDLIBS) $(EXTRA_FLAGS)
@@ -29,7 +30,6 @@ $(SRC).pesto.c: $(SRC).c
 
 check:
 	@$(BASEDIR)/tools/pb_chksum $(SRC).c "-DLARGE_DATASET"
-	@$(BASEDIR)/tools/pb_chksum $(SRC).pluto.c "-DLARGE_DATASET"
 	@$(BASEDIR)/tools/pb_chksum $(SRC).pesto.c "-DLARGE_DATASET"
 
 rand:

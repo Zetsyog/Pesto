@@ -2,16 +2,14 @@
     "options": {
         "input-format": "c"
     },
-    "passes":[
+    "passes": [
         {
             "uuid": "pluto",
             "options": {
-                "pluto": {
-                    "tile": true,
-                    "parallel": true,
-                    "prevector": false,
-                    "silent": false
-                }
+                "tile": true,
+                "parallel": true,
+                "prevector": false,
+                "silent": false
             }
         },
         {
