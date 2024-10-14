@@ -72,8 +72,8 @@ int main(int argc, char **argv) {
 
 	// pesto magic starts here
 	// create pesto program
-	std::unique_ptr<pesto::PolyProgram> polyProgram =
-		pesto::PolyProgramBuilder().addScop(scop).build();
+	std::unique_ptr<pesto::PestoProgram> program =
+		pesto::PestoProgramBuilder().addScop(scop).build();
 	// scop has been copied by builder, we can free memory
 	osl_scop_free(scop);
 
@@ -108,7 +108,7 @@ int main(int argc, char **argv) {
 
 	// run the passes
 	std::cerr << "[pesto-tool] Running optimizations passes" << std::endl;
-	pestoPM->runPasses(*polyProgram.get());
+	pestoPM->runPasses(*program.get());
 
 	std::cerr << "[pesto-tool] Done" << std::endl;
 	return 0;
