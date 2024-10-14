@@ -36,6 +36,17 @@ isl_basic_set_minmax_union(__isl_take isl_basic_set *bset1,
 						   __isl_take isl_basic_set *bset2);
 
 /**
+ * Construct a basic set from two basic sets by taking the lowest and highest
+ * constraints from each basic set.
+ *
+ * @param set1
+ * @param set2
+ * @return isl_set *
+ */
+__isl_give isl_set *isl_set_minmax_union(__isl_take isl_set *bset1,
+											   __isl_take isl_set *bset2);
+
+/**
  * Return the upper bound constraint for the given dimension in a basic set.
  * The constraint is returned if it exists, otherwise NULL is returned.
  *

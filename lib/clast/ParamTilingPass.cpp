@@ -30,7 +30,7 @@ ClastParamTilingPass::ClastParamTilingPass()
 
 ClastParamTilingPass::~ClastParamTilingPass() {}
 
-void ClastParamTilingPass::run(PolyProgram &prog) {
+void ClastParamTilingPass::run(PestoProgram &prog) {
 	// run the pass on each nest
 	for (auto &nest : prog.getScopNests()) {
 		runSingleNest(*nest);
@@ -58,9 +58,10 @@ void replace_outter_tiled_for_bounds(ClastMetadata &metadata,
 	metadata.names.push_back(ub_var);
 }
 
-void replace_inner_tiled_for_bounds(ClastMetadata &metadata,
-									struct clast_stmt *root,
-									struct tiling_info &tiling_info) {
+void ClastParamTilingPass::replace_inner_tiled_for_bounds(
+	ClastMetadata &metadata, struct clast_stmt *root,
+	std::vector<tiling_info> &tiling_info_list,
+	struct tiling_info &tiling_info) {
 	struct clast_for *outter_for = tiling_info.outter_for;
 	struct clast_for *inner_for = tiling_info.inner_for;
 
@@ -69,10 +70,21 @@ void replace_inner_tiled_for_bounds(ClastMetadata &metadata,
 
 	std::cerr << "replace inner bounds of " << inner_for->iterator << std::endl;
 
-	inner_for->LB = clast_for_compute_original_bound(
-		metadata.cloogProgram->names, inner_for, outter_for, 0);
-	inner_for->UB = clast_for_compute_original_bound(
-		metadata.cloogProgram->names, inner_for, outter_for, 1);
+	isl_set *domain =
+		isl_set_copy(isl_set_from_cloog_domain(inner_for->domain));
+
+	domain = this->removeTiledDimensions(domain, tiling_info_list);
+	inner_for->LB =
+		clast_bound_from_isl_set(metadata.cloogProgram->names, domain, 0);
+	inner_for->UB =
+		clast_bound_from_isl_set(metadata.cloogProgram->names, domain, 1);
+
+	isl_set_free(domain);
+
+	// inner_for->LB = clast_for_compute_original_bound(
+	// 	metadata.cloogProgram->names, inner_for, outter_for, 0);
+	// inner_for->UB = clast_for_compute_original_bound(
+	// 	metadata.cloogProgram->names, inner_for, outter_for, 1);
 
 	char buffer[256] = {0};
 	FILE *buf_fd = fmemopen(buffer, 256, "w");
@@ -91,20 +103,28 @@ void replace_inner_tiled_for_bounds(ClastMetadata &metadata,
 	metadata.names.push_back(ub_var);
 
 	struct clast_reduction *red;
-
-	red = new_clast_reduction(clast_red_max, 2);
-	red->elts[0] = inner_for->LB;
-	red->elts[1] = (struct clast_expr *)param_lb;
-	inner_for->LB = (struct clast_expr *)red;
-
-	red = new_clast_reduction(clast_red_min, 2);
-	red->elts[0] = inner_for->UB;
-	red->elts[1] = (struct clast_expr *)param_ub;
-	inner_for->UB = (struct clast_expr *)red;
+	if (inner_for->LB == NULL) {
+		inner_for->LB = (struct clast_expr *)param_lb;
+	} else {
+		red = new_clast_reduction(clast_red_max, 2);
+		red->elts[0] = inner_for->LB;
+		red->elts[1] = (struct clast_expr *)param_lb;
+		inner_for->LB = (struct clast_expr *)red;
+	}
+	if (inner_for->UB == NULL) {
+		inner_for->UB = (struct clast_expr *)param_ub;
+	} else {
+		red = new_clast_reduction(clast_red_min, 2);
+		red->elts[0] = inner_for->UB;
+		red->elts[1] = (struct clast_expr *)param_ub;
+		inner_for->UB = (struct clast_expr *)red;
+	}
 }
 
-void insert_tiling_statements(ScopNest &nest, struct clast_stmt *root,
-							  struct tiling_info &tiling_info) {
+void ClastParamTilingPass::insert_tiling_statements(
+	ScopNest &nest, struct clast_stmt *root,
+	std::vector<tiling_info> &tiling_info_list,
+	struct tiling_info &tiling_info) {
 	auto metadata = nest.metadata.get<ClastMetadata>().value();
 
 	struct clast_user_stmt *header_stmt = pesto_clast_create_stmt(
@@ -142,10 +162,12 @@ void insert_tiling_statements(ScopNest &nest, struct clast_stmt *root,
 		free(it_name);
 	}
 
+	isl_set *domain = isl_set_from_cloog_domain(tiling_info.inner_for->domain);
+	domain = this->removeTiledDimensions(domain, tiling_info_list);
+
 	for (int bound = 0; bound < 2; bound += 1) {
-		struct clast_expr *expr = clast_for_compute_original_bound(
-			bound == 1 ? ub_names : lb_names, tiling_info.inner_for,
-			tiling_info.outter_for, bound);
+		struct clast_expr *expr = clast_bound_from_isl_set(
+			bound == 1 ? ub_names : lb_names, domain, bound);
 		FILE *fd = fmemopen(bound == 0 ? lb_expr : ub_expr, 512, "w");
 		clast_pprint_expr(metadata->cloogOptions, fd, expr);
 		fclose(fd);
@@ -160,6 +182,8 @@ void insert_tiling_statements(ScopNest &nest, struct clast_stmt *root,
 			}
 		}
 	}
+
+	isl_set_free(domain);
 
 	cloog_names_free(ub_names);
 	cloog_names_free(lb_names);
@@ -248,32 +272,38 @@ void ClastParamTilingPass::compute_trahrhe_isl_domain(
 		return;
 	}
 	auto metadata = nest.metadata.get<ClastMetadata>().value();
-	// auto scopData = nest.metadata.get<OpenScopMetadata>().value();
+	auto scopData = nest.metadata.get<OpenScopMetadata>().value();
 
 	isl_ctx *ctx = isl_ctx_alloc();
 
-	// compute isl domain to feed trahrhe software with
-	// isl_set *domain =
-	// 	isl_set_from_osl_stmt(ctx, scopData->scops["original"]->statement);
-
 	// TODO
-	for (auto &stmt : group->stmts) {
-		if (CLAST_STMT_IS_A(stmt, stmt_user)) {
-			struct clast_user_stmt *user_stmt = (struct clast_user_stmt *)stmt;
-			std::cerr << "nb stmt = " << user_stmt->statement->number
-					  << std::endl;
-			isl_set *tmp =
-				isl_set_from_osl_stmt(ctx, nest.getScop()->statement);
-			isl_set_dump(tmp);
-			isl_set_free(tmp);
-		}
-	}
+	// isl_set *domain = NULL;
+	// for (auto &stmt : group->stmts) {
+	// 	if (CLAST_STMT_IS_A(stmt, stmt_user)) {
+	// 		struct clast_user_stmt *user_stmt = (struct clast_user_stmt *)stmt;
+	// 		int stmt_id = user_stmt->statement->number;
+	// 		std::cerr << "nb stmt = " << user_stmt->statement->number
+	// 				  << std::endl;
+
+	// 		osl_statement_p stmt = scopData->scops["original"]->statement;
+	// 		for (int i = 1; i < stmt_id; i += 1) {
+	// 			stmt = stmt->next;
+	// 		}
+	// 		isl_set *tmp = isl_set_from_osl_stmt(ctx, stmt);
+	// 		if (domain == NULL) {
+	// 			domain = tmp;
+	// 		} else {
+	// 			domain = isl_set_minmax_union(domain, tmp);
+	// 		}
+	// 	}
+	// }
 
 	isl_set *domain =
 		isl_set_copy(isl_set_from_cloog_domain(group->parent_for->domain));
 
-	domain = isl_set_remove_tiling_dimensions(domain);
+	domain = this->removeTiledDimensions(domain, tiling_info_list);
 
+	// set the parameter names
 	for (int i = 0; i < metadata->cloogProgram->names->nb_parameters; i += 1) {
 		domain =
 			isl_set_set_dim_name(domain, isl_dim_param, i,
@@ -282,7 +312,6 @@ void ClastParamTilingPass::compute_trahrhe_isl_domain(
 
 	for (int i = 0; i < tiling_info_list.size(); i += 1) {
 		auto &tiling_info = tiling_info_list[i];
-
 		char buffer[256] = {0};
 		snprintf(buffer, 256, "n%d_g%d_%s", nest.getId(), group->id,
 				 tiling_info.inner_for->iterator);
@@ -307,19 +336,23 @@ void ClastParamTilingPass::compute_trahrhe_isl_domain(
 	isl_set_dump(domain);
 	std::cerr << std::endl << "END DUMP" << std::endl;
 
-	FILE *outfd = fopen(".exec-once", "a");
-	fprintf(outfd, "trahrhe_wrapper trahrhe_header.n%d.g%d.h ", nest.getId(),
-			group->id);
-	fprintf(outfd, " -d\"");
+	if (this->gen_trahrhe) {
 
-	isl_printer *printer = isl_printer_to_file(isl_set_get_ctx(domain), outfd);
-	isl_printer_print_set(printer, domain);
-	isl_printer_free(printer);
+		FILE *outfd = fopen(".exec-once", "a");
+		fprintf(outfd, "trahrhe_wrapper trahrhe_header.n%d.g%d.h ",
+				nest.getId(), group->id);
+		fprintf(outfd, " -d\"");
 
-	fprintf(outfd, "\"");
-	fprintf(outfd, " -e -t%d -m\"d\" \n", ntiled_dim);
+		isl_printer *printer =
+			isl_printer_to_file(isl_set_get_ctx(domain), outfd);
+		isl_printer_print_set(printer, domain);
+		isl_printer_free(printer);
 
-	fclose(outfd);
+		fprintf(outfd, "\"");
+		fprintf(outfd, " -e -t%d -m\"d\" \n", ntiled_dim);
+
+		fclose(outfd);
+	}
 
 	isl_set_free(domain);
 
@@ -396,7 +429,8 @@ void ClastParamTilingPass::applyTiling(ScopNest &nest, struct clast_stmt *root,
 			tiling_info.gen_data[i].group_id = group->id;
 			tiling_info.gen_data[i].depth = tiling_info.depth;
 		}
-		insert_tiling_statements(nest, root, tiling_info);
+		this->insert_tiling_statements(nest, root, tiling_info_list,
+									   tiling_info);
 		// is_stencil = true;
 		if (type == ParamTilingType::ALGEBRAIC) {
 			tiling_info.gen_data[0].tiling_type = trahrhe_type_algebraic;
@@ -421,7 +455,8 @@ void ClastParamTilingPass::applyTiling(ScopNest &nest, struct clast_stmt *root,
 					strdup(tiling_info_list[j].gen_data[0].ub_name);
 			}
 		}
-		replace_inner_tiled_for_bounds(*metadata, root, tiling_info);
+		replace_inner_tiled_for_bounds(*metadata, root, tiling_info_list,
+									   tiling_info);
 		replace_outter_tiled_for_bounds(*metadata, tiling_info);
 		addVarDecls(nest, tiling_info);
 
@@ -523,9 +558,8 @@ void ClastParamTilingPass::applyTiling(ScopNest &nest, struct clast_stmt *root,
 		}
 	}
 
-	if (this->gen_trahrhe) {
-		compute_trahrhe_isl_domain(nest, group, tiling_info_list);
-	}
+	compute_trahrhe_isl_domain(nest, group, tiling_info_list);
+
 	// TODO: function to generate the header file name
 	std::string macro = "#include \"trahrhe_header.n" +
 						std::to_string(nest.getId()) + ".g" +
@@ -566,9 +600,14 @@ bool canBeTiled(osl_scop_p scop, struct clast_root *root) {
 }
 
 void ClastParamTilingPass::runSingleNest(ScopNest &nest) {
+	auto scopdata = nest.metadata.getOrCreate<OpenScopMetadata>();
+	scopdata->scops["original"] = osl_scop_clone(nest.getScop());
+
 	// this nest will only be used for trahrhe domain calculations
 	ScopNest tiled_nest = ScopNest(nest);
 	this->tiling_pass->runSingleNest(tiled_nest);
+
+	scopdata->scops["tiled"] = osl_scop_clone(tiled_nest.getScop());
 
 	// First we apply pluto
 	log(std::cerr) << "Running pluto pass on nest " << nest.getId()
@@ -739,13 +778,16 @@ void ClastParamTilingPass::algebraicScheduleHeaderGen(ScopNest &nest,
 	auto macrosData = nest.metadata.getOrCreate<MacroMetadata>();
 
 	macrosData->list.push_back("#include \"schedule.h\"");
+	FILE *fd = fopen("schedule.h", "w");
+	fprintf(fd, "%s", pesto::trahrhe::ScheduleHeader.c_str());
+	fclose(fd);
 
 	std::string name =
 		"trahrhe_schedule.n" + std::to_string(nest.getId()) + ".h";
 
 	macrosData->list.push_back("#include \"" + name + "\"");
 
-	FILE *fd = fopen(name.c_str(), "w");
+	fd = fopen(name.c_str(), "w");
 	fprintf(fd, "#ifndef _TRAHRHE_SCHEDULE_N%d_H_\n", nest.getId());
 	fprintf(fd, "#define _TRAHRHE_SCHEDULE_N%d_H_\n", nest.getId());
 
@@ -869,4 +911,40 @@ void ClastParamTilingPass::algebraicScheduleHeaderGen(ScopNest &nest,
 	fprintf(fd, "#endif // _TRAHRHE_SCHEDULE_N%d_H_\n", nest.getId());
 
 	fclose(fd);
+}
+
+__isl_give isl_set *ClastParamTilingPass::removeTiledDimensions(
+	__isl_take isl_set *set, std::vector<tiling_info> &tiling_info_list) {
+
+	isl_set *res = isl_set_copy(set);
+	isl_set_free(set);
+	std::vector<int> idx;
+	while (idx.size() < tiling_info_list.size()) {
+		int max_idx = -1;
+		int max_depth = -1;
+		for (int i = 0; i < tiling_info_list.size(); i += 1) {
+			// check if we already removed the dimension of this loop
+			if (std::find(idx.begin(), idx.end(), i) != idx.end()) {
+				continue;
+			}
+			int cmp_depth =
+				isl_set_dim(isl_set_from_cloog_domain(
+								tiling_info_list[i].outter_for->domain),
+							isl_dim_set);
+			if (cmp_depth > max_depth) {
+				max_depth = cmp_depth;
+				max_idx = i;
+			}
+		}
+		int ndim =
+			isl_set_dim(isl_set_from_cloog_domain(
+							tiling_info_list[max_idx].outter_for->domain),
+						isl_dim_set);
+
+		res = isl_set_drop_constraints_involving_dims(res, isl_dim_set,
+													  ndim - 1, 1);
+		idx.push_back(max_idx);
+	}
+
+	return res;
 }

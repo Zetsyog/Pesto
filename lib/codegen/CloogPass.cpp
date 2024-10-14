@@ -11,7 +11,7 @@ CloogCodegenPass::CloogCodegenPass(std::string prefix)
 
 CloogCodegenPass::~CloogCodegenPass() {}
 
-void CloogCodegenPass::run(PolyProgram &prog) {
+void CloogCodegenPass::run(PestoProgram &prog) {
 	log(std::cerr) << "Starting Cloog codegen using prefix '" << path_prefix
 				   << "'" << std::endl;
 	IPestoSingleNestPass::run(prog);

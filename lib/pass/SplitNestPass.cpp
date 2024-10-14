@@ -9,7 +9,7 @@ SplitNestedLoopsPass::SplitNestedLoopsPass() : IPestoPass("pass-split-nest") {}
 
 SplitNestedLoopsPass::~SplitNestedLoopsPass() {}
 
-void SplitNestedLoopsPass::run(PolyProgram &prog) {
+void SplitNestedLoopsPass::run(PestoProgram &prog) {
 	std::vector<ScopNest *> original_nests = prog.getScopNests();
 
 	std::vector<ScopNest *> new_nests;

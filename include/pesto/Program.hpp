@@ -18,10 +18,10 @@ namespace pesto {
  * ScopNest objects can be added and / or removed from the program
  * The order of the ScopNest objects does matter
  */
-class PolyProgram {
+class PestoProgram {
   public:
-	PolyProgram();
-	virtual ~PolyProgram();
+	PestoProgram();
+	virtual ~PestoProgram();
 
 	void addScopNest(ScopNest *nest);
 	void clearScopNests();
@@ -32,22 +32,22 @@ class PolyProgram {
 };
 
 /**
- * This class is used to build a PolyProgram object from an OpenScop
+ * This class is used to build a PestoProgram object from an OpenScop
  * representation
  */
-class PolyProgramBuilder {
+class PestoProgramBuilder {
   public:
-	PolyProgramBuilder();
-	virtual ~PolyProgramBuilder();
+	PestoProgramBuilder();
+	virtual ~PestoProgramBuilder();
 
-	std::unique_ptr<PolyProgram> build();
+	std::unique_ptr<PestoProgram> build();
 
-	PolyProgramBuilder &addScop(osl_scop_p scop);
+	PestoProgramBuilder &addScop(osl_scop_p scop);
 
 	void reset();
 
   private:
-	PolyProgram *program;
+	PestoProgram *program;
 	int nextNestId;
 };
 

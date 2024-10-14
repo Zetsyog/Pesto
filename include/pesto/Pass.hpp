@@ -2,7 +2,7 @@
 #define PESTO_POLYHEDRAL_PASS_H
 
 #include <iostream>
-#include <pesto/PolyProgram.hpp>
+#include <pesto/Program.hpp>
 #include <pesto/ScopNest.hpp>
 #include <string>
 #include <vector>
@@ -12,9 +12,9 @@
 namespace pesto {
 
 /**
- * Base interface for a pass that operates on a PolyProgram
+ * Base interface for a pass that operates on a PestoProgram
  * A pass must have a name
- * A pass must implement the run method that will be called on the PolyProgram
+ * A pass must implement the run method that will be called on the PestoProgram
  * by the PassManager
  */
 class IPestoPass {
@@ -22,7 +22,7 @@ class IPestoPass {
 	IPestoPass(std::string name);
 	virtual ~IPestoPass();
 
-	virtual void run(PolyProgram &prog) = 0;
+	virtual void run(PestoProgram &prog) = 0;
 
 	virtual std::string getName() { return name; }
 
@@ -37,7 +37,7 @@ class IPestoSingleNestPass : public IPestoPass {
 	virtual ~IPestoSingleNestPass();
 
 	virtual void runSingleNest(ScopNest &nest) = 0;
-	virtual void run(PolyProgram &prog);
+	virtual void run(PestoProgram &prog);
 };
 
 } // namespace pesto

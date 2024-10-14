@@ -4,7 +4,7 @@
 #include <memory>
 #include <osl/osl.h>
 #include <pesto/Pass.hpp>
-#include <pesto/PolyProgram.hpp>
+#include <pesto/Program.hpp>
 #include <pesto/ScopNest.hpp>
 #include <vector>
 
@@ -30,7 +30,7 @@ class PassManager {
 	 * Multiple passes can be run
 	 * TODO: wip
 	 */
-	void runPasses(PolyProgram &prog);
+	void runPasses(PestoProgram &prog);
 
 	void addPass(std::unique_ptr<IPestoPass> pass);
 
