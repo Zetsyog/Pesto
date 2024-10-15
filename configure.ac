@@ -1,5 +1,5 @@
-AC_PREREQ([2.72])
-AC_INIT([cloog],[0.1.0])
+AC_PREREQ([2.69])
+AC_INIT([pesto],[0.1.0])
 AC_CONFIG_AUX_DIR(autoconf)
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -17,6 +17,34 @@ dnl Checks for programs.
 AC_PROG_CC
 AC_PROG_CXX
 AX_CXX_COMPILE_STDCXX_17
+
+if test -n "${CFLAGS}"; then
+  user_set_cflags=yes
+fi
+if test X$user_set_cflags != Xyes; then
+  CFLAGS="-Wall"
+fi
+
+if test -n "${CXXFLAGS}"; then
+  user_set_cxxflags=yes
+fi
+if test X$user_set_cxxflags != Xyes; then
+	dnl Enable all warnings.
+  CXXFLAGS="-Wall"
+fi
+
+debug="false"
+dnl debugging flag
+AC_ARG_ENABLE(debug,
+              [  --enable-debug  enable compilation with debugging info ],
+              debug="true")
+
+AM_CONDITIONAL(PLUTO_DEBUG, test x$debug = xtrue)
+
+if test x$debug = x"true"; then
+    CXXFLAGS="$CXXFLAGS -g -O0"
+    CFLAGS="$CFLAGS -g -O0"
+fi
 
 AM_PROG_AR
 AC_PROG_LN_S
