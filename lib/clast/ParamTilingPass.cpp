@@ -122,7 +122,7 @@ void ClastParamTilingPass::replace_inner_tiled_for_bounds(
 void ClastParamTilingPass::insert_tiling_statements(
 	ScopNest &nest, struct clast_stmt *root, struct tiling_info &tiling_info,
 	std::vector<struct tiling_info> &tiling_info_list) {
-	auto metadata = nest.metadata.get<ClastMetadata>().value();
+	auto metadata = nest.metadata.get<ClastMetadata>().lock();
 
 	struct clast_user_stmt *header_stmt = pesto_clast_create_stmt(
 		metadata->cloogOptions, NULL, ++metadata->stmtsNb);
@@ -218,7 +218,7 @@ void ClastParamTilingPass::insert_tiling_statements(
 }
 void ClastParamTilingPass::addVarDecls(ScopNest &nest,
 									   struct tiling_info &tiling_info) {
-	auto varDeclData = nest.metadata.getOrCreate<VarDeclMetadata>();
+	auto varDeclData = nest.metadata.getOrCreate<VarDeclMetadata>().lock();
 	char buffer[256] = {0};
 	FILE *buf_fd = fmemopen(buffer, 256, "w");
 	TRAHRHE_GEN_INNER_LB(fprintf, buf_fd, &tiling_info.gen_data[1]);
@@ -245,7 +245,7 @@ void ClastParamTilingPass::addVarDecls(ScopNest &nest,
 
 void ClastParamTilingPass::generate_stmt_macros(
 	ScopNest &nest, struct tiling_info &tiling_info) {
-	auto macrosData = nest.metadata.getOrCreate<MacroMetadata>();
+	auto macrosData = nest.metadata.getOrCreate<MacroMetadata>().lock();
 
 	char buffer[512] = {0};
 	for (int i = 0; i < 2; i += 1) {
@@ -264,13 +264,13 @@ void ClastParamTilingPass::compute_trahrhe_isl_domain(
 	ScopNest &nest, struct StmtGroup *group,
 	std::vector<tiling_info> &tiling_info_list) {
 
-	if (nest.metadata.get<ClastMetadata>().has_value() == false) {
+	if (!nest.metadata.get<ClastMetadata>().lock()) {
 		std::cerr << "[warning] Scop does not have ClastMetadata. Stopped "
 					 "trahrhe gen"
 				  << std::endl;
 		return;
 	}
-	auto metadata = nest.metadata.get<ClastMetadata>().value();
+	auto metadata = nest.metadata.get<ClastMetadata>().lock();
 	// auto scopData = nest.metadata.get<OpenScopMetadata>().value();
 
 	isl_ctx *ctx = isl_ctx_alloc();
@@ -359,8 +359,8 @@ void ClastParamTilingPass::compute_trahrhe_isl_domain(
 
 void ClastParamTilingPass::applyTiling(ScopNest &nest, struct clast_stmt *root,
 									   struct StmtGroup *group) {
-	auto metadata = nest.metadata.get<ClastMetadata>().value();
-	auto macrosData = nest.metadata.getOrCreate<MacroMetadata>();
+	auto metadata = nest.metadata.get<ClastMetadata>().lock();
+	auto macrosData = nest.metadata.getOrCreate<MacroMetadata>().lock();
 
 	// dump the group
 	std::cerr << "Group size: " << group->stmts.size() << std::endl;
@@ -612,11 +612,11 @@ void ClastParamTilingPass::runSingleNest(ScopNest &nest) {
 	this->gen_clast_pass->runSingleNest(nest);
 
 	// We made sure in the run() function that the nest has a clast metadata
-	if (nest.metadata.get<ClastMetadata>().has_value() == false) {
+	if (!nest.metadata.get<ClastMetadata>().lock()) {
 		log(std::cerr) << "Clast generation failed" << std::endl;
 		return;
 	}
-	auto metadata = nest.metadata.get<ClastMetadata>().value();
+	auto metadata = nest.metadata.get<ClastMetadata>().lock();
 
 	struct clast_root *root = (struct clast_root *)metadata->root;
 	if (root == NULL) {
@@ -706,7 +706,7 @@ ParamTilingType ClastParamTilingPass::getTilingType(int depth) {
 void ClastParamTilingPass::algebraicScheduleCodegen(ScopNest &nest,
 													tiling_info &current,
 													tiling_info &prev) {
-	auto macrosData = nest.metadata.getOrCreate<MacroMetadata>();
+	auto macrosData = nest.metadata.getOrCreate<MacroMetadata>().lock();
 
 	// generate the scheduling macros
 	char *buffer = (char *)malloc(1024 * sizeof(char));
@@ -750,7 +750,7 @@ void ClastParamTilingPass::algebraicScheduleCodegen(ScopNest &nest,
 	memset(buffer, 0, 1024);
 
 	// insert schedule free statement
-	auto metadata = nest.metadata.get<ClastMetadata>().value();
+	auto metadata = nest.metadata.get<ClastMetadata>().lock();
 
 	int stmt_id = ++metadata->stmtsNb;
 	struct clast_user_stmt *footer_stmt =
@@ -768,7 +768,7 @@ void ClastParamTilingPass::algebraicScheduleCodegen(ScopNest &nest,
 void ClastParamTilingPass::algebraicScheduleHeaderGen(ScopNest &nest,
 													  tiling_info &current,
 													  tiling_info &prev) {
-	auto macrosData = nest.metadata.getOrCreate<MacroMetadata>();
+	auto macrosData = nest.metadata.getOrCreate<MacroMetadata>().lock();
 
 	macrosData->list.push_back("#include \"schedule.h\"");
 

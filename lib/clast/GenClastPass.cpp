@@ -13,7 +13,7 @@ GenClastPass::~GenClastPass() {}
 
 void GenClastPass::runSingleNest(ScopNest &nest) {
 	nest.metadata.set<ClastMetadata>();
-	auto data = nest.metadata.get<ClastMetadata>().value();
+	auto data = nest.metadata.get<ClastMetadata>().lock();
 
 	osl_scop_p scop = nest.getScop();
 

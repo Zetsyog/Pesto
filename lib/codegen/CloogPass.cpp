@@ -21,9 +21,9 @@ void CloogCodegenPass::run(PolyProgram &prog) {
 	varDecls.addVar("lbp");
 	varDecls.addVar("ubp");
 	for (auto &nest : prog.getScopNests()) {
-		auto varDeclsData = nest->metadata.get<VarDeclMetadata>();
+		auto varDeclsData = nest->metadata.get<VarDeclMetadata>().lock();
 		if (varDeclsData) {
-			std::vector<std::string> vars = varDeclsData.value()->getVars();
+			std::vector<std::string> vars = varDeclsData->getVars();
 			for (auto &var : vars) {
 				varDecls.addVar(var);
 			}
@@ -72,18 +72,18 @@ void CloogCodegenPass::runSingleNest(ScopNest &nest) {
 	CloogOptions *options = nullptr;
 	CloogProgram *program = nullptr;
 
-	auto clastData = nest.metadata.get<ClastMetadata>();
-	auto varDeclsData = nest.metadata.getOrCreate<VarDeclMetadata>();
+	auto clastData = nest.metadata.get<ClastMetadata>().lock();
+	auto varDeclsData = nest.metadata.getOrCreate<VarDeclMetadata>().lock();
 
 	std::string path =
 		this->path_prefix + "." + std::to_string(nest.getId()) + ".c";
 
 	if (clastData) {
 		log(std::cerr) << "Using existing CLooG AST" << std::endl;
-		root = clastData.value()->root;
-		state = clastData.value()->cloogState;
-		options = clastData.value()->cloogOptions;
-		program = clastData.value()->cloogProgram;
+		root = clastData->root;
+		state = clastData->cloogState;
+		options = clastData->cloogOptions;
+		program = clastData->cloogProgram;
 	} else {
 		osl_scop_p scop = nest.getScop();
 
@@ -133,9 +133,9 @@ void CloogCodegenPass::runSingleNest(ScopNest &nest) {
 	generateStmtMacro(file, nest);
 
 	// print custom macro if there are any
-	auto macrosData = nest.metadata.get<MacroMetadata>();
+	auto macrosData = nest.metadata.get<MacroMetadata>().lock();
 	if (macrosData) {
-		std::vector<std::string> macros = macrosData.value()->list;
+		std::vector<std::string> macros = macrosData->list;
 		for (auto &macro : macros) {
 			fprintf(file, "%s\n\n", macro.c_str());
 		}

@@ -40,8 +40,9 @@ void SplitNestedLoopsPass::run(PolyProgram &prog) {
 
 		for (int i = 0; i < nest_count; i++) {
 			auto nest = new ScopNest(nextNestId++, new_scops[i]);
-			nest->metadata.getOrCreate<OpenScopMetadata>()->scops["original"] =
-				osl_scop_clone(scop);
+			nest->metadata.getOrCreate<OpenScopMetadata>()
+				.lock()
+				->scops["original"] = osl_scop_clone(scop);
 
 			new_nests.push_back(nest);
 		}
