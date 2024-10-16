@@ -90,25 +90,22 @@ int main(int argc, char **argv) {
 			return 1;
 		}
 	} else {
+		using namespace pesto;
+
 		passManager = std::make_unique<pesto::PassManager>();
 
 		// register all the passes
 		// order matter
-		passManager->addPass(
-			std::make_unique<pesto::pass::ParamContextPass>(10));
-		passManager->addPass(
-			std::make_unique<pesto::pass::PlutoAutoTransformPass>());
-		passManager->addPass(
-			std::make_unique<pesto::pass::SplitNestedLoopsPass>());
-		passManager->addPass(std::make_unique<pesto::pass::PlutoTilingPass>());
-		passManager->addPass(
-			std::make_unique<pesto::pass::DumpOslPass>("debug."));
-		passManager->addPass(std::make_unique<pesto::pass::GenClastPass>());
-		passManager->addPass(
-			std::make_unique<pesto::pass::ClastParamTilingPass>());
+		passManager->addPass(std::make_unique<pass::ParamContextPass>(10));
+		passManager->addPass(std::make_unique<pass::PlutoAutoTransformPass>());
+		passManager->addPass(std::make_unique<pass::SplitNestedLoopsPass>());
+		passManager->addPass(std::make_unique<pass::PlutoTilingPass>());
+		passManager->addPass(std::make_unique<pass::DumpOslPass>("debug."));
+		passManager->addPass(std::make_unique<pass::GenClastPass>());
+		passManager->addPass(std::make_unique<pass::ClastParamTilingPass>());
 		// TODO: should codegen be a pass? Or whole different component ?
-		passManager->addPass(std::make_unique<pesto::pass::CloogCodegenPass>(
-			options->getGenPrefix()));
+		passManager->addPass(
+			std::make_unique<pass::CloogCodegenPass>(options->getGenPrefix()));
 	}
 
 	// run the passes
