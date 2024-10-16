@@ -6,6 +6,8 @@
 #include <pesto/clast/GenClastPass.hpp>
 #include <pesto/trahrhe.h>
 
+#include <isl/set.h>
+
 namespace pesto {
 
 struct StmtGroup {
@@ -59,16 +61,40 @@ class ClastParamTilingPass : public IPestoSingleNestPass {
 
 	std::vector<ParamTilingType> tiling_types;
 
-	void algebraicScheduleCodegen(ScopNest &nest, tiling_info &current,
-								  tiling_info &prev);
+	void algebraicScheduleCodegen(ScopNest &nest, struct tiling_info &current,
+								  struct tiling_info &prev);
 	void algebraicScheduleHeaderGen(ScopNest &nest, tiling_info &current,
-									tiling_info &prev);
+									struct tiling_info &prev);
 
-	void compute_trahrhe_isl_domain(ScopNest &nest, struct StmtGroup *group,
-									std::vector<tiling_info> &tiling_info_list);
+	void compute_trahrhe_isl_domain(
+		ScopNest &nest, struct StmtGroup *group,
+		std::vector<struct tiling_info> &tiling_info_list);
 
 	void applyTiling(ScopNest &nest, struct clast_stmt *root,
 					 struct StmtGroup *group);
+	void
+	insert_tiling_statements(ScopNest &nest, struct clast_stmt *root,
+							 struct tiling_info &tiling_info,
+							 std::vector<struct tiling_info> &tiling_info_list);
+
+	void replace_inner_tiled_for_bounds(
+		ClastMetadata &metadata, struct clast_stmt *root,
+		struct tiling_info &tiling_info,
+		std::vector<struct tiling_info> &tiling_info_list);
+
+	void replace_outter_tiled_for_bounds(ClastMetadata &metadata,
+										 struct tiling_info &tiling_info);
+
+	void generate_stmt_macros(ScopNest &nest, struct tiling_info &tiling_info);
+	void addVarDecls(ScopNest &nest, struct tiling_info &tiling_info);
+
+	__isl_give isl_set *
+	removeTilingDimensions(__isl_take isl_set *set,
+						   std::vector<struct tiling_info> &tiling_info_list);
+
+	__isl_give isl_set *
+	dropTilingConstraints(__isl_take isl_set *set,
+						  std::vector<struct tiling_info> &tiling_info_list);
 };
 
 } // namespace pesto

@@ -22,7 +22,6 @@ class ScopNest {
 	MetadataContainer metadata;
 
 	ScopNest(int id, osl_scop_p scop);
-	ScopNest(ScopNest &nest);
 	virtual ~ScopNest();
 
 	osl_scop_p getScop();
