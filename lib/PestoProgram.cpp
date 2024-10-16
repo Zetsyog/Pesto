@@ -2,17 +2,17 @@
 
 using namespace pesto;
 
-PestoProgram::PestoProgram() {}
+PolyProgram::PolyProgram() {}
 
-PestoProgram::~PestoProgram() { this->clearScopNests(); }
+PolyProgram::~PolyProgram() { this->clearScopNests(); }
 
 /**
- * Add a ScopNest to the PestoProgram
+ * Add a ScopNest to the PolyProgram
  * @param nest A pointer to the ScopNest object to add
  */
-void PestoProgram::addScopNest(ScopNest *nest) { this->nests.push_back(nest); }
+void PolyProgram::addScopNest(ScopNest *nest) { this->nests.push_back(nest); }
 
-void PestoProgram::clearScopNests() {
+void PolyProgram::clearScopNests() {
 	for (auto &nest : this->nests) {
 		delete nest;
 	}
@@ -20,35 +20,35 @@ void PestoProgram::clearScopNests() {
 }
 
 /**
- * Get the ScopNest objects in the PestoProgram
+ * Get the ScopNest objects in the PolyProgram
  * @return A vector of pointers to the ScopNest objects
  */
-std::vector<ScopNest *> PestoProgram::getScopNests() { return this->nests; }
+std::vector<ScopNest *> PolyProgram::getScopNests() { return this->nests; }
 
-PestoProgramBuilder::PestoProgramBuilder() : program(nullptr) { this->reset(); }
+PolyProgramBuilder::PolyProgramBuilder() : program(nullptr) { this->reset(); }
 
-PestoProgramBuilder::~PestoProgramBuilder() {
+PolyProgramBuilder::~PolyProgramBuilder() {
 	if (this->program != nullptr)
 		delete this->program;
 }
 
 /**
- * Build the PestoProgram object
- * @return A unique pointer to the PestoProgram object
+ * Build the PolyProgram object
+ * @return A unique pointer to the PolyProgram object
  */
-std::unique_ptr<PestoProgram> PestoProgramBuilder::build() {
-	PestoProgram *program = this->program;
+std::unique_ptr<PolyProgram> PolyProgramBuilder::build() {
+	PolyProgram *program = this->program;
 	this->program = nullptr;
 	this->reset();
-	return std::unique_ptr<PestoProgram>(program);
+	return std::unique_ptr<PolyProgram>(program);
 }
 
 /**
- * Add a ScopNest to the PestoProgram from an osl_scop_p structure
+ * Add a ScopNest to the PolyProgram from an osl_scop_p structure
  * @param scop The osl_scop_p object to add
- * @return A reference to the PestoProgramBuilder object
+ * @return A reference to the PolyProgramBuilder object
  */
-PestoProgramBuilder &PestoProgramBuilder::addScop(osl_scop_p scop) {
+PolyProgramBuilder &PolyProgramBuilder::addScop(osl_scop_p scop) {
 	ScopNest *nest = new ScopNest(nextNestId++, scop);
 	this->program->addScopNest(nest);
 
@@ -56,11 +56,11 @@ PestoProgramBuilder &PestoProgramBuilder::addScop(osl_scop_p scop) {
 }
 
 /**
- * Reset the PestoProgramBuilder object
+ * Reset the PolyProgramBuilder object
  */
-void PestoProgramBuilder::reset() {
+void PolyProgramBuilder::reset() {
 	if (this->program != nullptr) {
 		delete this->program;
 	}
-	this->program = new PestoProgram();
+	this->program = new PolyProgram();
 }

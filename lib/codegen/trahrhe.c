@@ -210,11 +210,8 @@ void trahrhe_codegen_header_stmt_schedule(FILE *fp,
 	if (current->depth < pair->depth) {
 		// TODO: compute schedule
 		fprintf(fp, "SCHEDULE_ALLOC(tiles, schedule);\\\n");
-		fprintf(fp, "SCHEDULE_COMPUTE(tiles, schedule");
-		for (int i = 0; i < current->npar; i++) {
-			fprintf(fp, ", %s", current->params[i]);
-		}
-		fprintf(fp, ");\\\n");
+		fprintf(fp,
+				"SCHEDULE_COMPUTE(tiles, schedule, _PB_TSTEPS, _PB_N);\\\n");
 		TRAHRHE_GEN_OUTTER_UB(fprintf, fp, current);
 		fprintf(fp, " = schedule.len - 1; \n");
 	}

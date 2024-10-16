@@ -125,12 +125,6 @@ clast_for_compute_original_bound(CloogNames *names, struct clast_for *inner_for,
 								 struct clast_for *outter_for, int bound);
 
 /**
- * TODO: document
- */
-struct clast_expr *clast_bound_from_isl_set(CloogNames *names,
-											__isl_keep isl_set *set, int bound);
-
-/**
  * Create a hard copy of a CloogNames structure
  */
 CloogNames *cloog_names_hard_copy(CloogNames *names);

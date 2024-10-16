@@ -22,10 +22,10 @@ IPestoSingleNestPass::IPestoSingleNestPass(std::string name)
 IPestoSingleNestPass::~IPestoSingleNestPass() {}
 
 /**
- * Call the runSingleNest method on each ScopNest of the PestoProgram
- * @param prog the PestoProgram to run the pass on
+ * Call the runSingleNest method on each ScopNest of the PolyProgram
+ * @param prog the PolyProgram to run the pass on
  */
-void IPestoSingleNestPass::run(PestoProgram &prog) {
+void IPestoSingleNestPass::run(PolyProgram &prog) {
 
 	std::vector<ScopNest *> nests = prog.getScopNests();
 	for (auto &nest : nests) {

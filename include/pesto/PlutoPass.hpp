@@ -2,7 +2,7 @@
 #define PESTO_PLUTO_PASSSES_H
 
 #include <pesto/Pass.hpp>
-#include <pesto/Program.hpp>
+#include <pesto/PolyProgram.hpp>
 #include <pesto/ScopNest.hpp>
 #include <string>
 

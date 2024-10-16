@@ -5,7 +5,7 @@
 	Publicly available library headers
 */
 
-#include <pesto/Program.hpp>
+#include <pesto/PolyProgram.hpp>
 #include <pesto/ScopNest.hpp>
 #include <pesto/Utils.hpp>
 
@@ -26,7 +26,6 @@
 #include <pesto/passbuilder/PlutoPB.hpp>
 #include <pesto/passbuilder/SplitNestPB.hpp>
 
-#include <pesto/Trahrhe.hpp>
 #include <pesto/trahrhe.h>
 
 #include <pesto/macros.h>

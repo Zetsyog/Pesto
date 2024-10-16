@@ -135,38 +135,6 @@ isl_basic_set_dim_ub_cst(__isl_keep isl_basic_set *bset, int pos) {
 	return result;
 }
 
-__isl_give isl_set *isl_set_minmax_union(__isl_take isl_set *set1,
-										 __isl_take isl_set *set2) {
-	isl_basic_set_list *list1 = isl_set_get_basic_set_list(set1);
-	isl_basic_set_list *list2 = isl_set_get_basic_set_list(set2);
-
-	isl_basic_set *bset1 = isl_basic_set_list_get_at(list1, 0);
-	isl_basic_set *bset2 = isl_basic_set_list_get_at(list2, 0);
-
-	for (int i = 1; i < isl_basic_set_list_n_basic_set(list1); i++) {
-		isl_basic_set *tmp = isl_basic_set_list_get_at(list1, i);
-		bset1 = isl_basic_set_minmax_union(bset1, tmp);
-		isl_basic_set_free(tmp);
-	}
-
-	for (int i = 1; i < isl_basic_set_list_n_basic_set(list2); i++) {
-		isl_basic_set *tmp = isl_basic_set_list_get_at(list2, i);
-		bset2 = isl_basic_set_minmax_union(bset2, tmp);
-		isl_basic_set_free(tmp);
-	}
-
-	isl_set *result =
-		isl_set_from_basic_set(isl_basic_set_minmax_union(bset1, bset2));
-
-	isl_basic_set_list_free(list1);
-	isl_basic_set_list_free(list2);
-
-	isl_set_free(set1);
-	isl_set_free(set2);
-
-	return result;
-}
-
 __isl_give isl_basic_set *
 isl_basic_set_minmax_union(__isl_take isl_basic_set *bset1,
 						   __isl_take isl_basic_set *bset2) {
@@ -368,7 +336,9 @@ isl_bool isl_basic_set_is_tiling_dim(__isl_keep isl_basic_set *bset, int pos) {
 		isl_val *val =
 			isl_constraint_get_coefficient_val(cst, isl_dim_set, pos);
 		// val is non-zero and not 1 or -1
-		if (isl_val_eq_si(val, 32) || isl_val_eq_si(val, -32)) {
+		if (isl_val_is_zero(val) == isl_bool_false &&
+			isl_val_is_negone(val) == isl_bool_false &&
+			isl_val_is_one(val) == isl_bool_false) {
 			// we need to ensure that we have at least two constraints with the
 			// same coefficient in absolute value for the given dimension
 			if (cmp == NULL) {

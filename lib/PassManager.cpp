@@ -8,7 +8,7 @@ PassManager::PassManager() {}
 
 PassManager::~PassManager() {}
 
-void PassManager::runPasses(PestoProgram &prog) {
+void PassManager::runPasses(PolyProgram &prog) {
 	for (auto it = this->passes.begin(); it != this->passes.end(); ++it) {
 		int nestCount = prog.getScopNests().size();
 		std::cerr << "[" << PESTO_NAME_PM << "] Running pass '"

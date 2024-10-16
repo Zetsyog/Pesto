@@ -42,8 +42,7 @@ libpesto_la_SOURCES = \
    passbuilder/PassBuilder.cpp \
    passbuilder/PlutoPB.cpp \
    passbuilder/PMBuilder.cpp \
-   passbuilder/SplitNestPB.cpp \
-   Trahrhe.cpp
+   passbuilder/SplitNestPB.cpp
 
 libpesto_la_CPPFLAGS = $(OPT_FLAGS) $(DEBUG_FLAGS)\
    -I../include -I$(top_srcdir)/include \

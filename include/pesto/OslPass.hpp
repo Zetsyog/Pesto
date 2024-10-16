@@ -38,7 +38,7 @@ class SplitNestedLoopsPass : public IPestoPass {
 	SplitNestedLoopsPass();
 	virtual ~SplitNestedLoopsPass();
 
-	virtual void run(PestoProgram &prog);
+	virtual void run(PolyProgram &prog);
 };
 
 /**

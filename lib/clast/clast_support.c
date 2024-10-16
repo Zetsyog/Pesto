@@ -363,10 +363,35 @@ int clast_for_depth(struct clast_stmt *root, struct clast_for *for_stmt) {
 	return depth;
 }
 
-struct clast_expr *clast_bound_from_isl_set(CloogNames *names,
-											__isl_keep isl_set *set,
-											int bound) {
+struct clast_expr *
+clast_for_compute_original_bound(CloogNames *names, struct clast_for *inner_for,
+								 struct clast_for *outter_for, int bound) {
+	isl_set *set = isl_set_copy(isl_set_from_cloog_domain(inner_for->domain));
+
 	isl_size ndim = isl_set_dim(set, isl_dim_set);
+	isl_size ndim_outter =
+		isl_set_dim(isl_set_from_cloog_domain(outter_for->domain), isl_dim_set);
+
+	// keep only relation of current level
+	set = isl_set_drop_constraints_not_involving_dims(set, isl_dim_set,
+													  ndim - 1, 1);
+
+	// remove constraints from the outter loop
+	set = isl_set_drop_constraints_involving_dims(set, isl_dim_set,
+												  ndim_outter - 1, 1);
+
+	set = isl_set_drop_tiling_constraints(set);
+	if (bound == 0) {
+		// TODO: bound min could be other than 0
+		if (isl_set_dim_has_lower_bound(set, isl_dim_set, ndim - 1) ==
+			isl_bool_false) {
+			set = isl_set_lower_bound_si(set, isl_dim_set, ndim - 1, 0);
+		}
+	}
+
+	fprintf(stderr, "set: \n");
+	isl_set_dump(set);
+	fprintf(stderr, "\n");
 
 	isl_basic_set_list *bset_list = isl_set_get_basic_set_list(set);
 	isl_basic_set *bset = isl_basic_set_list_get_at(bset_list, 0);
@@ -406,42 +431,6 @@ struct clast_expr *clast_bound_from_isl_set(CloogNames *names,
 	isl_constraint_list_free(cst_list);
 	isl_basic_set_list_free(bset_list);
 	isl_basic_set_free(bset);
-
-	return result_expr;
-}
-
-struct clast_expr *
-clast_for_compute_original_bound(CloogNames *names, struct clast_for *inner_for,
-								 struct clast_for *outter_for, int bound) {
-	isl_set *set = isl_set_copy(isl_set_from_cloog_domain(inner_for->domain));
-
-	isl_size ndim = isl_set_dim(set, isl_dim_set);
-	isl_size ndim_outter =
-		isl_set_dim(isl_set_from_cloog_domain(outter_for->domain), isl_dim_set);
-
-	// keep only relation of current level
-	set = isl_set_drop_constraints_not_involving_dims(set, isl_dim_set,
-													  ndim - 1, 1);
-
-	// remove constraints from the outter loop
-	set = isl_set_drop_constraints_involving_dims(set, isl_dim_set,
-												  ndim_outter - 1, 1);
-
-	set = isl_set_drop_tiling_constraints(set);
-	if (bound == 0) {
-		// TODO: bound min could be other than 0
-		if (isl_set_dim_has_lower_bound(set, isl_dim_set, ndim - 1) ==
-			isl_bool_false) {
-			set = isl_set_lower_bound_si(set, isl_dim_set, ndim - 1, 0);
-		}
-	}
-
-	fprintf(stderr, "set: \n");
-	isl_set_dump(set);
-	fprintf(stderr, "\n");
-
-	struct clast_expr *result_expr =
-		clast_bound_from_isl_set(names, set, bound);
 
 	isl_set_free(set);
 

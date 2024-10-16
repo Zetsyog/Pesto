@@ -6,8 +6,6 @@
 #include <pesto/clast/GenClastPass.hpp>
 #include <pesto/trahrhe.h>
 
-#include <isl/set.h>
-
 namespace pesto {
 
 struct StmtGroup {
@@ -35,7 +33,7 @@ class ClastParamTilingPass : public IPestoSingleNestPass {
 	ClastParamTilingPass();
 	virtual ~ClastParamTilingPass();
 
-	virtual void run(PestoProgram &prog);
+	virtual void run(PolyProgram &prog);
 	virtual void runSingleNest(ScopNest &nest);
 
 	void setPlutoPass(std::unique_ptr<IPestoPass> pluto_pass);
@@ -71,17 +69,6 @@ class ClastParamTilingPass : public IPestoSingleNestPass {
 
 	void applyTiling(ScopNest &nest, struct clast_stmt *root,
 					 struct StmtGroup *group);
-	void
-	replace_inner_tiled_for_bounds(ClastMetadata &metadata,
-								   struct clast_stmt *root,
-								   std::vector<tiling_info> &tiling_info_list,
-								   struct tiling_info &tiling_info);
-	void insert_tiling_statements(ScopNest &nest, struct clast_stmt *root,
-								  std::vector<tiling_info> &tiling_info_list,
-								  struct tiling_info &tiling_info);
-	__isl_give isl_set *
-	removeTiledDimensions(__isl_take isl_set *set,
-						  std::vector<tiling_info> &tiling_info_list);
 };
 
 } // namespace pesto
