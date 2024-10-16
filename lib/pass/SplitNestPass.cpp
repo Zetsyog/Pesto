@@ -3,16 +3,16 @@
 
 #include <osl_support.h>
 
-using namespace pesto;
+using namespace pesto::pass;
 
-SplitNestedLoopsPass::SplitNestedLoopsPass() : IPestoPass("pass-split-nest") {}
+SplitNestedLoopsPass::SplitNestedLoopsPass() : IPass("pass-split-nest") {}
 
 SplitNestedLoopsPass::~SplitNestedLoopsPass() {}
 
-void SplitNestedLoopsPass::run(PolyProgram &prog) {
-	std::vector<ScopNest *> original_nests = prog.getScopNests();
+void SplitNestedLoopsPass::run(Program &prog) {
+	std::vector<OslScop *> original_nests = prog.getScopNests();
 
-	std::vector<ScopNest *> new_nests;
+	std::vector<OslScop *> new_nests;
 	int nextNestId = 0;
 
 	// TODO: better algorithm ?
@@ -27,7 +27,7 @@ void SplitNestedLoopsPass::run(PolyProgram &prog) {
 		int nest_count = osl_scop_count_loop_nests(scop);
 		log(std::cerr) << "found " << nest_count << " nests" << std::endl;
 		if (nest_count <= 1) {
-			auto nest = new ScopNest(nextNestId++, scop);
+			auto nest = new OslScop(nextNestId++, scop);
 			new_nests.push_back(nest);
 			continue;
 		}
@@ -39,8 +39,8 @@ void SplitNestedLoopsPass::run(PolyProgram &prog) {
 		}
 
 		for (int i = 0; i < nest_count; i++) {
-			auto nest = new ScopNest(nextNestId++, new_scops[i]);
-			nest->metadata.getOrCreate<OpenScopMetadata>()
+			auto nest = new OslScop(nextNestId++, new_scops[i]);
+			nest->metadata.getOrCreate<metadata::OpenScopMetadata>()
 				.lock()
 				->scops["original"] = osl_scop_clone(scop);
 

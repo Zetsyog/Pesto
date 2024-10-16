@@ -14,11 +14,15 @@
 
 #include "isl_support.h"
 
-using namespace pesto;
+using pesto::pass::metadata::ClastHolder;
+using pesto::pass::metadata::MacroMetadata;
+using pesto::pass::metadata::VarDeclMetadata;
 
-ClastParamTilingPass::ClastParamTilingPass()
-	: IPestoSingleNestPass("pass-param-tiling"), gen_trahrhe(false),
-	  is_stencil(false), tiling_types() {
+pesto::pass::ClastParamTilingPass::ClastParamTilingPass()
+	: ISinglePass("pass-param-tiling"), gen_trahrhe(false), is_stencil(false),
+	  tiling_types() {
+	using namespace pesto::pass;
+
 	this->pluto_pass = std::make_unique<PlutoPass>();
 	this->tiling_pass = std::make_unique<PlutoPass>();
 	this->gen_clast_pass = std::make_unique<GenClastPass>();
@@ -29,17 +33,17 @@ ClastParamTilingPass::ClastParamTilingPass()
 	this->tiling_pass->getOptions()->intratileopt = 0;
 }
 
-ClastParamTilingPass::~ClastParamTilingPass() {}
+pesto::pass::ClastParamTilingPass::~ClastParamTilingPass() {}
 
-void ClastParamTilingPass::run(PolyProgram &prog) {
+void pesto::pass::ClastParamTilingPass::run(pesto::Program &prog) {
 	// run the pass on each nest
 	for (auto &nest : prog.getScopNests()) {
 		runSingleNest(*nest);
 	}
 }
 
-void ClastParamTilingPass::replace_outter_tiled_for_bounds(
-	ClastMetadata &metadata, struct tiling_info &tiling_info) {
+void pesto::pass::ClastParamTilingPass::replace_outter_tiled_for_bounds(
+	ClastHolder &metadata, struct tiling_info &tiling_info) {
 	free_clast_expr(tiling_info.outter_for->LB);
 	free_clast_expr(tiling_info.outter_for->UB);
 
@@ -59,8 +63,8 @@ void ClastParamTilingPass::replace_outter_tiled_for_bounds(
 	metadata.names.push_back(ub_var);
 }
 
-void ClastParamTilingPass::replace_inner_tiled_for_bounds(
-	ClastMetadata &metadata, struct clast_stmt *root,
+void pesto::pass::ClastParamTilingPass::replace_inner_tiled_for_bounds(
+	ClastHolder &metadata, struct clast_stmt *root,
 	struct tiling_info &tiling_info,
 	std::vector<struct tiling_info> &tiling_info_list) {
 	struct clast_for *outter_for = tiling_info.outter_for;
@@ -119,10 +123,10 @@ void ClastParamTilingPass::replace_inner_tiled_for_bounds(
 	}
 }
 
-void ClastParamTilingPass::insert_tiling_statements(
-	ScopNest &nest, struct clast_stmt *root, struct tiling_info &tiling_info,
+void pesto::pass::ClastParamTilingPass::insert_tiling_statements(
+	OslScop &nest, struct clast_stmt *root, struct tiling_info &tiling_info,
 	std::vector<struct tiling_info> &tiling_info_list) {
-	auto metadata = nest.metadata.get<ClastMetadata>().lock();
+	auto metadata = nest.metadata.get<ClastHolder>().lock();
 
 	struct clast_user_stmt *header_stmt = pesto_clast_create_stmt(
 		metadata->cloogOptions, NULL, ++metadata->stmtsNb);
@@ -216,8 +220,8 @@ void ClastParamTilingPass::insert_tiling_statements(
 		fclose(fd);
 	}
 }
-void ClastParamTilingPass::addVarDecls(ScopNest &nest,
-									   struct tiling_info &tiling_info) {
+void pesto::pass::ClastParamTilingPass::addVarDecls(
+	OslScop &nest, struct tiling_info &tiling_info) {
 	auto varDeclData = nest.metadata.getOrCreate<VarDeclMetadata>().lock();
 	char buffer[256] = {0};
 	FILE *buf_fd = fmemopen(buffer, 256, "w");
@@ -243,8 +247,8 @@ void ClastParamTilingPass::addVarDecls(ScopNest &nest,
 	fclose(buf_fd);
 }
 
-void ClastParamTilingPass::generate_stmt_macros(
-	ScopNest &nest, struct tiling_info &tiling_info) {
+void pesto::pass::ClastParamTilingPass::generate_stmt_macros(
+	OslScop &nest, struct tiling_info &tiling_info) {
 	auto macrosData = nest.metadata.getOrCreate<MacroMetadata>().lock();
 
 	char buffer[512] = {0};
@@ -260,17 +264,17 @@ void ClastParamTilingPass::generate_stmt_macros(
 	}
 }
 
-void ClastParamTilingPass::compute_trahrhe_isl_domain(
-	ScopNest &nest, struct StmtGroup *group,
+void pesto::pass::ClastParamTilingPass::compute_trahrhe_isl_domain(
+	OslScop &nest, struct StmtGroup *group,
 	std::vector<tiling_info> &tiling_info_list) {
 
-	if (!nest.metadata.get<ClastMetadata>().lock()) {
-		std::cerr << "[warning] Scop does not have ClastMetadata. Stopped "
+	if (!nest.metadata.get<ClastHolder>().lock()) {
+		std::cerr << "[warning] Scop does not have ClastHolder. Stopped "
 					 "trahrhe gen"
 				  << std::endl;
 		return;
 	}
-	auto metadata = nest.metadata.get<ClastMetadata>().lock();
+	auto metadata = nest.metadata.get<ClastHolder>().lock();
 	// auto scopData = nest.metadata.get<OpenScopMetadata>().value();
 
 	isl_ctx *ctx = isl_ctx_alloc();
@@ -357,9 +361,10 @@ void ClastParamTilingPass::compute_trahrhe_isl_domain(
 	isl_ctx_free(ctx);
 }
 
-void ClastParamTilingPass::applyTiling(ScopNest &nest, struct clast_stmt *root,
-									   struct StmtGroup *group) {
-	auto metadata = nest.metadata.get<ClastMetadata>().lock();
+void pesto::pass::ClastParamTilingPass::applyTiling(OslScop &nest,
+													struct clast_stmt *root,
+													struct StmtGroup *group) {
+	auto metadata = nest.metadata.get<ClastHolder>().lock();
 	auto macrosData = nest.metadata.getOrCreate<MacroMetadata>().lock();
 
 	// dump the group
@@ -597,9 +602,9 @@ bool canBeTiled(osl_scop_p scop, struct clast_root *root) {
 	return true;
 }
 
-void ClastParamTilingPass::runSingleNest(ScopNest &nest) {
+void pesto::pass::ClastParamTilingPass::runSingleNest(OslScop &nest) {
 	// this nest will only be used for trahrhe domain calculations
-	ScopNest tiled_nest = ScopNest(nest.getId(), nest.getScop());
+	OslScop tiled_nest = OslScop(nest.getId(), nest.getScop());
 	this->tiling_pass->runSingleNest(tiled_nest);
 
 	// First we apply pluto
@@ -612,11 +617,11 @@ void ClastParamTilingPass::runSingleNest(ScopNest &nest) {
 	this->gen_clast_pass->runSingleNest(nest);
 
 	// We made sure in the run() function that the nest has a clast metadata
-	if (!nest.metadata.get<ClastMetadata>().lock()) {
+	if (!nest.metadata.get<ClastHolder>().lock()) {
 		log(std::cerr) << "Clast generation failed" << std::endl;
 		return;
 	}
-	auto metadata = nest.metadata.get<ClastMetadata>().lock();
+	auto metadata = nest.metadata.get<ClastHolder>().lock();
 
 	struct clast_root *root = (struct clast_root *)metadata->root;
 	if (root == NULL) {
@@ -684,16 +689,17 @@ void ClastParamTilingPass::runSingleNest(ScopNest &nest) {
 	free(stmt);
 }
 
-void ClastParamTilingPass::setPlutoPass(
-	std::unique_ptr<IPestoPass> pluto_pass) {
+void pesto::pass::ClastParamTilingPass::setPlutoPass(
+	std::unique_ptr<pass::IPass> pluto_pass) {
 	this->pluto_pass = std::move(pluto_pass);
 }
 
-void ClastParamTilingPass::pushTilingType(ParamTilingType type) {
+void pesto::pass::ClastParamTilingPass::pushTilingType(ParamTilingType type) {
 	this->tiling_types.push_back(type);
 }
 
-ParamTilingType ClastParamTilingPass::getTilingType(int depth) {
+pesto::pass::ParamTilingType
+pesto::pass::ClastParamTilingPass::getTilingType(int depth) {
 	if (this->tiling_types.size() == 0) {
 		return ParamTilingType::ALGEBRAIC;
 	}
@@ -703,9 +709,8 @@ ParamTilingType ClastParamTilingPass::getTilingType(int depth) {
 	return this->tiling_types[this->tiling_types.size() - 1];
 }
 
-void ClastParamTilingPass::algebraicScheduleCodegen(ScopNest &nest,
-													tiling_info &current,
-													tiling_info &prev) {
+void pesto::pass::ClastParamTilingPass::algebraicScheduleCodegen(
+	OslScop &nest, tiling_info &current, tiling_info &prev) {
 	auto macrosData = nest.metadata.getOrCreate<MacroMetadata>().lock();
 
 	// generate the scheduling macros
@@ -750,7 +755,7 @@ void ClastParamTilingPass::algebraicScheduleCodegen(ScopNest &nest,
 	memset(buffer, 0, 1024);
 
 	// insert schedule free statement
-	auto metadata = nest.metadata.get<ClastMetadata>().lock();
+	auto metadata = nest.metadata.get<ClastHolder>().lock();
 
 	int stmt_id = ++metadata->stmtsNb;
 	struct clast_user_stmt *footer_stmt =
@@ -765,9 +770,8 @@ void ClastParamTilingPass::algebraicScheduleCodegen(ScopNest &nest,
 	free(buffer);
 }
 
-void ClastParamTilingPass::algebraicScheduleHeaderGen(ScopNest &nest,
-													  tiling_info &current,
-													  tiling_info &prev) {
+void pesto::pass::ClastParamTilingPass::algebraicScheduleHeaderGen(
+	OslScop &nest, tiling_info &current, tiling_info &prev) {
 	auto macrosData = nest.metadata.getOrCreate<MacroMetadata>().lock();
 
 	macrosData->list.push_back("#include \"schedule.h\"");
@@ -903,7 +907,7 @@ void ClastParamTilingPass::algebraicScheduleHeaderGen(ScopNest &nest,
 	fclose(fd);
 }
 
-__isl_give isl_set *ClastParamTilingPass::removeTilingDimensions(
+__isl_give isl_set *pesto::pass::ClastParamTilingPass::removeTilingDimensions(
 	__isl_take isl_set *set,
 	std::vector<struct tiling_info> &tiling_info_list) {
 
@@ -941,7 +945,7 @@ __isl_give isl_set *ClastParamTilingPass::removeTilingDimensions(
 	return res;
 }
 
-__isl_give isl_set *ClastParamTilingPass::dropTilingConstraints(
+__isl_give isl_set *pesto::pass::ClastParamTilingPass::dropTilingConstraints(
 	__isl_take isl_set *set,
 	std::vector<struct tiling_info> &tiling_info_list) {
 

@@ -1,12 +1,12 @@
 #include <pesto/Pesto.hpp>
 
-using namespace pesto;
+using namespace pesto::builder;
 
 GenClastPB::GenClastPB() {}
 
 GenClastPB::~GenClastPB() {}
 
-std::unique_ptr<pesto::IPestoPass> GenClastPB::build(PMBuilder &builder,
-													 const json &j) {
-	return std::make_unique<GenClastPass>();
+std::unique_ptr<pesto::pass::IPass>
+GenClastPB::build(PassManagerBuilder &builder, const json &j) {
+	return std::make_unique<pesto::pass::GenClastPass>();
 }

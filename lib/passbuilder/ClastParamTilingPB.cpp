@@ -1,13 +1,16 @@
 #include <pesto/Pesto.hpp>
 
-using namespace pesto;
+using namespace pesto::builder;
 
 ClastParamTilingPB::ClastParamTilingPB() {}
 
 ClastParamTilingPB::~ClastParamTilingPB() {}
 
-std::unique_ptr<pesto::IPestoPass> ClastParamTilingPB::build(PMBuilder &builder,
-															 const json &j) {
+std::unique_ptr<pesto::pass::IPass>
+ClastParamTilingPB::build(PassManagerBuilder &builder, const json &j) {
+	using pesto::pass::ClastParamTilingPass;
+	using pesto::pass::ParamTilingType;
+
 	std::unique_ptr<ClastParamTilingPass> pass =
 		std::make_unique<ClastParamTilingPass>();
 	if (j.contains("gen-trahrhe")) {
@@ -35,7 +38,7 @@ std::unique_ptr<pesto::IPestoPass> ClastParamTilingPB::build(PMBuilder &builder,
 
 	if (j.contains("pluto")) {
 		PlutoPB pluto_pb = PlutoPB();
-		std::unique_ptr<IPestoPass> plutoPass =
+		std::unique_ptr<pesto::pass::IPass> plutoPass =
 			pluto_pb.build(builder, j["pluto"]);
 		pass->setPlutoPass(std::move(plutoPass));
 	}

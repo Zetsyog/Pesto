@@ -12,8 +12,9 @@ using json = nlohmann::json;
 
 namespace pesto {
 
-class PMBuilder;
+namespace builder {
 
+class PassManagerBuilder;
 /**
  * Interface for a pass builder
  * This object is responsible for building a pass from a json object
@@ -31,20 +32,19 @@ class IPassBuilder {
 	 * @param j the json object containing the pass configuration
 	 * @return A pointer to the newly created pass
 	 */
-	virtual std::unique_ptr<pesto::IPestoPass> build(PMBuilder &builder,
-													 const json &j) = 0;
+	virtual std::unique_ptr<pesto::pass::IPass>
+	build(PassManagerBuilder &builder, const json &j) = 0;
 };
-
 /**
  * A pass manager builder
  * This object is responsible for building a pass manager from a json object
  * Pass builders must be registered so that the pass manager builder can
  * delegate the building of each pass to the corresponding pass builder
  */
-class PMBuilder {
+class PassManagerBuilder {
   public:
-	PMBuilder();
-	virtual ~PMBuilder();
+	PassManagerBuilder();
+	virtual ~PassManagerBuilder();
 
 	/**
 	 * @brief check if a pass builder is registered with the given uuid
@@ -61,7 +61,7 @@ class PMBuilder {
 	 *
 	 * @return A pointer to the newly created pass
 	 */
-	std::optional<std::unique_ptr<IPestoPass>> buildPass(const json &j);
+	std::optional<std::unique_ptr<pesto::pass::IPass>> buildPass(const json &j);
 
 	/**
 	 * @brief register a pass builder
@@ -76,12 +76,14 @@ class PMBuilder {
 	 */
 	std::unique_ptr<PassManager> build(std::string file);
 
-	static std::unique_ptr<PMBuilder> createDefault();
+	static std::unique_ptr<PassManagerBuilder> createDefault();
 
   private:
 	std::unordered_map<std::string, std::unique_ptr<IPassBuilder>> builders;
 };
 
-}; // namespace pesto
+} // namespace builder
+
+} // namespace pesto
 
 #endif // PESTO_PASS_BUILDER_H

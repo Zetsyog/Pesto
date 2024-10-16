@@ -22,9 +22,9 @@
 #define PLUTO_DEBUG 0
 #define PLUTO_QUIET 0
 
-using namespace pesto;
+using namespace pesto::pass;
 
-PlutoPass::PlutoPass() : IPestoSingleNestPass("pass-pluto") {
+PlutoPass::PlutoPass() : ISinglePass("pass-pluto") {
 	this->context = pluto_context_alloc();
 	this->getOptions()->silent = !PLUTO_DEBUG;
 	this->getOptions()->quiet = !PLUTO_DEBUG;
@@ -44,7 +44,7 @@ PlutoPass::PlutoPass() : IPestoSingleNestPass("pass-pluto") {
 
 PlutoOptions *PlutoPass::getOptions() { return this->context->options; }
 
-void PlutoPass::runSingleNest(ScopNest &nest) {
+void PlutoPass::runSingleNest(OslScop &nest) {
 	osl_scop_p scop = nest.getScop();
 
 	PlutoProg *pluto_prog = osl_scop_to_pluto_prog(scop, context);

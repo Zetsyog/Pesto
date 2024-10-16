@@ -7,14 +7,14 @@
 
 #include "Options.hpp"
 
-PestoOptions::PestoOptions() : readScop(0), configPath(std::nullopt) {}
+using namespace pesto;
 
-int PestoOptions::getReadScop() { return this->readScop; }
-std::string PestoOptions::getGenPrefix() { return this->genPrefix; }
-std::string PestoOptions::getInputPath() { return this->inputPath; }
-std::optional<std::string> PestoOptions::getConfigPath() {
-	return this->configPath;
-}
+Options::Options() : readScop(0), configPath(std::nullopt) {}
+
+int Options::getReadScop() { return this->readScop; }
+std::string Options::getGenPrefix() { return this->genPrefix; }
+std::string Options::getInputPath() { return this->inputPath; }
+std::optional<std::string> Options::getConfigPath() { return this->configPath; }
 
 void print_usage() {
 	std::cerr << "Usage: pesto [options] <input file>" << std::endl;
@@ -26,8 +26,8 @@ void print_usage() {
 	std::cerr << "\t-v, --version\t\tPrint the version number" << std::endl;
 }
 
-std::unique_ptr<PestoOptions> PestoOptions::build(int argc, char **argv) {
-	auto opt = std::make_unique<PestoOptions>();
+std::unique_ptr<Options> Options::build(int argc, char **argv) {
+	auto opt = std::make_unique<Options>();
 
 	int c;
 	while (1) {

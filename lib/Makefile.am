@@ -21,9 +21,9 @@ EXTRA_libpesto_la_DEPENDENCIES = ../pluto/lib/libpluto.la
 libpesto_la_SOURCES = \
    isl_support.c \
    osl_support.c \
+   OslScop.cpp \
    PassManager.cpp \
    PestoProgram.cpp \
-   ScopNest.cpp \
    clast/clast_support.c \
    clast/GenClastPass.cpp \
    clast/ParamTilingPass.cpp \

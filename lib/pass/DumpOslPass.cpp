@@ -3,16 +3,17 @@
 
 #include <osl_support.h>
 
-using namespace pesto;
+using namespace pesto::pass;
+using pesto::pass::metadata::OpenScopMetadata;
 
 // DumpOslPass
 
 DumpOslPass::DumpOslPass(std::string prefix)
-	: path_prefix(prefix), IPestoSingleNestPass("pass-dump-osl") {}
+	: path_prefix(prefix), ISinglePass("pass-dump-osl") {}
 
 DumpOslPass::~DumpOslPass() {}
 
-void DumpOslPass::runSingleNest(ScopNest &nest) {
+void DumpOslPass::runSingleNest(OslScop &nest) {
 	osl_scop_p scop = nest.getScop();
 	std::string path =
 		path_prefix + "." + std::to_string(nest.getId()) + ".scop";

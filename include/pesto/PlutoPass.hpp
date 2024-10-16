@@ -1,24 +1,26 @@
-#ifndef PESTO_PLUTO_PASSSES_H
-#define PESTO_PLUTO_PASSSES_H
+#ifndef PESTO_PASS_PLUTO_H
+#define PESTO_PASS_PLUTO_H
 
+#include <pesto/OslScop.hpp>
 #include <pesto/Pass.hpp>
-#include <pesto/PolyProgram.hpp>
-#include <pesto/ScopNest.hpp>
+#include <pesto/Program.hpp>
 #include <string>
 
 #include <pluto/pluto.h>
 
 namespace pesto {
 
+namespace pass {
+
 /**
- * A generic pass that runs Pluto on each ScopNest of the program
+ * A generic pass that runs Pluto on each OslScop of the program
  */
-class PlutoPass : public IPestoSingleNestPass {
+class PlutoPass : public ISinglePass {
   public:
 	PlutoPass();
 	virtual ~PlutoPass();
 
-	virtual void runSingleNest(ScopNest &nest);
+	virtual void runSingleNest(OslScop &nest);
 
 	PlutoOptions *getOptions();
 
@@ -46,6 +48,8 @@ class PlutoTilingPass : public PlutoPass {
 	virtual ~PlutoTilingPass();
 };
 
+} // namespace pass
+
 } // namespace pesto
 
-#endif // PESTO_PLUTO_PASSSES_H
+#endif // PESTO_PASS_PLUTO_H

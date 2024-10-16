@@ -13,16 +13,16 @@ namespace pesto {
  * It also contains a unique identifier
  * It can also contain metadata used and / or shared by passes
  */
-class ScopNest {
+class OslScop {
   private:
 	int id;
 	osl_scop_p scop;
 
   public:
-	MetadataContainer metadata;
+	utils::MetadataContainer metadata;
 
-	ScopNest(int id, osl_scop_p scop);
-	virtual ~ScopNest();
+	OslScop(int id, osl_scop_p scop);
+	virtual ~OslScop();
 
 	osl_scop_p getScop();
 	int getId();

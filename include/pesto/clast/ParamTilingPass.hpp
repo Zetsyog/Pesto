@@ -10,6 +10,8 @@
 
 namespace pesto {
 
+namespace pass {
+
 struct StmtGroup {
 	int id;
 	std::vector<struct clast_stmt *> stmts;
@@ -26,19 +28,19 @@ struct tiling_info {
 enum class ParamTilingType { RECTANGULAR, ALGEBRAIC, SCHEDULED };
 
 /**
- * A pass that performs a parametric tiling over the Clast of each ScopNest
+ * A pass that performs a parametric tiling over the Clast of each OslScop
  */
-class ClastParamTilingPass : public IPestoSingleNestPass {
+class ClastParamTilingPass : public ISinglePass {
   public:
 	bool gen_trahrhe;
 
 	ClastParamTilingPass();
 	virtual ~ClastParamTilingPass();
 
-	virtual void run(PolyProgram &prog);
-	virtual void runSingleNest(ScopNest &nest);
+	virtual void run(pesto::Program &prog);
+	virtual void runSingleNest(pesto::OslScop &nest);
 
-	void setPlutoPass(std::unique_ptr<IPestoPass> pluto_pass);
+	void setPlutoPass(std::unique_ptr<IPass> pluto_pass);
 
 	/**
 	 * @brief given a depth, return the tiling type
@@ -55,38 +57,38 @@ class ClastParamTilingPass : public IPestoSingleNestPass {
 
   private:
 	bool is_stencil;
-	std::unique_ptr<IPestoPass> pluto_pass;
+	std::unique_ptr<IPass> pluto_pass;
 	std::unique_ptr<PlutoPass> tiling_pass;
 	std::unique_ptr<GenClastPass> gen_clast_pass;
 
 	std::vector<ParamTilingType> tiling_types;
 
-	void algebraicScheduleCodegen(ScopNest &nest, struct tiling_info &current,
+	void algebraicScheduleCodegen(OslScop &nest, struct tiling_info &current,
 								  struct tiling_info &prev);
-	void algebraicScheduleHeaderGen(ScopNest &nest, tiling_info &current,
+	void algebraicScheduleHeaderGen(OslScop &nest, tiling_info &current,
 									struct tiling_info &prev);
 
 	void compute_trahrhe_isl_domain(
-		ScopNest &nest, struct StmtGroup *group,
+		OslScop &nest, struct StmtGroup *group,
 		std::vector<struct tiling_info> &tiling_info_list);
 
-	void applyTiling(ScopNest &nest, struct clast_stmt *root,
+	void applyTiling(OslScop &nest, struct clast_stmt *root,
 					 struct StmtGroup *group);
 	void
-	insert_tiling_statements(ScopNest &nest, struct clast_stmt *root,
+	insert_tiling_statements(OslScop &nest, struct clast_stmt *root,
 							 struct tiling_info &tiling_info,
 							 std::vector<struct tiling_info> &tiling_info_list);
 
 	void replace_inner_tiled_for_bounds(
-		ClastMetadata &metadata, struct clast_stmt *root,
+		metadata::ClastHolder &metadata, struct clast_stmt *root,
 		struct tiling_info &tiling_info,
 		std::vector<struct tiling_info> &tiling_info_list);
 
-	void replace_outter_tiled_for_bounds(ClastMetadata &metadata,
+	void replace_outter_tiled_for_bounds(metadata::ClastHolder &metadata,
 										 struct tiling_info &tiling_info);
 
-	void generate_stmt_macros(ScopNest &nest, struct tiling_info &tiling_info);
-	void addVarDecls(ScopNest &nest, struct tiling_info &tiling_info);
+	void generate_stmt_macros(OslScop &nest, struct tiling_info &tiling_info);
+	void addVarDecls(OslScop &nest, struct tiling_info &tiling_info);
 
 	__isl_give isl_set *
 	removeTilingDimensions(__isl_take isl_set *set,
@@ -96,6 +98,8 @@ class ClastParamTilingPass : public IPestoSingleNestPass {
 	dropTilingConstraints(__isl_take isl_set *set,
 						  std::vector<struct tiling_info> &tiling_info_list);
 };
+
+} // namespace pass
 
 } // namespace pesto
 

@@ -5,11 +5,13 @@
 #include <optional>
 #include <string>
 
-class PestoOptions {
-  public:
-	static std::unique_ptr<PestoOptions> build(int argc, char **argv);
+namespace pesto {
 
-	PestoOptions();
+class Options {
+  public:
+	static std::unique_ptr<Options> build(int argc, char **argv);
+
+	Options();
 
 	std::string getGenPrefix();
 	std::string getInputPath();
@@ -22,5 +24,7 @@ class PestoOptions {
 	std::optional<std::string> configPath;
 	int readScop;
 };
+
+} // namespace pesto
 
 #endif // PESTO_OPTIONS_H

@@ -2,7 +2,7 @@
 
 #include <pesto/CodegenPasses.hpp>
 
-using namespace pesto;
+using namespace pesto::pass::metadata;
 
 VarDeclMetadata::VarDeclMetadata() : type("long int") {}
 

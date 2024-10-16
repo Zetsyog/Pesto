@@ -3,14 +3,15 @@
 
 #include <pesto/Pesto.hpp>
 
-using namespace pesto;
+using namespace pesto::builder;
 
-PMBuilder::PMBuilder() {}
+PassManagerBuilder::PassManagerBuilder() {}
 
-PMBuilder::~PMBuilder() {}
+PassManagerBuilder::~PassManagerBuilder() {}
 
-std::unique_ptr<PMBuilder> PMBuilder::createDefault() {
-	std::unique_ptr<PMBuilder> pm = std::make_unique<PMBuilder>();
+std::unique_ptr<PassManagerBuilder> PassManagerBuilder::createDefault() {
+	std::unique_ptr<PassManagerBuilder> pm =
+		std::make_unique<PassManagerBuilder>();
 
 	// Register the pass builders
 	pm->registerPassBuilder(PESTO_UUID_PASS_CLAST_GEN,
@@ -29,13 +30,14 @@ std::unique_ptr<PMBuilder> PMBuilder::createDefault() {
 	return pm;
 }
 
-void PMBuilder::registerPassBuilder(std::string uuid,
-									std::unique_ptr<IPassBuilder> pb) {
+void PassManagerBuilder::registerPassBuilder(std::string uuid,
+											 std::unique_ptr<IPassBuilder> pb) {
 	// Register the pass builder
 	builders[uuid] = std::move(pb);
 }
 
-std::unique_ptr<PassManager> PMBuilder::build(std::string path) {
+std::unique_ptr<pesto::PassManager>
+PassManagerBuilder::build(std::string path) {
 	// Parse the JSON file and build the pass manager
 	std::ifstream file(path);
 
@@ -71,12 +73,14 @@ std::unique_ptr<PassManager> PMBuilder::build(std::string path) {
 	return pm;
 }
 
-bool PMBuilder::hasPassBuilder(std::string uuid) {
+bool PassManagerBuilder::hasPassBuilder(std::string uuid) {
 	// Check if a pass builder is registered with the given uuid
 	return builders.find(uuid) != builders.end();
 }
 
-std::optional<std::unique_ptr<IPestoPass>> PMBuilder::buildPass(const json &j) {
+// TODO: remove optional
+std::optional<std::unique_ptr<pesto::pass::IPass>>
+PassManagerBuilder::buildPass(const json &j) {
 	// Build a pass from a JSON object
 	if (j.contains("uuid") == false) {
 		std::cerr << "Error: can't parse pass. JSON object does not contain a "
@@ -91,7 +95,7 @@ std::optional<std::unique_ptr<IPestoPass>> PMBuilder::buildPass(const json &j) {
 		return std::nullopt;
 	}
 
-	std::unique_ptr<IPestoPass> pass = builders[uuid]->build(*this, j);
+	std::unique_ptr<pesto::pass::IPass> pass = builders[uuid]->build(*this, j);
 
-	return std::optional<std::unique_ptr<IPestoPass>>(std::move(pass));
+	return std::optional<std::unique_ptr<pesto::pass::IPass>>(std::move(pass));
 }

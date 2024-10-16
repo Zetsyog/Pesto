@@ -1,10 +1,10 @@
 #include <pesto/Pesto.hpp>
 
-using namespace pesto;
+using namespace pesto::pass;
 
-IPestoPass::IPestoPass(std::string name) : name(name) {}
+IPass::IPass(std::string name) : name(name) {}
 
-IPestoPass::~IPestoPass() {}
+IPass::~IPass() {}
 
 /**
  * Log a message to the given output stream by prepending the pass name between
@@ -12,22 +12,19 @@ IPestoPass::~IPestoPass() {}
  * @param os the output stream
  * @return a reference to the output stream
  */
-std::ostream &IPestoPass::log(std::ostream &os) {
-	return os << "[" << name << "] ";
-}
+std::ostream &IPass::log(std::ostream &os) { return os << "[" << name << "] "; }
 
-IPestoSingleNestPass::IPestoSingleNestPass(std::string name)
-	: IPestoPass(name) {}
+ISinglePass::ISinglePass(std::string name) : IPass(name) {}
 
-IPestoSingleNestPass::~IPestoSingleNestPass() {}
+ISinglePass::~ISinglePass() {}
 
 /**
- * Call the runSingleNest method on each ScopNest of the PolyProgram
- * @param prog the PolyProgram to run the pass on
+ * Call the runSingleNest method on each ScopNest of the Program
+ * @param prog the Program to run the pass on
  */
-void IPestoSingleNestPass::run(PolyProgram &prog) {
+void ISinglePass::run(pesto::Program &prog) {
 
-	std::vector<ScopNest *> nests = prog.getScopNests();
+	std::vector<OslScop *> nests = prog.getScopNests();
 	for (auto &nest : nests) {
 		this->runSingleNest(*nest);
 	}

@@ -3,9 +3,9 @@
 
 #include <memory>
 #include <osl/osl.h>
+#include <pesto/OslScop.hpp>
 #include <pesto/Pass.hpp>
-#include <pesto/PolyProgram.hpp>
-#include <pesto/ScopNest.hpp>
+#include <pesto/Program.hpp>
 #include <vector>
 
 namespace pesto {
@@ -30,12 +30,12 @@ class PassManager {
 	 * Multiple passes can be run
 	 * TODO: wip
 	 */
-	void runPasses(PolyProgram &prog);
+	void runPasses(Program &prog);
 
-	void addPass(std::unique_ptr<IPestoPass> pass);
+	void addPass(std::unique_ptr<pesto::pass::IPass> pass);
 
   private:
-	std::vector<std::unique_ptr<IPestoPass>> passes;
+	std::vector<std::unique_ptr<pesto::pass::IPass>> passes;
 };
 
 } // namespace pesto

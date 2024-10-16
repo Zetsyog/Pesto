@@ -8,15 +8,19 @@
 
 namespace pesto {
 
+namespace builder {
+
 class PlutoPB : public IPassBuilder {
   public:
 	PlutoPB();
 	virtual ~PlutoPB();
 
-	virtual std::unique_ptr<pesto::IPestoPass> build(PMBuilder &builder,
-													 const json &j);
+	virtual std::unique_ptr<pesto::pass::IPass>
+	build(PassManagerBuilder &builder, const json &j);
 };
 
-}; // namespace pesto
+} // namespace builder
+
+} // namespace pesto
 
 #endif // PESTO_PB_PLUTO_H

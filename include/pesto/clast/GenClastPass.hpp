@@ -1,5 +1,5 @@
-#ifndef PESTO_GEN_CLAST_PASS_H
-#define PESTO_GEN_CLAST_PASS_H
+#ifndef PESTO_PASS_GEN_CLAST_H
+#define PESTO_PASS_GEN_CLAST_H
 
 #include <memory>
 #include <string>
@@ -10,13 +10,16 @@
 
 namespace pesto {
 
+namespace pass {
+
+namespace metadata {
 /**
  * A metadata that holds a clast generated from an openscop representation
  */
-class ClastMetadata {
+class ClastHolder {
   public:
-	ClastMetadata();
-	virtual ~ClastMetadata();
+	ClastHolder();
+	virtual ~ClastHolder();
 
 	/* Cloog variable */
 	CloogState *cloogState;
@@ -28,20 +31,24 @@ class ClastMetadata {
 	std::vector<std::shared_ptr<std::string>> names;
 };
 
+} // namespace metadata
+
 /**
  * A pass that generates a clast from an openscop representation
- * The clast is stored in a ClastMetadata for each ScopNest
+ * The clast is stored in a ClastHolder for each OslScop
  */
-class GenClastPass : public IPestoSingleNestPass {
+class GenClastPass : public ISinglePass {
   public:
 	int codegenContext;
 
 	GenClastPass();
 	virtual ~GenClastPass();
 
-	virtual void runSingleNest(ScopNest &nest);
+	virtual void runSingleNest(OslScop &nest);
 };
+
+} // namespace pass
 
 } // namespace pesto
 
-#endif // PESTO_GEN_CLAST_PASS_H
+#endif // PESTO_PASS_GEN_CLAST_H

@@ -1,13 +1,17 @@
 #ifndef PESTO_CODEGEN_PASSES_H
 #define PESTO_CODEGEN_PASSES_H
 
+#include <pesto/OslScop.hpp>
 #include <pesto/Pass.hpp>
-#include <pesto/PolyProgram.hpp>
-#include <pesto/ScopNest.hpp>
+#include <pesto/Program.hpp>
 #include <string>
 #include <vector>
 
 namespace pesto {
+
+namespace pass {
+
+namespace metadata {
 
 class VarDeclMetadata {
   public:
@@ -23,28 +27,32 @@ class VarDeclMetadata {
 	std::vector<std::string> vars;
 };
 
+class MacroMetadata {
+  public:
+	std::vector<std::string> list;
+};
+
+} // namespace metadata
+
 /**
- * A pass that generate C code from a PolyProgram
- * For each ScopNest it will look for a ClastMetadata, and use the clast to
+ * A pass that generate C code from a Program
+ * For each OslScop it will look for a ClastHolder, and use the clast to
  * generate C code
- * Else it will use cloog on the openscop representation of the ScopNest
+ * Else it will use cloog on the openscop representation of the OslScop
  */
-class CloogCodegenPass : public IPestoSingleNestPass {
+class CloogCodegenPass : public ISinglePass {
   public:
 	CloogCodegenPass(std::string prefix);
 	virtual ~CloogCodegenPass();
 
-	virtual void run(PolyProgram &prog);
-	virtual void runSingleNest(ScopNest &nest);
+	virtual void run(Program &prog);
+	virtual void runSingleNest(OslScop &nest);
 
   private:
 	std::string path_prefix;
 };
 
-class MacroMetadata {
-  public:
-	std::vector<std::string> list;
-};
+} // namespace pass
 
 } // namespace pesto
 

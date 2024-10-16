@@ -4,17 +4,20 @@
 
 #include "clast/clast_support.h"
 
-using namespace pesto;
+using namespace pesto::pass;
 
 CloogCodegenPass::CloogCodegenPass(std::string prefix)
-	: path_prefix(prefix), IPestoSingleNestPass("pass-gen-cloog") {}
+	: path_prefix(prefix), ISinglePass("pass-gen-cloog") {}
 
 CloogCodegenPass::~CloogCodegenPass() {}
 
-void CloogCodegenPass::run(PolyProgram &prog) {
+void CloogCodegenPass::run(Program &prog) {
+	using metadata::MacroMetadata;
+	using metadata::VarDeclMetadata;
+
 	log(std::cerr) << "Starting Cloog codegen using prefix '" << path_prefix
 				   << "'" << std::endl;
-	IPestoSingleNestPass::run(prog);
+	ISinglePass::run(prog);
 
 	// generate var declarations
 	VarDeclMetadata varDecls;
@@ -37,7 +40,7 @@ void CloogCodegenPass::run(PolyProgram &prog) {
 	fclose(vardecl_fd);
 }
 
-void generateStmtMacro(FILE *fd, ScopNest &nest) {
+void generateStmtMacro(FILE *fd, pesto::OslScop &nest) {
 	osl_scop_p scop = nest.getScop();
 
 	osl_statement_p statement = scop->statement;
@@ -66,13 +69,17 @@ void generateStmtMacro(FILE *fd, ScopNest &nest) {
 	}
 }
 
-void CloogCodegenPass::runSingleNest(ScopNest &nest) {
+void CloogCodegenPass::runSingleNest(OslScop &nest) {
+	using metadata::ClastHolder;
+	using metadata::MacroMetadata;
+	using metadata::VarDeclMetadata;
+
 	struct clast_stmt *root = nullptr;
 	CloogState *state = nullptr;
 	CloogOptions *options = nullptr;
 	CloogProgram *program = nullptr;
 
-	auto clastData = nest.metadata.get<ClastMetadata>().lock();
+	auto clastData = nest.metadata.get<ClastHolder>().lock();
 	auto varDeclsData = nest.metadata.getOrCreate<VarDeclMetadata>().lock();
 
 	std::string path =

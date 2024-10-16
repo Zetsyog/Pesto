@@ -5,8 +5,8 @@
 	Publicly available library headers
 */
 
-#include <pesto/PolyProgram.hpp>
-#include <pesto/ScopNest.hpp>
+#include <pesto/OslScop.hpp>
+#include <pesto/Program.hpp>
 #include <pesto/Utils.hpp>
 
 #include <pesto/CodegenPasses.hpp>

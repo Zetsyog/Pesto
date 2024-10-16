@@ -4,16 +4,18 @@
 
 #include "clast/clast_support.h"
 
-using namespace pesto;
+using namespace pesto::pass;
 
 GenClastPass::GenClastPass()
-	: IPestoSingleNestPass("pass-clast-gen"), codegenContext(-1) {}
+	: ISinglePass("pass-clast-gen"), codegenContext(-1) {}
 
 GenClastPass::~GenClastPass() {}
 
-void GenClastPass::runSingleNest(ScopNest &nest) {
-	nest.metadata.set<ClastMetadata>();
-	auto data = nest.metadata.get<ClastMetadata>().lock();
+void GenClastPass::runSingleNest(OslScop &nest) {
+	using metadata::ClastHolder;
+
+	nest.metadata.set<ClastHolder>();
+	auto data = nest.metadata.get<ClastHolder>().lock();
 
 	osl_scop_p scop = nest.getScop();
 
@@ -74,11 +76,11 @@ void GenClastPass::runSingleNest(ScopNest &nest) {
 	clast_annotate_loops(scop, data->root);
 }
 
-ClastMetadata::ClastMetadata()
+metadata::ClastHolder::ClastHolder()
 	: root(nullptr), cloogProgram(nullptr), cloogOptions(nullptr),
 	  cloogState(nullptr) {}
 
-ClastMetadata::~ClastMetadata() {
+metadata::ClastHolder::~ClastHolder() {
 	if (root) {
 		cloog_clast_free(root);
 	}

@@ -9,11 +9,16 @@
 #include <typeindex>
 #include <unordered_map>
 
+namespace pesto {
+
+namespace utils {
+
 /**
  * A container for metadata that can be attached to any object
  * The metadata is stored as a map from type to value
  * The metadata is stored as a shared pointer, so that it can be shared between
  * multiple objects
+ * This objects is in charge of memory management of the metadata
  */
 class MetadataContainer {
   public:
@@ -58,5 +63,9 @@ class MetadataContainer {
   private:
 	std::unordered_map<std::type_index, std::shared_ptr<std::any>> metadata_;
 };
+
+} // namespace utils
+
+} // namespace pesto
 
 #endif // PESTO_METADATACONTAINER_H

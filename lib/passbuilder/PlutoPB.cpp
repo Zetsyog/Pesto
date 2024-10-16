@@ -1,6 +1,6 @@
 #include <pesto/Pesto.hpp>
 
-using namespace pesto;
+using namespace pesto::builder;
 
 #define PESTO_BIND_PLUTO_OPT(json, pluto_opt, name)                            \
 	if (json.contains(#name)) {                                                \
@@ -11,10 +11,10 @@ PlutoPB::PlutoPB() {}
 
 PlutoPB::~PlutoPB() {}
 
-std::unique_ptr<pesto::IPestoPass> PlutoPB::build(PMBuilder &builder,
-												  const json &j) {
+std::unique_ptr<pesto::pass::IPass> PlutoPB::build(PassManagerBuilder &builder,
+												   const json &j) {
 	// TODO Parse the JSON object and build the pass
-	auto pass = std::make_unique<PlutoPass>();
+	auto pass = std::make_unique<pesto::pass::PlutoPass>();
 	if (!j.contains("options")) {
 		return pass;
 	}

@@ -13,7 +13,7 @@
 #include "Options.hpp"
 
 int main(int argc, char **argv) {
-	auto options = PestoOptions::build(argc, argv);
+	auto options = pesto::Options::build(argc, argv);
 
 	/* FRONTEND */
 	// check if input file is provided
@@ -72,43 +72,48 @@ int main(int argc, char **argv) {
 
 	// pesto magic starts here
 	// create pesto program
-	std::unique_ptr<pesto::PolyProgram> polyProgram =
-		pesto::PolyProgramBuilder().addScop(scop).build();
+	std::unique_ptr<pesto::Program> program =
+		pesto::builder::Program().addScop(scop).build();
 	// scop has been copied by builder, we can free memory
 	osl_scop_free(scop);
 
-	std::unique_ptr<pesto::PassManager> pestoPM;
+	std::unique_ptr<pesto::PassManager> passManager;
 
 	if (options->getConfigPath().has_value()) {
-		std::unique_ptr<pesto::PMBuilder> pmBuilder =
-			pesto::PMBuilder::createDefault();
+		std::unique_ptr<pesto::builder::PassManagerBuilder> builder =
+			pesto::builder::PassManagerBuilder::createDefault();
 
-		pestoPM = pmBuilder->build(options->getConfigPath().value());
-		if (pestoPM == nullptr) {
+		passManager = builder->build(options->getConfigPath().value());
+		if (passManager == nullptr) {
 			std::cerr << "[pesto-tool] Error while building pass manager"
 					  << std::endl;
 			return 1;
 		}
 	} else {
-		pestoPM = std::make_unique<pesto::PassManager>();
+		passManager = std::make_unique<pesto::PassManager>();
 
 		// register all the passes
 		// order matter
-		pestoPM->addPass(std::make_unique<pesto::ParamContextPass>(10));
-		pestoPM->addPass(std::make_unique<pesto::PlutoAutoTransformPass>());
-		pestoPM->addPass(std::make_unique<pesto::SplitNestedLoopsPass>());
-		pestoPM->addPass(std::make_unique<pesto::PlutoTilingPass>());
-		pestoPM->addPass(std::make_unique<pesto::DumpOslPass>("debug."));
-		pestoPM->addPass(std::make_unique<pesto::GenClastPass>());
-		pestoPM->addPass(std::make_unique<pesto::ClastParamTilingPass>());
+		passManager->addPass(
+			std::make_unique<pesto::pass::ParamContextPass>(10));
+		passManager->addPass(
+			std::make_unique<pesto::pass::PlutoAutoTransformPass>());
+		passManager->addPass(
+			std::make_unique<pesto::pass::SplitNestedLoopsPass>());
+		passManager->addPass(std::make_unique<pesto::pass::PlutoTilingPass>());
+		passManager->addPass(
+			std::make_unique<pesto::pass::DumpOslPass>("debug."));
+		passManager->addPass(std::make_unique<pesto::pass::GenClastPass>());
+		passManager->addPass(
+			std::make_unique<pesto::pass::ClastParamTilingPass>());
 		// TODO: should codegen be a pass? Or whole different component ?
-		pestoPM->addPass(
-			std::make_unique<pesto::CloogCodegenPass>(options->getGenPrefix()));
+		passManager->addPass(std::make_unique<pesto::pass::CloogCodegenPass>(
+			options->getGenPrefix()));
 	}
 
 	// run the passes
 	std::cerr << "[pesto-tool] Running optimizations passes" << std::endl;
-	pestoPM->runPasses(*polyProgram.get());
+	passManager->runPasses(*program.get());
 
 	std::cerr << "[pesto-tool] Done" << std::endl;
 	return 0;

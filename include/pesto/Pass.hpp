@@ -2,8 +2,8 @@
 #define PESTO_POLYHEDRAL_PASS_H
 
 #include <iostream>
-#include <pesto/PolyProgram.hpp>
-#include <pesto/ScopNest.hpp>
+#include <pesto/OslScop.hpp>
+#include <pesto/Program.hpp>
 #include <string>
 #include <vector>
 
@@ -11,18 +11,20 @@
 
 namespace pesto {
 
+namespace pass {
+
 /**
- * Base interface for a pass that operates on a PolyProgram
+ * Base interface for a pass that operates on a Program
  * A pass must have a name
- * A pass must implement the run method that will be called on the PolyProgram
+ * A pass must implement the run method that will be called on the Program
  * by the PassManager
  */
-class IPestoPass {
+class IPass {
   public:
-	IPestoPass(std::string name);
-	virtual ~IPestoPass();
+	IPass(std::string name);
+	virtual ~IPass();
 
-	virtual void run(PolyProgram &prog) = 0;
+	virtual void run(pesto::Program &prog) = 0;
 
 	virtual std::string getName() { return name; }
 
@@ -31,14 +33,16 @@ class IPestoPass {
 	virtual std::ostream &log(std::ostream &os);
 };
 
-class IPestoSingleNestPass : public IPestoPass {
+class ISinglePass : public IPass {
   public:
-	IPestoSingleNestPass(std::string name);
-	virtual ~IPestoSingleNestPass();
+	ISinglePass(std::string name);
+	virtual ~ISinglePass();
 
-	virtual void runSingleNest(ScopNest &nest) = 0;
-	virtual void run(PolyProgram &prog);
+	virtual void runSingleNest(pesto::OslScop &nest) = 0;
+	virtual void run(pesto::Program &prog);
 };
+
+} // namespace pass
 
 } // namespace pesto
 
