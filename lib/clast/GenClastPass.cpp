@@ -6,7 +6,8 @@
 
 using namespace pesto;
 
-GenClastPass::GenClastPass() : IPestoSingleNestPass("pass-clast-gen") {}
+GenClastPass::GenClastPass()
+	: IPestoSingleNestPass("pass-clast-gen"), codegenContext(-1) {}
 
 GenClastPass::~GenClastPass() {}
 
@@ -34,6 +35,28 @@ void GenClastPass::runSingleNest(ScopNest &nest) {
 	// data.cloogOptions->sh = 1;
 	data->cloogOptions->openscop = 1;
 	data->cloogOptions->backtrack = 0;
+
+	if (this->codegenContext != -1) {
+		for (int i = 0; i < scop->context->nb_parameters; i += 1) {
+			osl_relation_insert_blank_row(scop->context, -1);
+			osl_int_set_si(scop->context->precision,
+						   &scop->context->m[scop->context->nb_rows - 1][0], 1);
+			osl_int_set_si(scop->context->precision,
+						   &scop->context->m[scop->context->nb_rows - 1]
+											[1 + scop->context->nb_input_dims +
+											 scop->context->nb_local_dims +
+											 scop->context->nb_output_dims + i],
+						   1);
+			osl_int_set_si(scop->context->precision,
+						   &scop->context->m[scop->context->nb_rows - 1]
+											[1 + scop->context->nb_input_dims +
+											 scop->context->nb_local_dims +
+											 scop->context->nb_output_dims +
+											 scop->context->nb_parameters],
+
+						   -this->codegenContext);
+		}
+	}
 
 	CloogInput *input = cloog_input_from_osl_scop(data->cloogState, scop);
 	// input is freed by cloog_clast_create_from_input

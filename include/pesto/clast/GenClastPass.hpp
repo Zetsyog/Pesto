@@ -34,6 +34,8 @@ class ClastMetadata {
  */
 class GenClastPass : public IPestoSingleNestPass {
   public:
+	int codegenContext;
+
 	GenClastPass();
 	virtual ~GenClastPass();
 

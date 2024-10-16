@@ -22,6 +22,7 @@ ClastParamTilingPass::ClastParamTilingPass()
 	this->pluto_pass = std::make_unique<PlutoPass>();
 	this->tiling_pass = std::make_unique<PlutoPass>();
 	this->gen_clast_pass = std::make_unique<GenClastPass>();
+	this->gen_clast_pass->codegenContext = 10;
 
 	this->tiling_pass->getOptions()->parallel = 1;
 	this->tiling_pass->getOptions()->tile = 1;
