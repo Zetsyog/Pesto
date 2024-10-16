@@ -61,8 +61,8 @@ PassManagerBuilder::build(std::string path) {
 	try {
 		for (const auto &json_pass : j.at("passes")) {
 			auto pass = this->buildPass(json_pass);
-			if (pass.has_value()) {
-				pm->addPass(std::move(pass.value()));
+			if (pass) {
+				pm->addPass(std::move(pass));
 			}
 		}
 	} catch (const json::out_of_range &e) {
@@ -78,24 +78,23 @@ bool PassManagerBuilder::hasPassBuilder(std::string uuid) {
 	return builders.find(uuid) != builders.end();
 }
 
-// TODO: remove optional
-std::optional<std::unique_ptr<pesto::pass::IPass>>
+std::unique_ptr<pesto::pass::IPass>
 PassManagerBuilder::buildPass(const json &j) {
 	// Build a pass from a JSON object
 	if (j.contains("uuid") == false) {
 		std::cerr << "Error: can't parse pass. JSON object does not contain a "
 					 "uuid field"
 				  << std::endl;
-		return std::nullopt;
+		return nullptr;
 	}
 	std::string uuid = j["uuid"];
 	if (this->hasPassBuilder(uuid) == false) {
 		std::cerr << "Error: could not find pass builder with uuid " << uuid
 				  << std::endl;
-		return std::nullopt;
+		return nullptr;
 	}
 
 	std::unique_ptr<pesto::pass::IPass> pass = builders[uuid]->build(*this, j);
 
-	return std::optional<std::unique_ptr<pesto::pass::IPass>>(std::move(pass));
+	return pass;
 }

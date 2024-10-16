@@ -2,7 +2,6 @@
 #define PESTO_PASS_BUILDER_H
 
 #include <memory>
-#include <optional>
 
 #include <nlohmann/json.hpp>
 
@@ -61,7 +60,7 @@ class PassManagerBuilder {
 	 *
 	 * @return A pointer to the newly created pass
 	 */
-	std::optional<std::unique_ptr<pesto::pass::IPass>> buildPass(const json &j);
+	std::unique_ptr<pesto::pass::IPass> buildPass(const json &j);
 
 	/**
 	 * @brief register a pass builder
