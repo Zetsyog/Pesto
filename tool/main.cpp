@@ -73,7 +73,7 @@ int main(int argc, char **argv) {
 	// pesto magic starts here
 	// create pesto program
 	std::unique_ptr<pesto::Program> program =
-		pesto::builder::Program().addScop(scop).build();
+		pesto::Program::Builder().addScop(scop).build();
 	// scop has been copied by builder, we can free memory
 	osl_scop_free(scop);
 

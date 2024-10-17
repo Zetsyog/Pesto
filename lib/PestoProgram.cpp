@@ -2,45 +2,40 @@
 
 using namespace pesto;
 
-Program::Program() {}
-
 Program::~Program() { this->clearScopNests(); }
 
 /**
  * Add a OslScop to the Program
  * @param nest A pointer to the OslScop object to add
  */
-void Program::addScopNest(OslScop *nest) { this->nests.push_back(nest); }
+void Program::addScopNest(OslScop *nest) { this->scops.push_back(nest); }
 
 void Program::clearScopNests() {
-	for (auto &nest : this->nests) {
+	for (auto &nest : this->scops) {
 		delete nest;
 	}
-	this->nests.clear();
+	this->scops.clear();
 }
 
 /**
  * Get the OslScop objects in the Program
  * @return A vector of pointers to the OslScop objects
  */
-std::vector<OslScop *> Program::getScopNests() { return this->nests; }
+std::vector<OslScop *> Program::getScopNests() { return this->scops; }
 
-builder::Program::Program() : program(nullptr) { this->reset(); }
+Program::Builder::Builder() : nextScopId(0) {}
 
-builder::Program::~Program() {
-	if (this->program != nullptr)
-		delete this->program;
-}
-
-/**
+/**p
  * Build the Program object
  * @return A unique pointer to the Program object
  */
-std::unique_ptr<pesto::Program> builder::Program::build() {
-	pesto::Program *program = this->program;
-	this->program = nullptr;
-	this->reset();
-	return std::unique_ptr<pesto::Program>(program);
+std::unique_ptr<pesto::Program> Program::Builder::build() {
+	auto program = std::make_unique<pesto::Program>();
+	for (auto scop : this->scops) {
+		program->addScopNest(scop);
+	}
+	this->scops.clear();
+	return program;
 }
 
 /**
@@ -48,19 +43,9 @@ std::unique_ptr<pesto::Program> builder::Program::build() {
  * @param scop The osl_scop_p object to add
  * @return A reference to the ProgramBuilder object
  */
-builder::Program &builder::Program::addScop(osl_scop_p scop) {
-	OslScop *nest = new OslScop(nextNestId++, scop);
-	this->program->addScopNest(nest);
+Program::Builder &Program::Builder::addScop(osl_scop_p scop) {
+	OslScop *nest = new OslScop(nextScopId++, scop);
+	this->scops.push_back(nest);
 
 	return *this;
-}
-
-/**
- * Reset the ProgramBuilder object
- */
-void builder::Program::reset() {
-	if (this->program != nullptr) {
-		delete this->program;
-	}
-	this->program = new pesto::Program();
 }

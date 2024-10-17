@@ -20,7 +20,8 @@ namespace pesto {
  */
 class Program {
   public:
-	Program();
+	class Builder;
+
 	virtual ~Program();
 
 	void addScopNest(OslScop *nest);
@@ -28,31 +29,25 @@ class Program {
 	std::vector<OslScop *> getScopNests();
 
   private:
-	std::vector<OslScop *> nests;
+	std::vector<OslScop *> scops;
 };
 
-namespace builder {
 /**
  * This class is used to build a pesto::Program object from an OpenScop
  * representation
  */
-class Program {
+class Program::Builder {
   public:
-	Program();
-	virtual ~Program();
+	Builder();
 
-	std::unique_ptr<pesto::Program> build();
+	Builder &addScop(osl_scop_p scop);
 
-	pesto::builder::Program &addScop(osl_scop_p scop);
-
-	void reset();
+	std::unique_ptr<Program> build();
 
   private:
-	pesto::Program *program;
-	int nextNestId;
+	int nextScopId;
+	std::vector<OslScop *> scops;
 };
-
-} // namespace builder
 
 } // namespace pesto
 
