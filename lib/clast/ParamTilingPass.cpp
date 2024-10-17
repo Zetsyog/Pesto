@@ -144,6 +144,9 @@ void pesto::pass::ClastParamTilingPass::insert_tiling_statements(
 	char *lb_expr = (char *)malloc(512 * sizeof(char));
 	char *ub_expr = (char *)malloc(512 * sizeof(char));
 
+	memset(lb_expr, 0, 512);
+	memset(ub_expr, 0, 512);
+
 	// TODO: do not hard code the bound variable names
 	CloogNames *ub_names = cloog_names_hard_copy(metadata->cloogProgram->names);
 	for (int i = 0; i < ub_names->nb_scattering; i += 1) {
