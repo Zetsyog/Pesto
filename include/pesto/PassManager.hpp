@@ -35,7 +35,7 @@ class PassManager {
 	void addPass(std::unique_ptr<pesto::pass::IPass> pass);
 
   private:
-	std::vector<std::unique_ptr<pesto::pass::IPass>> passes;
+	std::vector<std::unique_ptr<pesto::pass::IPass>> passList;
 };
 
 } // namespace pesto
