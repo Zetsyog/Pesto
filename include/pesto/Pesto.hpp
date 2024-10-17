@@ -28,6 +28,8 @@
 
 #include <pesto/trahrhe.h>
 
+#include <pesto/Pluto.hpp>
+
 #include <pesto/macros.h>
 
 #endif // PESTO_PESTO_H

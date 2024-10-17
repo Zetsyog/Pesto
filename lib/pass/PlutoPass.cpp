@@ -25,76 +25,32 @@
 using namespace pesto::pass;
 
 PlutoPass::PlutoPass() : ISinglePass("pass-pluto") {
-	this->context = pluto_context_alloc();
-	this->getOptions()->silent = !PLUTO_DEBUG;
-	this->getOptions()->quiet = !PLUTO_DEBUG;
-	this->getOptions()->debug = PLUTO_DEBUG;
-	this->getOptions()->moredebug = PLUTO_DEBUG;
-
-	this->getOptions()->identity = 0;
-	this->getOptions()->isldep = 1;
-	this->getOptions()->readscop = 1;
-
-	this->getOptions()->tile = 0;
-	this->getOptions()->diamondtile = 0;
-	this->getOptions()->parallel = 0;
-	this->getOptions()->prevector = 0;
-	this->getOptions()->unrolljam = 0;
+	this->pluto = PlutoWrapper()
+					  .silent(!PLUTO_DEBUG)
+					  .quiet(!PLUTO_DEBUG)
+					  .debug(PLUTO_DEBUG)
+					  .moreDebug(PLUTO_DEBUG)
+					  .identity(0)
+					  .islDep(1)
+					  .tile(0)
+					  .diamondTile(0)
+					  .parallel(0)
+					  .prevector(0)
+					  .unrollJam(0);
 }
 
-PlutoOptions *PlutoPass::getOptions() { return this->context->options; }
+PlutoOptions &PlutoPass::getOptions() { return this->pluto.getOptions(); }
 
-void PlutoPass::runSingleNest(OslScop &nest) {
-	osl_scop_p scop = nest.getScop();
-
-	PlutoProg *pluto_prog = osl_scop_to_pluto_prog(scop, context);
-	pluto_schedule_prog(pluto_prog);
-	pluto_populate_scop(scop, pluto_prog, context);
-
-	pluto_prog_free(pluto_prog);
-}
-
-PlutoPass::~PlutoPass() { pluto_context_free(this->context); }
+void PlutoPass::runSingleNest(OslScop &nest) { this->pluto.run(nest); }
 
 PlutoAutoTransformPass::PlutoAutoTransformPass() {
-	this->getOptions()->silent = !PLUTO_DEBUG;
-	this->getOptions()->quiet = !PLUTO_DEBUG;
-	this->getOptions()->debug = PLUTO_DEBUG;
-	this->getOptions()->moredebug = PLUTO_DEBUG;
-
-	this->getOptions()->identity = 0;
-	this->getOptions()->isldep = 1;
-	this->getOptions()->readscop = 1;
-
-	// pluto opt
-	this->getOptions()->tile = 0;
-	this->getOptions()->diamondtile = 0;
-	this->getOptions()->parallel = 0;
-	this->getOptions()->prevector = 0;
-	this->getOptions()->unrolljam = 0;
 
 	this->name = "pass-pluto-auto-transform";
 }
 
-PlutoAutoTransformPass::~PlutoAutoTransformPass() {}
-
 PlutoTilingPass::PlutoTilingPass() {
-	this->getOptions()->silent = PLUTO_QUIET;
-	this->getOptions()->quiet = PLUTO_QUIET;
-	this->getOptions()->debug = PLUTO_DEBUG;
-	this->getOptions()->moredebug = PLUTO_DEBUG;
-
-	this->getOptions()->identity = 0;
-	this->getOptions()->isldep = 1;
-	this->getOptions()->readscop = 1;
-
 	// pluto opt
-	this->getOptions()->tile = 1;
-	this->getOptions()->diamondtile = 0;
-	this->getOptions()->parallel = 0;
-	this->getOptions()->prevector = 0;
-	this->getOptions()->unrolljam = 0;
+	this->getOptions().tile = 1;
 
 	this->name = "pass-pluto-tiling";
 }
-PlutoTilingPass::~PlutoTilingPass() {}

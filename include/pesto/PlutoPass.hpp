@@ -1,10 +1,12 @@
 #ifndef PESTO_PASS_PLUTO_H
 #define PESTO_PASS_PLUTO_H
 
+#include <string>
+
 #include <pesto/OslScop.hpp>
 #include <pesto/Pass.hpp>
+#include <pesto/Pluto.hpp>
 #include <pesto/Program.hpp>
-#include <string>
 
 #include <pluto/pluto.h>
 
@@ -18,14 +20,13 @@ namespace pass {
 class PlutoPass : public ISinglePass {
   public:
 	PlutoPass();
-	virtual ~PlutoPass();
 
 	virtual void runSingleNest(OslScop &nest);
 
-	PlutoOptions *getOptions();
+	PlutoOptions &getOptions();
 
   private:
-	PlutoContext *context;
+	PlutoWrapper pluto;
 };
 
 /**
@@ -35,7 +36,6 @@ class PlutoPass : public ISinglePass {
 class PlutoAutoTransformPass : public PlutoPass {
   public:
 	PlutoAutoTransformPass();
-	virtual ~PlutoAutoTransformPass();
 };
 
 /**
@@ -45,7 +45,6 @@ class PlutoAutoTransformPass : public PlutoPass {
 class PlutoTilingPass : public PlutoPass {
   public:
 	PlutoTilingPass();
-	virtual ~PlutoTilingPass();
 };
 
 } // namespace pass

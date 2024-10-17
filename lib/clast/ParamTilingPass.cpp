@@ -28,9 +28,9 @@ pesto::pass::ClastParamTilingPass::ClastParamTilingPass()
 	this->gen_clast_pass = std::make_unique<GenClastPass>();
 	this->gen_clast_pass->codegenContext = 10;
 
-	this->tiling_pass->getOptions()->parallel = 1;
-	this->tiling_pass->getOptions()->tile = 1;
-	this->tiling_pass->getOptions()->intratileopt = 0;
+	this->tiling_pass->getOptions().parallel = 1;
+	this->tiling_pass->getOptions().tile = 1;
+	this->tiling_pass->getOptions().intratileopt = 0;
 }
 
 pesto::pass::ClastParamTilingPass::~ClastParamTilingPass() {}
