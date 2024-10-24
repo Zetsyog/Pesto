@@ -7,6 +7,7 @@ trahrhe_bin="@abs_top_builddir@/trahrhe_wrapper"
 
 # TODO: custom compiler support
 CC=gcc
+pesto_gen_prefix=".pesto.gen"
 
 usage() {
     echo "Usage: pesto [options] <input_file>" >&2
@@ -18,6 +19,10 @@ usage() {
     printf "%-30s%s\n" "  -h, --help" "Print this help message" >&2
     printf "%-30s%s\n" "  -v, --version" "Print the current version of the software" >&2
     exit 1
+}
+
+cleanup() {
+    rm -f .pesto_prefix .exec-once .vardecls .kernel
 }
 
 OPTS=$(getopt -o o:ihv --long output:,indent,config:,readscop,version,help -- "$@")
@@ -109,7 +114,6 @@ echo "[pesto-cli] Working on file $working_file" >&2
 
 # file to store include directives
 include_file=$(mktemp)
-pesto_gen_prefix=".pesto.gen"
 
 echo "$pesto_gen_prefix" >".pesto_prefix"
 
@@ -162,6 +166,7 @@ process_file() {
     ${pesto_bin} "$scop_file" ${forward_opts[@]}
     if [ $? -ne 0 ]; then
         echo "[pesto-cli] ERROR: pesto-tool failed" >&2
+        cleanup
         exit 1
     fi
 
@@ -175,6 +180,7 @@ process_file() {
     for file in $generated_files; do
         if [[ ! -f "$file" ]]; then
             echo "[pesto-cli] ERROR: generated file $file not found" >&2
+            cleanup
             exit 1
         fi
         echo "[pesto-cli] DEBUG: processing $file" >&2
@@ -189,6 +195,7 @@ process_file() {
         ${CC} -E -P "$file" >>"$body_file"
         if [ $? -ne 0 ]; then
             echo "[pesto-cli] ERROR: Preprocessor failed" >&2
+            cleanup
             exit 1
         fi
 
