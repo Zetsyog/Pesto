@@ -1,3 +1,6 @@
 [submodule "pluto"]
 	path = pluto
 	url = https://gitlab.inria.fr/crossett/pluto-openscop.git
+[submodule "test/NPDP_Bench"]
+	path = test/NPDP_Bench
+	url = git@github.com:Zetsyog/NPDP_Bench.git
