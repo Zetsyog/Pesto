@@ -7,7 +7,7 @@
 
 using namespace pesto;
 
-PlutoWrapper::PlutoWrapper() { context = pluto_context_alloc(); }
+PlutoWrapper::PlutoWrapper() { this->context = pluto_context_alloc(); }
 
 PlutoWrapper::~PlutoWrapper() { pluto_context_free(context); }
 

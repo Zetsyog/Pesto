@@ -33,6 +33,7 @@ enum class ParamTilingType { RECTANGULAR, ALGEBRAIC, SCHEDULED };
 class ClastParamTilingPass : public ISinglePass {
   public:
 	bool gen_trahrhe;
+	std::string trahrhe_mask;
 
 	ClastParamTilingPass();
 	virtual ~ClastParamTilingPass();

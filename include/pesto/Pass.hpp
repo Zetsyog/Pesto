@@ -38,6 +38,7 @@ class ISinglePass : public IPass {
 	ISinglePass(std::string name);
 	virtual ~ISinglePass();
 
+	// TODO: rename to runSingleScop or runScop
 	virtual void runSingleNest(pesto::OslScop &nest) = 0;
 	virtual void run(pesto::Program &prog);
 };

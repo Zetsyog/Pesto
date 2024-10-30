@@ -16,6 +16,9 @@ ClastParamTilingPB::build(PassManagerBuilder &builder, const json &j) {
 	if (j.contains("gen-trahrhe")) {
 		pass->gen_trahrhe = j["gen-trahrhe"];
 	}
+	if (j.contains("trahrhe-mask")) {
+		pass->trahrhe_mask = j["trahrhe-mask"];
+	}
 
 	if (j.contains("types")) {
 		for (std::string elt : j["types"]) {

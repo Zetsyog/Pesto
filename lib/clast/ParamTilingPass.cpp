@@ -147,9 +147,20 @@ void pesto::pass::ClastParamTilingPass::insert_tiling_statements(
 	memset(lb_expr, 0, 512);
 	memset(ub_expr, 0, 512);
 
+	// There might be dimensions that were not tiled
+	// we need to remove them
+	// INFO: trahrhe only supports consecutive tiled dimensions
+	int firstTilingDim = 1000;
+	for (int i = 0; i < tiling_info_list.size(); i += 1) {
+		auto &tiling_info = tiling_info_list[i];
+		int dim = isl_set_n_dim(
+			isl_set_from_cloog_domain(tiling_info.outter_for->domain));
+		firstTilingDim = dim < firstTilingDim ? dim : firstTilingDim;
+	}
+
 	// TODO: do not hard code the bound variable names
 	CloogNames *ub_names = cloog_names_hard_copy(metadata->cloogProgram->names);
-	for (int i = 0; i < ub_names->nb_scattering; i += 1) {
+	for (int i = firstTilingDim; i < ub_names->nb_scattering; i += 1) {
 		char *it_name = ub_names->scattering[i];
 		ub_names->scattering[i] = (char *)malloc(32 * sizeof(char));
 		snprintf(ub_names->scattering[i], 32, "g%d_ub%s",
@@ -158,7 +169,7 @@ void pesto::pass::ClastParamTilingPass::insert_tiling_statements(
 	}
 
 	CloogNames *lb_names = cloog_names_hard_copy(metadata->cloogProgram->names);
-	for (int i = 0; i < lb_names->nb_scattering; i += 1) {
+	for (int i = firstTilingDim; i < lb_names->nb_scattering; i += 1) {
 		char *it_name = lb_names->scattering[i];
 		lb_names->scattering[i] = (char *)malloc(32 * sizeof(char));
 		snprintf(lb_names->scattering[i], 32, "g%d_lb%s",
@@ -325,7 +336,22 @@ void pesto::pass::ClastParamTilingPass::compute_trahrhe_isl_domain(
 		domain = isl_set_set_dim_name(domain, isl_dim_set, depth - 1, buffer);
 	}
 
+	// There might be dimensions that were not tiled
+	// we need to remove them
+	// INFO: trahrhe only supports consecutive tiled dimensions
+	int firstTilingDim = 1000;
+	for (int i = 0; i < tiling_info_list.size(); i += 1) {
+		auto &tiling_info = tiling_info_list[i];
+		int dim = isl_set_n_dim(
+			isl_set_from_cloog_domain(tiling_info.outter_for->domain));
+		firstTilingDim = dim < firstTilingDim ? dim : firstTilingDim;
+	}
+
+	log(std::cerr) << "First tiling dim: " << firstTilingDim << std::endl;
+
 	domain = this->removeTilingDimensions(domain, tiling_info_list);
+
+	domain = isl_set_remove_dims(domain, isl_dim_set, 0, firstTilingDim - 1);
 
 	int ndim = isl_set_dim(domain, isl_dim_set);
 
@@ -355,7 +381,8 @@ void pesto::pass::ClastParamTilingPass::compute_trahrhe_isl_domain(
 	isl_printer_free(printer);
 
 	fprintf(outfd, "\"");
-	fprintf(outfd, " -e -t%d -m\"d\" \n", ntiled_dim);
+	fprintf(outfd, " -e -t%d -m\"%s\" \n", ntiled_dim,
+			this->trahrhe_mask.c_str());
 
 	fclose(outfd);
 
@@ -627,6 +654,10 @@ void pesto::pass::ClastParamTilingPass::runSingleNest(OslScop &nest) {
 	auto metadata = nest.metadata.get<ClastHolder>().lock();
 
 	struct clast_root *root = (struct clast_root *)metadata->root;
+	if (root->stmt.next == NULL) {
+		log(std::cerr) << "No statements in the nest" << std::endl;
+	}
+	clast_pprint(stderr, (struct clast_stmt *)root, 0, metadata->cloogOptions);
 	if (root == NULL) {
 		return;
 	}
@@ -647,6 +678,9 @@ void pesto::pass::ClastParamTilingPass::runSingleNest(OslScop &nest) {
 		stmt_to_process.push_back(stmt[i]);
 	}
 	int group_count = 0;
+
+	log(std::cerr) << "Computing stmt groups (" << stmt_count << ")"
+				   << std::endl;
 
 	while (stmt_to_process.size() != 0) {
 		// group statement that have same for parent (ie same domain)
@@ -684,6 +718,8 @@ void pesto::pass::ClastParamTilingPass::runSingleNest(OslScop &nest) {
 			.stmts = stmt_group,
 			.parent_for = parent_for,
 		};
+
+		log(std::cerr) << "Processing group " << group.id << std::endl;
 
 		this->applyTiling(nest, (struct clast_stmt *)root, &group);
 		group_count += 1;
