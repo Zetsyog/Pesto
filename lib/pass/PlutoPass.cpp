@@ -24,9 +24,8 @@
 
 using namespace pesto::pass;
 
-PlutoPass::PlutoPass() : ISinglePass("pass-pluto") {
-	this->pluto = PlutoWrapper()
-					  .silent(!PLUTO_DEBUG)
+PlutoPass::PlutoPass() : ISinglePass("pass-pluto"), pluto() {
+	this->pluto = this->pluto.silent(!PLUTO_DEBUG)
 					  .quiet(!PLUTO_DEBUG)
 					  .debug(PLUTO_DEBUG)
 					  .moreDebug(PLUTO_DEBUG)
@@ -43,12 +42,11 @@ PlutoOptions &PlutoPass::getOptions() { return this->pluto.getOptions(); }
 
 void PlutoPass::runSingleNest(OslScop &nest) { this->pluto.run(nest); }
 
-PlutoAutoTransformPass::PlutoAutoTransformPass() {
-
+PlutoAutoTransformPass::PlutoAutoTransformPass() : PlutoPass() {
 	this->name = "pass-pluto-auto-transform";
 }
 
-PlutoTilingPass::PlutoTilingPass() {
+PlutoTilingPass::PlutoTilingPass() : PlutoPass() {
 	// pluto opt
 	this->getOptions().tile = 1;
 
