@@ -25,8 +25,6 @@ void GenClastPass::runSingleNest(OslScop &nest) {
 
 	int max_scattering_dim = osl_max_scattering_dim(scop);
 
-	data->cloogOptions->f = max_scattering_dim + 1;
-	data->cloogOptions->l = max_scattering_dim + 1;
 	// data.cloogOptions->override = 1;
 
 	data->cloogOptions->compilable = 0;
@@ -67,6 +65,9 @@ void GenClastPass::runSingleNest(OslScop &nest) {
 	program =
 		cloog_program_alloc(input->context, input->ud, data->cloogOptions);
 	free(input);
+
+	data->cloogOptions->f = program->nb_scattdims;
+	data->cloogOptions->l = program->nb_scattdims;
 
 	program = cloog_program_generate(program, data->cloogOptions);
 
