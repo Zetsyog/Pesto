@@ -13,6 +13,10 @@ PLUTO_INCLUDE+=-I$(top_srcdir)/pluto/include/
 PLUTO_LIBADD+=-lpluto
 PLUTO_LDFLAGS+=-L$(top_builddir)/pluto/lib
 
+MUPARSER_INCLUDE+=-I$(top_srcdir)/muparser/include/
+MUPARSER_LIBADD+=-lmuparser
+MUPARSER_LDFLAGS+=-L$(top_builddir)/muparser/build/
+
 bin_PROGRAMS=pesto
 
 EXTRA_pesto_DEPENDENCIES = ../lib/libpesto.la
@@ -27,12 +31,14 @@ pesto_CPPFLAGS=$(OPT_FLAGS) $(DEBUG_FLAGS) \
     $(OSL_INCLUDE) \
     $(CLAN_INCLUDE) \
     $(PLUTO_INCLUDE) \
+    $(MUPARSER_INCLUDE) \
     -I../include -I$(top_srcdir)/include 
 
-pesto_LDFLAGS=-static $(PLUTO_LDFLAGS)
+pesto_LDFLAGS=-static $(PLUTO_LDFLAGS) $(MUPARSER_LDFLAGS)
 
 pesto_LDADD = \
    ../lib/libpesto.la \
     $(PLUTO_LIBADD) \
+    $(MUPARSER_LIBADD) \
     $(CLAN_LIBADD) \
    -lm -lgomp
