@@ -30,6 +30,7 @@ libpesto_la_SOURCES = \
    codegen/CloogPass.cpp \
    codegen/trahrhe.c \
    codegen/VarDecls.cpp \
+   pass/ConditionalPass.cpp \
    pass/DumpOslPass.cpp \
    pass/ParamContextPass.cpp \
    pass/PlutoPass.cpp \

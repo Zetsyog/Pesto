@@ -37,14 +37,14 @@ class ClastHolder {
  * A pass that generates a clast from an openscop representation
  * The clast is stored in a ClastHolder for each OslScop
  */
-class GenClastPass : public ISinglePass {
+class GenClastPass : public IPass {
   public:
 	int codegenContext;
 
 	GenClastPass();
 	virtual ~GenClastPass();
 
-	virtual void runSingleNest(OslScop &nest);
+	virtual void applyScop(OslScop &nest) override;
 };
 
 } // namespace pass

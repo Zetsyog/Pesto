@@ -40,13 +40,14 @@ class MacroMetadata {
  * generate C code
  * Else it will use cloog on the openscop representation of the OslScop
  */
-class CloogCodegenPass : public ISinglePass {
+class CloogCodegenPass : public IPass {
   public:
 	CloogCodegenPass(std::string prefix);
 	virtual ~CloogCodegenPass();
 
-	virtual void run(Program &prog);
-	virtual void runSingleNest(OslScop &nest);
+	virtual void hookBegin(Program &prog) override;
+	virtual void hookEnd(Program &prog) override;
+	virtual void applyScop(OslScop &nest) override;
 
   private:
 	std::string path_prefix;

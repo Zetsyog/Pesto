@@ -7,11 +7,11 @@ using namespace pesto::pass;
 
 // ParamContextPass
 ParamContextPass::ParamContextPass(int contextValue)
-	: contextValue(contextValue), ISinglePass("pass-param-context") {}
+	: contextValue(contextValue), IPass("pass-param-context") {}
 
 ParamContextPass::~ParamContextPass() {}
 
-void ParamContextPass::runSingleNest(OslScop &nest) {
+void ParamContextPass::applyScop(OslScop &nest) {
 	osl_scop_p scop = nest.getScop();
 	int nparam = osl_scop_get_nb_parameters(scop);
 	for (int i = 0; i < nparam; i += 1) {

@@ -38,6 +38,11 @@ void PassManagerBuilder::registerPassBuilder(std::string uuid,
 
 std::unique_ptr<pesto::PassManager>
 PassManagerBuilder::build(std::string path) {
+	std::cerr << "[pesto-pmbuilder] Building pass manager from " << path
+			  << std::endl;
+	std::cerr << "[pesto-pmbuilder] " << builders.size()
+			  << " builders registered" << std::endl;
+
 	// Parse the JSON file and build the pass manager
 	std::ifstream file(path);
 
@@ -95,6 +100,8 @@ PassManagerBuilder::buildPass(const json &j) {
 	}
 
 	std::unique_ptr<pesto::pass::IPass> pass = builders[uuid]->build(*this, j);
+
+	std::cerr << "[pesto-pmbuilder] Pass '" << uuid << "' built" << std::endl;
 
 	return pass;
 }

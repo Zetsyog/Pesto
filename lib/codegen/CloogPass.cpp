@@ -7,17 +7,18 @@
 using namespace pesto::pass;
 
 CloogCodegenPass::CloogCodegenPass(std::string prefix)
-	: path_prefix(prefix), ISinglePass("pass-gen-cloog") {}
+	: path_prefix(prefix), IPass("pass-gen-cloog") {}
 
 CloogCodegenPass::~CloogCodegenPass() {}
 
-void CloogCodegenPass::run(Program &prog) {
-	using metadata::MacroMetadata;
-	using metadata::VarDeclMetadata;
-
+void CloogCodegenPass::hookBegin(Program &prog) {
 	log(std::cerr) << "Starting Cloog codegen using prefix '" << path_prefix
 				   << "'" << std::endl;
-	ISinglePass::run(prog);
+}
+
+void CloogCodegenPass::hookEnd(Program &prog) {
+	using metadata::MacroMetadata;
+	using metadata::VarDeclMetadata;
 
 	// generate var declarations
 	VarDeclMetadata varDecls;
@@ -69,7 +70,7 @@ void generateStmtMacro(FILE *fd, pesto::OslScop &nest) {
 	}
 }
 
-void CloogCodegenPass::runSingleNest(OslScop &nest) {
+void CloogCodegenPass::applyScop(OslScop &nest) {
 	using metadata::ClastHolder;
 	using metadata::MacroMetadata;
 	using metadata::VarDeclMetadata;

@@ -6,12 +6,11 @@
 
 using namespace pesto::pass;
 
-GenClastPass::GenClastPass()
-	: ISinglePass("pass-clast-gen"), codegenContext(-1) {}
+GenClastPass::GenClastPass() : IPass("pass-clast-gen"), codegenContext(-1) {}
 
 GenClastPass::~GenClastPass() {}
 
-void GenClastPass::runSingleNest(OslScop &nest) {
+void GenClastPass::applyScop(OslScop &nest) {
 	using metadata::ClastHolder;
 
 	nest.metadata.set<ClastHolder>();

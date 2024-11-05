@@ -24,12 +24,12 @@ class OpenScopMetadata {
  * A pass that adds a minimal value to global parameters of each scop of the
  * program
  */
-class ParamContextPass : public ISinglePass {
+class ParamContextPass : public IPass {
   public:
 	ParamContextPass(int contextValue);
 	virtual ~ParamContextPass();
 
-	virtual void runSingleNest(OslScop &nest);
+	virtual void applyScop(OslScop &nest) override;
 
   private:
 	int contextValue;
@@ -43,19 +43,19 @@ class SplitNestedLoopsPass : public IPass {
 	SplitNestedLoopsPass();
 	virtual ~SplitNestedLoopsPass();
 
-	virtual void run(Program &prog);
+	virtual void hookBegin(Program &prog) override;
 };
 
 /**
  * A pass that dumps the osl representation of each scop of the program
  * Useful for debugging
  */
-class DumpOslPass : public ISinglePass {
+class DumpOslPass : public IPass {
   public:
 	DumpOslPass(std::string prefix);
 	virtual ~DumpOslPass();
 
-	virtual void runSingleNest(OslScop &nest);
+	virtual void applyScop(OslScop &nest) override;
 
   private:
 	std::string path_prefix;

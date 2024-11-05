@@ -14,18 +14,23 @@ IPass::~IPass() {}
  */
 std::ostream &IPass::log(std::ostream &os) { return os << "[" << name << "] "; }
 
-ISinglePass::ISinglePass(std::string name) : IPass(name) {}
-
-ISinglePass::~ISinglePass() {}
-
 /**
- * Call the runSingleNest method on each ScopNest of the Program
+ * Call the applyScop method on each ScopNest of the Program
  * @param prog the Program to run the pass on
  */
-void ISinglePass::run(pesto::Program &prog) {
+void IPass::apply(pesto::Program &prog) {
+	this->hookBegin(prog);
 
 	std::vector<OslScop *> nests = prog.getScopNests();
 	for (auto &nest : nests) {
-		this->runSingleNest(*nest);
+		this->applyScop(*nest);
 	}
+
+	this->hookEnd(prog);
 }
+
+void IPass::hookBegin(pesto::Program &prog) {}
+
+void IPass::hookEnd(pesto::Program &prog) {}
+
+void IPass::applyScop(pesto::OslScop &nest) {}

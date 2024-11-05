@@ -17,11 +17,11 @@ namespace pass {
 /**
  * A generic pass that runs Pluto on each OslScop of the program
  */
-class PlutoPass : public ISinglePass {
+class PlutoPass : public IPass {
   public:
 	PlutoPass();
 
-	virtual void runSingleNest(OslScop &nest);
+	virtual void applyScop(OslScop &nest) override;
 
 	PlutoOptions &getOptions();
 

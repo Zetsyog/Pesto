@@ -24,23 +24,37 @@ class IPass {
 	IPass(std::string name);
 	virtual ~IPass();
 
-	virtual void run(pesto::Program &prog) = 0;
+	/**
+	 * @brief apply the pass on the program
+	 * @param prog the program to apply the pass on
+	 */
+	void apply(pesto::Program &prog);
+
+	/**
+	 * @brief hook if some computation must be done on the entire program
+	 * Called before the applyScop method
+	 * @param prog the program to apply the pass on
+	 */
+	virtual void hookBegin(pesto::Program &prog);
+
+	/**
+	 * @brief hook if some computation must be done on the entire program
+	 * Called after the applyScop method
+	 * @param prog the program to apply the pass on
+	 */
+	virtual void hookEnd(pesto::Program &prog);
+
+	/**
+	 * @brief apply the pass on a single scop
+	 * @param nest the nest to apply the pass on
+	 */
+	virtual void applyScop(pesto::OslScop &nest);
 
 	virtual std::string getName() { return name; }
 
   protected:
 	std::string name;
 	virtual std::ostream &log(std::ostream &os);
-};
-
-class ISinglePass : public IPass {
-  public:
-	ISinglePass(std::string name);
-	virtual ~ISinglePass();
-
-	// TODO: rename to runSingleScop or runScop
-	virtual void runSingleNest(pesto::OslScop &nest) = 0;
-	virtual void run(pesto::Program &prog);
 };
 
 } // namespace pass

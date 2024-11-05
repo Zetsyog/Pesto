@@ -14,7 +14,8 @@ void PassManager::runPasses(Program &prog) {
 		std::cerr << "[" << PESTO_NAME_PM << "] Running pass '"
 				  << (*it)->getName() << "' on " << std::to_string(nestCount)
 				  << " loop nests " << std::endl;
-		(*it)->run(prog);
+
+		(*it)->apply(prog);
 	}
 }
 
