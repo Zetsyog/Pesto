@@ -40,7 +40,11 @@ PlutoPass::PlutoPass() : IPass("pass-pluto"), pluto() {
 
 PlutoOptions &PlutoPass::getOptions() { return this->pluto.getOptions(); }
 
-void PlutoPass::applyScop(OslScop &nest) { this->pluto.run(nest); }
+void PlutoPass::applyScop(OslScop &nest) {
+	log(std::cerr) << "Applying pluto on nest " << nest.getId() << std::endl;
+	// run the pass on each nest
+	this->pluto.run(nest);
+}
 
 PlutoAutoTransformPass::PlutoAutoTransformPass() : PlutoPass() {
 	this->name = "pass-pluto-auto-transform";
