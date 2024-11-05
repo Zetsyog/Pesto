@@ -73,7 +73,7 @@ class ParamTilingUtility {
 	 * @param depth the depth of the loop to tile
 	 * @return the tiling type
 	 */
-	ParamTilingType getTilingType(int depth);
+	ParamTilingType getTilingType(std::size_t depth);
 
 	/**
 	 * @brief push a tiling type to the list of tiling types

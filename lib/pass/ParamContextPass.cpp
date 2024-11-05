@@ -7,7 +7,7 @@ using namespace pesto::pass;
 
 // ParamContextPass
 ParamContextPass::ParamContextPass(int contextValue)
-	: contextValue(contextValue), IPass("pass-param-context") {}
+	: IPass("pass-param-context"), contextValue(contextValue) {}
 
 ParamContextPass::~ParamContextPass() {}
 

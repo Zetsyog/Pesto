@@ -13,7 +13,7 @@
 #define STR_BUF_SIZE 512
 
 pesto::ParamTilingUtility::ParamTilingUtility()
-	: scop(nullptr), root(nullptr), error(false), insertedStmts(0) {}
+	: scop(nullptr), root(nullptr), insertedStmts(0), error(false) {}
 
 pesto::ParamTilingUtility::~ParamTilingUtility() {
 	for (auto &group : this->stmtGroups) {
@@ -127,8 +127,6 @@ void pesto::ParamTilingUtility::computeStmtGroups() {
 }
 
 void pesto::ParamTilingUtility::tileGroup(StmtGroup &group) {
-	struct clast_root *root = (struct clast_root *)this->root;
-
 	isl_set *group_domain =
 		isl_set_copy(isl_set_from_cloog_domain(group.parent_for->domain));
 
@@ -249,8 +247,6 @@ void pesto::ParamTilingUtility::associateTilingFor(StmtGroup &group) {
 					(struct clast_stmt *)current_for);
 				continue;
 			}
-			std::pair<struct clast_for *, struct clast_for *> tiling_for = {
-				outter_for, current_for};
 			auto data = std::make_unique<struct TilingData>();
 			data->outter_for = outter_for;
 			data->inner_for = current_for;
@@ -272,7 +268,7 @@ void pesto::ParamTilingUtility::associateTilingFor(StmtGroup &group) {
 			  });
 
 	// update the tiling depth
-	for (int i = 0; i < group.tilingData.size(); i++) {
+	for (std::size_t i = 0; i < group.tilingData.size(); i++) {
 		group.tilingData[i]->tiling_depth = i;
 	}
 }
@@ -281,7 +277,8 @@ void pesto::ParamTilingUtility::pushTilingType(ParamTilingType type) {
 	this->tilingTypes.push_back(type);
 }
 
-pesto::ParamTilingType pesto::ParamTilingUtility::getTilingType(int depth) {
+pesto::ParamTilingType
+pesto::ParamTilingUtility::getTilingType(std::size_t depth) {
 	// default is algebraic
 	if (this->tilingTypes.size() == 0) {
 		return ParamTilingType::ALGEBRAIC;
@@ -576,11 +573,8 @@ pesto::ParamTilingUtility::dropTilingConstraints(__isl_take isl_set *set,
 		 riter != group.tilingData.rend(); ++riter) {
 		auto &data = *riter;
 
-		struct clast_for *outter_for = data->outter_for;
-		struct clast_for *inner_for = data->inner_for;
-
-		int ndim = isl_set_dim(isl_set_from_cloog_domain(outter_for->domain),
-							   isl_dim_set);
+		int ndim = isl_set_dim(
+			isl_set_from_cloog_domain(data->outter_for->domain), isl_dim_set);
 
 		res = isl_set_drop_constraints_involving_dims(res, isl_dim_set,
 													  ndim - 1, 1);
@@ -604,11 +598,8 @@ pesto::ParamTilingUtility::removeTilingDimensions(__isl_take isl_set *set,
 		 riter != group.tilingData.rend(); ++riter) {
 		auto &data = *riter;
 
-		struct clast_for *outter_for = data->outter_for;
-		struct clast_for *inner_for = data->inner_for;
-
-		int ndim = isl_set_dim(isl_set_from_cloog_domain(outter_for->domain),
-							   isl_dim_set);
+		int ndim = isl_set_dim(
+			isl_set_from_cloog_domain(data->outter_for->domain), isl_dim_set);
 
 		res = isl_set_drop_constraints_involving_dims(res, isl_dim_set,
 													  ndim - 1, 1);
@@ -721,7 +712,8 @@ void pesto::ParamTilingUtility::updateOmpPragma(struct StmtGroup &group) {
 	TRAHRHE_GEN_INNER_UB(sprintf, buffer + strlen(buffer),
 						 &group.tilingData[tiling_depth]->codegen_data.second);
 
-	for (int i = tiling_depth + 1; i < group.tilingData.size(); i += 1) {
+	for (std::size_t i = tiling_depth + 1; i < group.tilingData.size();
+		 i += 1) {
 		sprintf(buffer + strlen(buffer), ", ");
 		TRAHRHE_GEN_OUTTER_UB(sprintf, buffer + strlen(buffer),
 							  &group.tilingData[i]->codegen_data.first);
@@ -780,7 +772,7 @@ void pesto::ParamTilingUtility::computeTrahrheDomain(struct StmtGroup &group) {
 	char *buffer = (char *)malloc(STR_BUF_SIZE * sizeof(char));
 
 	// for each tiled dimensionss
-	for (int i = 0; i < group.tilingData.size(); i += 1) {
+	for (std::size_t i = 0; i < group.tilingData.size(); i += 1) {
 		auto &data = group.tilingData[i];
 
 		// we the dimension
@@ -808,7 +800,7 @@ void pesto::ParamTilingUtility::computeTrahrheDomain(struct StmtGroup &group) {
 	isl_map_free(trans);
 
 	int ntiled_dim = 0;
-	for (int i = 0; i < group.tilingData.size(); i += 1) {
+	for (std::size_t i = 0; i < group.tilingData.size(); i += 1) {
 		if (this->getTilingType(i) != ParamTilingType::RECTANGULAR) {
 			ntiled_dim += 1;
 		}

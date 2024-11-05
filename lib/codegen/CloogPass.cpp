@@ -7,7 +7,7 @@
 using namespace pesto::pass;
 
 CloogCodegenPass::CloogCodegenPass(std::string prefix)
-	: path_prefix(prefix), IPass("pass-gen-cloog") {}
+	: IPass("pass-gen-cloog"), path_prefix(prefix) {}
 
 CloogCodegenPass::~CloogCodegenPass() {}
 
@@ -130,7 +130,7 @@ void CloogCodegenPass::applyScop(OslScop &nest) {
 	osl_scatnames_p scatnames = (osl_scatnames_p)osl_generic_lookup(
 		nest.getScop()->extension, OSL_URI_SCATNAMES);
 	if (scatnames) {
-		for (int i = 0; i < osl_strings_size(scatnames->names); i++) {
+		for (size_t i = 0; i < osl_strings_size(scatnames->names); i++) {
 			varDeclsData->addVar(scatnames->names->string[i]);
 		}
 	}
