@@ -59,6 +59,12 @@ osl_scop_p *osl_scop_split_nests(osl_scop_p scop);
  */
 int osl_max_scattering_dim(osl_scop_p scop);
 
+/**
+ * @brief check if the given dimension of the relation is scalar
+ * @return 1 if the dimension is scalar, 0 otherwise
+ */
+int osl_relation_is_dim_scalar(osl_relation_p rel, int dim);
+
 #ifdef __cplusplus
 }
 #endif

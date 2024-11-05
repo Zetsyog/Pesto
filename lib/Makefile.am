@@ -43,6 +43,7 @@ libpesto_la_SOURCES = \
    passbuilder/PlutoPB.cpp \
    passbuilder/PMBuilder.cpp \
    passbuilder/SplitNestPB.cpp \
+   ParamTilingUtility.cpp \
    PlutoWrapper.cpp
 
 libpesto_la_CPPFLAGS = $(OPT_FLAGS) $(DEBUG_FLAGS)\

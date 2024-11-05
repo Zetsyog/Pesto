@@ -1,3 +1,4 @@
+#include <fstream>
 #include <functional>
 #include <iostream>
 #include <memory>
@@ -24,13 +25,8 @@ pesto::pass::ClastParamTilingPass::ClastParamTilingPass()
 	using namespace pesto::pass;
 
 	this->pluto_pass = std::make_unique<PlutoPass>();
-	this->tiling_pass = std::make_unique<PlutoPass>();
 	this->gen_clast_pass = std::make_unique<GenClastPass>();
 	this->gen_clast_pass->codegenContext = 10;
-
-	this->tiling_pass->getOptions().parallel = 1;
-	this->tiling_pass->getOptions().tile = 1;
-	this->tiling_pass->getOptions().intratileopt = 0;
 }
 
 pesto::pass::ClastParamTilingPass::~ClastParamTilingPass() {}
@@ -38,7 +34,73 @@ pesto::pass::ClastParamTilingPass::~ClastParamTilingPass() {}
 void pesto::pass::ClastParamTilingPass::run(pesto::Program &prog) {
 	// run the pass on each nest
 	for (auto &nest : prog.getScopNests()) {
-		runSingleNest(*nest);
+		auto tilingUtil = std::make_unique<ParamTilingUtility>();
+
+		// First we apply pluto
+		log(std::cerr) << "Running pluto pass on nest " << nest->getId()
+					   << std::endl;
+		((PlutoPass *)this->pluto_pass.get())->runSingleNest(*nest);
+
+		// Then we generate the clast
+		log(std::cerr) << "Generating clast for nest " << nest->getId()
+					   << std::endl;
+		this->gen_clast_pass->runSingleNest(*nest);
+		auto clastData = nest->metadata.get<ClastHolder>();
+		if (clastData.expired()) {
+			log(std::cerr) << "Error: "
+						   << "No clast data found" << std::endl;
+		}
+		tilingUtil->setScop(nest->getScop());
+		tilingUtil->setIdTrahrhePrefix(nest->getId());
+
+		std::shared_ptr<ClastHolder> clastDataShared = clastData.lock();
+		tilingUtil->setClastRoot((struct clast_root *)clastDataShared->root);
+		tilingUtil->setCloogProgram(clastDataShared->cloogProgram);
+		tilingUtil->setCloogOptions(clastDataShared->cloogOptions);
+
+		tilingUtil->apply();
+		if (tilingUtil->hasError()) {
+			log(std::cerr) << "Error while tiling: "
+						   << tilingUtil->getErrorMessage() << std::endl;
+		}
+
+		for (auto &name : tilingUtil->getNames()) {
+			clastDataShared->names.push_back(name);
+		}
+
+		auto macroData = nest->metadata.getOrCreate<MacroMetadata>().lock();
+		for (auto &pair : tilingUtil->getStatements()) {
+			macroData->list.push_back("#define S" + std::to_string(pair.first) +
+									  "() " + pair.second);
+		}
+
+		auto varDeclData = nest->metadata.getOrCreate<VarDeclMetadata>().lock();
+		for (auto &var : tilingUtil->getVarList()) {
+			varDeclData->addVar(var);
+		}
+
+		auto trahrheDomains = tilingUtil->getTrahrheDomains();
+		int domainCount = 0;
+		for (auto &pair : trahrheDomains) {
+			log(std::cerr) << "Trahrhe domain = " << pair.second << std::endl;
+			if (this->gen_trahrhe) {
+				std::ofstream outfile;
+				outfile.open(".exec-once", std::ios::app);
+				outfile << "trahrhe_wrapper trahrhe_header.n" << nest->getId()
+						<< ".g" << domainCount << ".h ";
+				outfile << " -d\"" << pair.second << "\"";
+				outfile << " -e -t" << pair.first << " -m\""
+						<< this->trahrhe_mask << "\" \n";
+				outfile.close();
+			}
+			// TODO: function to generate the header file name
+			std::string macro = "#include \"trahrhe_header.n" +
+								std::to_string(nest->getId()) + ".g" +
+								std::to_string(domainCount) + ".h\"";
+			macroData->list.push_back(macro);
+			domainCount++;
+		}
+		// runSingleNest(*nest);
 	}
 }
 

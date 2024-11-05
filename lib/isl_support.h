@@ -115,6 +115,14 @@ __isl_give isl_set *isl_set_remove_tiling_dimensions(__isl_take isl_set *set);
  */
 __isl_give isl_set *isl_set_drop_tiling_constraints(__isl_take isl_set *set);
 
+/**
+ *  @brief check if the given dimension is scalar in the set
+ * @param set
+ * @param dim
+ * @return isl_bool whether the dimension is scalar
+ */
+isl_bool isl_set_is_dim_scalar(__isl_keep isl_set *set, int dim);
+
 #ifdef __cplusplus
 }
 #endif

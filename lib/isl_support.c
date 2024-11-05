@@ -407,3 +407,60 @@ __isl_give isl_set *isl_set_drop_tiling_constraints(__isl_take isl_set *set) {
 
 	return set;
 }
+
+isl_bool isl_set_is_dim_scalar(__isl_keep isl_set *set, int dim) {
+	isl_basic_set_list *bset_list = isl_set_get_basic_set_list(set);
+	isl_size n_bset = isl_basic_set_list_n_basic_set(bset_list);
+	for (int i = 0; i < n_bset; i += 1) {
+		isl_basic_set *bset = isl_basic_set_list_get_at(bset_list, i);
+		isl_constraint_list *cst_list = isl_basic_set_get_constraint_list(bset);
+		isl_size n_cst = isl_constraint_list_size(cst_list);
+		for (int j = 0; j < n_cst; j += 1) {
+			isl_constraint *cst = isl_constraint_list_get_at(cst_list, j);
+			// if constraint is not equality, skip
+			if (!isl_constraint_is_equality(cst)) {
+				isl_constraint_free(cst);
+				continue;
+			}
+			// if constraint does not involve the given dimension, skip
+			if (isl_constraint_involves_dims(cst, isl_dim_set, dim, 1) ==
+				isl_bool_false) {
+				isl_constraint_free(cst);
+				continue;
+			}
+			// if constraint involve any other dimension, return false
+			if (isl_constraint_involves_dims(cst, isl_dim_set, 0, dim) ==
+					isl_bool_true ||
+				isl_constraint_involves_dims(
+					cst, isl_dim_set, dim + 1,
+					isl_basic_set_dim(bset, isl_dim_set) - dim - 1) ==
+					isl_bool_true) {
+				isl_constraint_free(cst);
+				continue;
+			}
+			isl_constraint_free(cst);
+			isl_constraint_list_free(cst_list);
+			isl_basic_set_free(bset);
+			isl_basic_set_list_free(bset_list);
+			return isl_bool_true;
+		}
+
+		isl_constraint_list_free(cst_list);
+		isl_basic_set_free(bset);
+	}
+	isl_basic_set_list_free(bset_list);
+
+	return isl_bool_false;
+}
+
+__isl_give isl_set *isl_set_swap_dim(__isl_take isl_set *set, enum isl_dim_type,
+									 int pos1, int pos2) {
+	isl_size ndim = isl_set_dim(set, isl_dim_set);
+	if (pos1 < 0 || pos1 >= ndim || pos2 < 0 || pos2 >= ndim) {
+		isl_set_free(set);
+		return NULL;
+	}
+	isl_set *result = NULL;
+
+	return set;
+}

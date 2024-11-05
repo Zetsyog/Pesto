@@ -36,6 +36,10 @@ extern "C" {
 #define TRAHRHE_GEN_INNER_UB(fn, target, data)                                 \
 	fn(target, "g%d_ub%s", (data)->group_id, (data)->inner_it_name)
 
+#define TRAHRHE_GEN_TRAHRHE_ITERATOR(fn, target, data)                         \
+	fn(target, "n%d_g%d_%s", (data)->nest_id, (data)->group_id,                \
+	   (data)->inner_it_name)
+
 enum trahrhe_stmt_type { trahrhe_stmt_head, trahrhe_stmt_body };
 
 enum ptile_type {

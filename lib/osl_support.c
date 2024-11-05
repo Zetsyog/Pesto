@@ -170,3 +170,28 @@ int osl_max_scattering_dim(osl_scop_p scop) {
 	}
 	return max_dim;
 }
+
+int osl_relation_is_dim_scalar(osl_relation_p rel, int dim) {
+	assert(dim < rel->nb_output_dims);
+	int precision = rel->precision;
+	osl_int_t mone;
+	osl_int_init_set_si(precision, &mone, -1);
+	for (int i = 0; i < rel->nb_rows; i += 1) {
+		// if it is an equality
+		if (osl_int_zero(precision, rel->m[i][0])) {
+			// ensure that all other columns are zero except the dim
+			for (int j = 1; j < rel->nb_columns - 1; j += 1) {
+				if (j == dim) {
+					continue;
+				}
+				if (!osl_int_zero(precision, rel->m[i][j])) {
+					return 0;
+				}
+			}
+			if (!osl_int_zero(precision, rel->m[i][dim])) {
+				return 1;
+			}
+		}
+	}
+	return 0;
+}

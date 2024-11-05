@@ -59,7 +59,6 @@ class ClastParamTilingPass : public ISinglePass {
   private:
 	bool is_stencil;
 	std::unique_ptr<IPass> pluto_pass;
-	std::unique_ptr<PlutoPass> tiling_pass;
 	std::unique_ptr<GenClastPass> gen_clast_pass;
 
 	std::vector<ParamTilingType> tiling_types;

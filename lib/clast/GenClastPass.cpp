@@ -27,14 +27,8 @@ void GenClastPass::runSingleNest(OslScop &nest) {
 
 	// data.cloogOptions->override = 1;
 
-	data->cloogOptions->compilable = 0;
-	data->cloogOptions->esp = 1;
-	data->cloogOptions->strides = 0;
-	data->cloogOptions->nosimplify = 0;
 	data->cloogOptions->save_domains = 1;
-	// data.cloogOptions->sh = 1;
 	data->cloogOptions->openscop = 1;
-	data->cloogOptions->backtrack = 0;
 
 	if (this->codegenContext != -1) {
 		for (int i = 0; i < scop->context->nb_parameters; i += 1) {
@@ -66,7 +60,7 @@ void GenClastPass::runSingleNest(OslScop &nest) {
 		cloog_program_alloc(input->context, input->ud, data->cloogOptions);
 	free(input);
 
-	data->cloogOptions->f = program->nb_scattdims;
+	data->cloogOptions->f = -1;
 	data->cloogOptions->l = program->nb_scattdims;
 
 	program = cloog_program_generate(program, data->cloogOptions);

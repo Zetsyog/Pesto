@@ -28,6 +28,7 @@
 
 #include <pesto/trahrhe.h>
 
+#include <pesto/ParamTiling.hpp>
 #include <pesto/Pluto.hpp>
 
 #include <pesto/macros.h>
