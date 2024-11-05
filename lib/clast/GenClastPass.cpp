@@ -22,8 +22,6 @@ void GenClastPass::applyScop(OslScop &nest) {
 	data->cloogOptions = cloog_options_malloc(data->cloogState);
 	data->stmtsNb = osl_statement_number(scop->statement);
 
-	int max_scattering_dim = osl_max_scattering_dim(scop);
-
 	// data.cloogOptions->override = 1;
 
 	data->cloogOptions->save_domains = 1;
@@ -71,8 +69,8 @@ void GenClastPass::applyScop(OslScop &nest) {
 }
 
 metadata::ClastHolder::ClastHolder()
-	: root(nullptr), cloogProgram(nullptr), cloogOptions(nullptr),
-	  cloogState(nullptr) {}
+	: cloogState(nullptr), cloogOptions(nullptr), cloogProgram(nullptr),
+	  root(nullptr) {}
 
 metadata::ClastHolder::~ClastHolder() {
 	if (root) {

@@ -105,7 +105,7 @@ void pesto::pass::ClastParamTilingPass::pushTilingType(ParamTilingType type) {
 }
 
 pesto::pass::ParamTilingType
-pesto::pass::ClastParamTilingPass::getTilingType(int depth) {
+pesto::pass::ClastParamTilingPass::getTilingType(size_t depth) {
 	if (this->tiling_types.size() == 0) {
 		return ParamTilingType::ALGEBRAIC;
 	}

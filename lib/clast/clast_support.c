@@ -134,8 +134,6 @@ int clast_for_is_outter_tile_loop(__isl_keep isl_set *set,
 								  struct clast_for *for_stmt) {
 	assert(for_stmt->domain != NULL);
 
-	isl_ctx *ctx = isl_set_get_ctx(set);
-
 	isl_set *domain = isl_set_copy(set);
 
 	int n_dim =
@@ -210,7 +208,6 @@ int clast_for_get_inner_tile_outter_dim(struct clast_for *for_stmt) {
 	assert(for_stmt->domain != NULL);
 
 	isl_set *set = isl_set_from_cloog_domain(for_stmt->domain);
-	isl_ctx *ctx = isl_set_get_ctx(set);
 
 	isl_set *domain = isl_set_copy(set);
 

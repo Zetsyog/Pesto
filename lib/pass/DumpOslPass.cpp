@@ -9,7 +9,7 @@ using pesto::pass::metadata::OpenScopMetadata;
 // DumpOslPass
 
 DumpOslPass::DumpOslPass(std::string prefix)
-	: path_prefix(prefix), IPass("pass-dump-osl") {}
+	: IPass("pass-dump-osl"), path_prefix(prefix) {}
 
 DumpOslPass::~DumpOslPass() {}
 

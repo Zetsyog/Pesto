@@ -105,7 +105,6 @@ osl_scop_p *osl_scop_split_nests(osl_scop_p scop) {
 	if (nest_count <= 1) {
 		return NULL;
 	}
-	int next_scop_idx;
 	osl_scop_p *new_scops =
 		(osl_scop_p *)malloc(nest_count * sizeof(osl_scop_p));
 

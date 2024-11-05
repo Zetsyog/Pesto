@@ -33,18 +33,12 @@ void osl_scop_to_isl(osl_scop_p scop, isl_ctx *ctx, isl_union_map **schedules,
 	isl_union_map *_writes = isl_union_map_empty_ctx(ctx);
 	osl_strings_p names = (osl_strings_p)scop->parameters->data;
 
-	isl_space *param_space = isl_space_params_alloc(ctx, n_param);
-
 	int i = 0;
 	for (osl_statement_p stmt = scop->statement; stmt != NULL;
 		 stmt = stmt->next, i += 1) {
 
 		char stmt_name[100] = {0};
 		sprintf(stmt_name, "S_%d", i);
-		isl_id *id = isl_id_alloc(ctx, stmt_name, NULL);
-
-		isl_space *space = isl_space_add_named_tuple_id_ui(
-			isl_space_copy(param_space), id, stmt->domain->nb_input_dims);
 
 		isl_set *set = isl_set_from_osl_relation(stmt->domain, ctx);
 
@@ -279,16 +273,6 @@ __isl_give isl_basic_set *isl_basic_set_from_osl_scop(isl_ctx *ctx,
 	return result_bset;
 }
 
-void get_lb_ub_expr_from_isl(isl_basic_set *bset, int pos,
-							 const char *lb_prefix, const char *ub_prefix,
-							 char **lb_expr, char **ub_expr) {
-	isl_ctx *ctx = isl_basic_set_get_ctx(bset);
-
-	isl_size ndim = isl_basic_set_dim(bset, isl_dim_set);
-
-	isl_constraint_list *cst_list = isl_basic_set_get_constraint_list(bset);
-}
-
 __isl_give isl_set *
 isl_set_set_param_names_from_osl_scop(__isl_take isl_set *set,
 									  osl_scop_p scop) {
@@ -321,9 +305,6 @@ int isl_set_count_tiling_dimensions(__isl_keep isl_set *set) {
 }
 
 isl_bool isl_basic_set_is_tiling_dim(__isl_keep isl_basic_set *bset, int pos) {
-	isl_ctx *ctx = isl_basic_set_get_ctx(bset);
-
-	int ndim = isl_basic_set_dim(bset, isl_dim_set);
 	isl_constraint_list *cst_list = isl_basic_set_get_constraint_list(bset);
 	isl_size list_len = isl_constraint_list_size(cst_list);
 	isl_bool result = isl_bool_false;
@@ -451,16 +432,4 @@ isl_bool isl_set_is_dim_scalar(__isl_keep isl_set *set, int dim) {
 	isl_basic_set_list_free(bset_list);
 
 	return isl_bool_false;
-}
-
-__isl_give isl_set *isl_set_swap_dim(__isl_take isl_set *set, enum isl_dim_type,
-									 int pos1, int pos2) {
-	isl_size ndim = isl_set_dim(set, isl_dim_set);
-	if (pos1 < 0 || pos1 >= ndim || pos2 < 0 || pos2 >= ndim) {
-		isl_set_free(set);
-		return NULL;
-	}
-	isl_set *result = NULL;
-
-	return set;
 }
