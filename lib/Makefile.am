@@ -15,6 +15,10 @@ PLUTO_INCLUDE+=-I$(top_srcdir)/pluto/include/
 PLUTO_LIBADD+=-lpluto
 PLUTO_LDFLAGS+=-L$(top_builddir)/pluto/lib
 
+MUPARSER_INCLUDE+=-I$(top_srcdir)/muparser/include/
+MUPARSER_LIBADD+=-lmuparser
+MUPARSER_LDFLAGS+=-L$(top_builddir)/muparser/build/
+
 
 EXTRA_libpesto_la_DEPENDENCIES = ../pluto/lib/libpluto.la
 
@@ -30,8 +34,8 @@ libpesto_la_SOURCES = \
    codegen/CloogPass.cpp \
    codegen/trahrhe.c \
    codegen/VarDecls.cpp \
-   pass/ConditionalPass.cpp \
    pass/DumpOslPass.cpp \
+   pass/MatchCriteriaPass.cpp \
    pass/ParamContextPass.cpp \
    pass/PlutoPass.cpp \
    pass/SplitNestPass.cpp \
@@ -39,6 +43,7 @@ libpesto_la_SOURCES = \
    passbuilder/ClastParamTilingPB.cpp \
    passbuilder/CloogCodegenPB.cpp \
    passbuilder/GenClastPB.cpp \
+   passbuilder/MatchCriteriaPB.cpp \
    passbuilder/ParamContextPB.cpp \
    passbuilder/PassBuilder.cpp \
    passbuilder/PlutoPB.cpp \
@@ -47,18 +52,20 @@ libpesto_la_SOURCES = \
    ParamTilingUtility.cpp \
    PlutoWrapper.cpp
 
-libpesto_la_CPPFLAGS = $(OPT_FLAGS) $(DEBUG_FLAGS)\
+libpesto_la_CPPFLAGS = -Wall $(OPT_FLAGS) $(DEBUG_FLAGS)  \
    -I../include -I$(top_srcdir)/include \
    $(CLOOG_INCLUDE) \
    $(ISL_INCLUDE) \
    $(OSL_INCLUDE) \
-   $(PLUTO_INCLUDE)
+   $(PLUTO_INCLUDE) \
+   $(MUPARSER_INCLUDE)
 
-libpesto_la_LDFLAGS = $(PLUTO_LDFLAGS)
+libpesto_la_LDFLAGS = $(PLUTO_LDFLAGS) $(MUPARSER_LDFLAGS)
 
 libpesto_la_LIBADD = \
    $(CLOOG_LIBADD) \
    $(ISL_LIBADD) \
    $(OSL_LIBADD) \
    $(PLUTO_LIBADD) \
+   $(MUPARSER_LIBADD) \
    -lm -lgomp

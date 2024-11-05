@@ -65,6 +65,19 @@ dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 AC_TYPE_SIZE_T
 
+echo "======================"
+echo "Configuring muparser"
+echo "======================"
+AC_SUBST(MUPARSER_INCLUDE)
+AC_SUBST(MUPARSER_LIBADD)
+AC_SUBST(MUPARSER_LDFLAGS)
+(cd muparser && mkdir -p build && cd build && cmake .. && make)
+
+
+echo ""
+echo "======================"
+echo "Configuring pluto"
+echo "======================"
 AC_SUBST(PLUTO_INCLUDE)
 AC_SUBST(PLUTO_LDFLAGS)
 AC_SUBST(PLUTO_LIBADD)
@@ -78,11 +91,6 @@ AC_SUBST(CLAN_LIBADD)
 AC_SUBST(CLOOG_INCLUDE)
 AC_SUBST(CLOOG_LIBADD)
 
-
-echo ""
-echo "======================"
-echo "Configuring pluto"
-echo "======================"
 AC_CONFIG_SUBDIRS([pluto])
 
 

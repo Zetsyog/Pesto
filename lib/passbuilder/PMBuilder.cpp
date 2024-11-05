@@ -26,6 +26,8 @@ std::unique_ptr<PassManagerBuilder> PassManagerBuilder::createDefault() {
 							std::make_unique<ClastParamTilingPB>());
 	pm->registerPassBuilder(PESTO_UUID_PASS_PARAM_CONTEXT,
 							std::make_unique<ParamContextPB>());
+	pm->registerPassBuilder(PESTO_UUID_PASS_MATCH_CRITERIA,
+							std::make_unique<MatchCriteriaPB>());
 
 	return pm;
 }

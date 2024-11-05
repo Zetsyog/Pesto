@@ -4,6 +4,7 @@
 #include <pesto/Pass.hpp>
 
 #include <map>
+#include <unordered_map>
 
 namespace pesto {
 
@@ -59,6 +60,23 @@ class DumpOslPass : public IPass {
 
   private:
 	std::string path_prefix;
+};
+
+class MatchCriteriaPass : public IPass {
+  public:
+	MatchCriteriaPass();
+	virtual ~MatchCriteriaPass();
+
+	virtual void applyScop(OslScop &nest) override;
+
+	void setCriteria(std::string criteria);
+	void addThenPass(std::unique_ptr<IPass> pass);
+	void addElsePass(std::unique_ptr<IPass> pass);
+
+  private:
+	std::string criteria;
+	std::vector<std::unique_ptr<IPass>> thenPasses;
+	std::vector<std::unique_ptr<IPass>> elsePasses;
 };
 
 } // namespace pass
