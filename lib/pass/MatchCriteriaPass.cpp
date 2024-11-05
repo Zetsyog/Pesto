@@ -4,13 +4,21 @@
 
 #include "osl_support.h"
 
-#include <muParser.h>
-
 using pesto::pass::IPass;
 using pesto::pass::MatchCriteriaPass;
 
 MatchCriteriaPass::MatchCriteriaPass() : pesto::pass::IPass("if-pass") {
-	// initialize the symbol table
+	this->variables = {{"scop_max_it", 0}, {"stmt_nb", 0}};
+
+	// Add the variables to the parser
+	try {
+		for (const auto &[name, value] : this->variables) {
+			this->parser.DefineVar(name, const_cast<double *>(&value));
+		}
+	} catch (mu::Parser::exception_type &e) {
+		std::cerr << "Error defining variables: ";
+		std::cerr << e.GetMsg() << std::endl;
+	}
 }
 
 MatchCriteriaPass::~MatchCriteriaPass() {}
@@ -25,30 +33,52 @@ void MatchCriteriaPass::addElsePass(std::unique_ptr<IPass> pass) {
 
 void MatchCriteriaPass::setCriteria(std::string criteria) {
 	this->criteria = criteria;
+
+	try {
+		parser.SetExpr(criteria);
+	} catch (mu::Parser::exception_type &e) {
+		std::cerr << "Error parsing criteria: ";
+		std::cerr << e.GetMsg() << std::endl;
+	}
+
+	std::cerr << "criteria: " << criteria << std::endl;
 }
 
 void MatchCriteriaPass::applyScop(OslScop &nest) {
 
-	std::unordered_map<std::string, double> variables = {{"scop_max_depth", 2},
-														 {"stmt_nb", 1}};
+	this->variables["stmt_nb"] =
+		osl_statement_number(nest.getScop()->statement);
+
+	int max_it = 0;
+	// count max number of iterator
+	osl_statement_p stmt = nest.getScop()->statement;
+	for (; stmt != NULL; stmt = stmt->next) {
+		max_it = stmt->domain->nb_output_dims > max_it
+					 ? stmt->domain->nb_output_dims
+					 : max_it;
+	}
+	this->variables["scop_max_it"] = max_it;
+
+	bool result;
 
 	try {
-		double var_a = 1;
-		mu::Parser p;
-		p.DefineVar("a", &var_a);
-		p.SetExpr("MySqr(a)*_pi+min(10,a)");
-
-		} catch (mu::Parser::exception_type &e) {
-		std::cout << e.GetMsg() << std::endl;
+		result = this->parser.Eval() != 0;
+	} catch (mu::Parser::exception_type &e) {
+		std::cerr << e.GetMsg() << std::endl;
+		return;
 	}
 
-	// if (result) {
-	// 	for (auto &pass : this->thenPasses) {
-	// 		pass->applyScop(nest);
-	// 	}
-	// } else {
-	// 	for (auto &pass : this->elsePasses) {
-	// 		pass->applyScop(nest);
-	// 	}
-	// }
+	if (result) {
+		log(std::cerr) << "Criteria matched for scop " << nest.getId()
+					   << ". Applying then passes" << std::endl;
+		for (auto &pass : this->thenPasses) {
+			pass->applyScop(nest);
+		}
+	} else {
+		log(std::cerr) << "Criteria not matched for scop " << nest.getId()
+					   << ". Applying else passes" << std::endl;
+		for (auto &pass : this->elsePasses) {
+			pass->applyScop(nest);
+		}
+	}
 }

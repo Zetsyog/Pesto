@@ -6,6 +6,8 @@
 #include <map>
 #include <unordered_map>
 
+#include <muParser.h>
+
 namespace pesto {
 
 namespace pass {
@@ -77,6 +79,9 @@ class MatchCriteriaPass : public IPass {
 	std::string criteria;
 	std::vector<std::unique_ptr<IPass>> thenPasses;
 	std::vector<std::unique_ptr<IPass>> elsePasses;
+
+	std::unordered_map<std::string, double> variables;
+	mu::Parser parser;
 };
 
 } // namespace pass

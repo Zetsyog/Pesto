@@ -16,8 +16,8 @@ PLUTO_LIBADD+=-lpluto
 PLUTO_LDFLAGS+=-L$(top_builddir)/pluto/lib
 
 MUPARSER_INCLUDE+=-I$(top_srcdir)/muparser/include/
-MUPARSER_LIBADD+=-lmuparser
-MUPARSER_LDFLAGS+=-L$(top_builddir)/muparser/build/
+MUPARSER_LIBADD+=$(top_builddir)/muparser/build/libmuparser.a
+MUPARSER_LDFLAGS+=
 
 
 EXTRA_libpesto_la_DEPENDENCIES = ../pluto/lib/libpluto.la

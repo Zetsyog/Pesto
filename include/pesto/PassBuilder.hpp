@@ -59,6 +59,8 @@ class PassManagerBuilder {
 	 * @param j the json object containing the pass configuration
 	 *
 	 * @return A pointer to the newly created pass
+	 * @throw std::runtime_error if the pass uuid does not match any registered
+	 * pass builder
 	 */
 	std::unique_ptr<pesto::pass::IPass> buildPass(const json &j);
 
