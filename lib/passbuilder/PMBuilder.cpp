@@ -98,7 +98,7 @@ PassManagerBuilder::buildPass(const json &j) {
 	if (this->hasPassBuilder(uuid) == false) {
 		std::cerr << "Error: could not find pass builder with uuid " << uuid
 				  << std::endl;
-		return nullptr;
+		throw std::runtime_error("Parsing error: unknown pass uuid");
 	}
 
 	std::unique_ptr<pesto::pass::IPass> pass = builders[uuid]->build(*this, j);
