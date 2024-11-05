@@ -508,8 +508,10 @@ int clast_annotate_loops(osl_scop_p program, struct clast_stmt *root) {
 			if (loop->directive & CLAST_PARALLEL_OMP) {
 				clastloops[j]->parallel |= CLAST_PARALLEL_OMP;
 				ret |= CLAST_PARALLEL_OMP;
-				if (loop->private_vars) {
+				if (loop->private_vars && strlen(loop->private_vars) > 0) {
 					clastloops[j]->private_vars = strdup(loop->private_vars);
+				} else {
+					clastloops[j]->private_vars = NULL;
 				}
 			}
 

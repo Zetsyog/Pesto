@@ -86,6 +86,7 @@ void CloogCodegenPass::applyScop(OslScop &nest) {
 	std::string path =
 		this->path_prefix + "." + std::to_string(nest.getId()) + ".c";
 
+	// TODO: allow user to customize cloog options
 	if (clastData) {
 		log(std::cerr) << "Using existing CLooG AST" << std::endl;
 		root = clastData->root;
@@ -98,18 +99,12 @@ void CloogCodegenPass::applyScop(OslScop &nest) {
 		state = cloog_state_malloc();
 		options = cloog_options_malloc(state);
 
-		options->f = -1;
-		options->l = 1;
-		options->compilable = 0;
-		options->esp = 1;
-		options->strides = 0;
-		options->sh = 1;
-		options->openscop = 1;
-		options->backtrack = 1;
-
 		CloogInput *input = cloog_input_from_osl_scop(state, scop);
 		program = cloog_program_alloc(input->context, input->ud, options);
 		free(input);
+
+		options->f = -1;
+		options->l = program->nb_scattdims;
 
 		program = cloog_program_generate(program, options);
 		// input is freed by cloog_clast_create_from_input
