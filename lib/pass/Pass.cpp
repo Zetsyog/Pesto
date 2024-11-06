@@ -29,8 +29,8 @@ void IPass::apply(pesto::Program &prog) {
 	this->hookEnd(prog);
 }
 
-void IPass::hookBegin(pesto::Program &prog) {}
+void IPass::hookBegin(pesto::Program &prog) { (void)prog; }
 
-void IPass::hookEnd(pesto::Program &prog) {}
+void IPass::hookEnd(pesto::Program &prog) { (void)prog; }
 
-void IPass::applyScop(pesto::OslScop &nest) {}
+void IPass::applyScop(pesto::OslScop &nest) { (void)nest; }

@@ -1,0 +1,3 @@
+# trahrhe 4.2 - 29 February 2024
+
+- bug corrected : variables were not correctly set in the header file with dichotomy search (listevar1).

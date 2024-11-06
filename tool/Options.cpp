@@ -9,7 +9,7 @@
 
 using namespace pesto;
 
-Options::Options() : readScop(0), configPath(std::nullopt) {}
+Options::Options() : configPath(std::nullopt), readScop(0) {}
 
 int Options::getReadScop() { return this->readScop; }
 std::string Options::getGenPrefix() { return this->genPrefix; }

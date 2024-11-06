@@ -65,6 +65,7 @@ shell.nix
 # tmp
 output_*
 *.tmp.c
+.pesto_prefix
 
 # submodule
 trahrhe/

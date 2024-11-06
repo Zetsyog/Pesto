@@ -1,8 +1,8 @@
 #include <pesto/Pesto.hpp>
 
-#include "osl_support.h"
+#include <pesto/osl_support.h>
 
-#include "clast/clast_support.h"
+#include <pesto/clast/clast_support.h>
 
 using namespace pesto::pass;
 

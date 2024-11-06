@@ -1,9 +1,9 @@
-#!@BASH@
+#!/usr/bin/env bash
 
-extract_scop_bin="@abs_top_builddir@/extract_scop.sh"
-replace_scop_bin="@abs_top_builddir@/replace_scop.sh"
-pesto_bin="@abs_top_builddir@/tool/pesto"
-trahrhe_bin="@abs_top_builddir@/trahrhe_wrapper"
+extract_scop_bin="@EXTRACT_SCOP_BIN@"
+replace_scop_bin="@REPLACE_SCOP_BIN@"
+pesto_bin="@PESTO_TOOL_BIN@"
+trahrhe_bin="@TRAHRHE_WRAPPER_BIN@"
 
 # TODO: custom compiler support
 CC=gcc

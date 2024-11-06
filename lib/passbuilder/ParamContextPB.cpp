@@ -8,6 +8,8 @@ ParamContextPB::~ParamContextPB() {}
 
 std::unique_ptr<pesto::pass::IPass>
 ParamContextPB::build(PassManagerBuilder &builder, const json &j) {
+	(void)builder;
+
 	// TODO Parse the JSON object and build the pass
 	if (!j.contains("value")) {
 		std::cerr

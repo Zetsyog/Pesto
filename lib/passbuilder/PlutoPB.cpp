@@ -13,6 +13,8 @@ PlutoPB::~PlutoPB() {}
 
 std::unique_ptr<pesto::pass::IPass> PlutoPB::build(PassManagerBuilder &builder,
 												   const json &j) {
+	(void)builder;
+
 	// TODO Parse the JSON object and build the pass
 	auto pass = std::make_unique<pesto::pass::PlutoPass>();
 	if (!j.contains("options")) {

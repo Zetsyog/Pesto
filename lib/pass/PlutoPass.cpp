@@ -11,13 +11,13 @@
 
 #include <osl/scop.h>
 
-#include <pluto/internal/pluto.h>
-#include <pluto/internal/program.h>
 #include <pluto/osl_pluto.h>
 #include <pluto/pluto.h>
+#include <pluto/pluto_internal.h>
+#include <pluto/program.h>
 
-#include "isl_support.h"
 #include "pesto/Pesto.hpp"
+#include <pesto/isl_support.h>
 
 #define PLUTO_DEBUG 0
 #define PLUTO_QUIET 0

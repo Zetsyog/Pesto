@@ -11,9 +11,9 @@
 
 #include <pesto/Pesto.hpp>
 
-#include "clast/clast_support.h"
+#include <pesto/clast/clast_support.h>
 
-#include "isl_support.h"
+#include <pesto/isl_support.h>
 
 using pesto::pass::metadata::ClastHolder;
 using pesto::pass::metadata::MacroMetadata;

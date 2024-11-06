@@ -2,7 +2,7 @@
 
 #include <pesto/OslPass.hpp>
 
-#include "osl_support.h"
+#include <pesto/osl_support.h>
 
 using pesto::pass::IPass;
 using pesto::pass::MatchCriteriaPass;

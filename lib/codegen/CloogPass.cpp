@@ -2,7 +2,7 @@
 
 #include <pesto/Pesto.hpp>
 
-#include "clast/clast_support.h"
+#include <pesto/clast/clast_support.h>
 
 using namespace pesto::pass;
 
@@ -12,6 +12,9 @@ CloogCodegenPass::CloogCodegenPass(std::string prefix)
 CloogCodegenPass::~CloogCodegenPass() {}
 
 void CloogCodegenPass::hookBegin(Program &prog) {
+	// suppress unused variable warning
+	(void)prog;
+
 	log(std::cerr) << "Starting Cloog codegen using prefix '" << path_prefix
 				   << "'" << std::endl;
 }
@@ -19,6 +22,9 @@ void CloogCodegenPass::hookBegin(Program &prog) {
 void CloogCodegenPass::hookEnd(Program &prog) {
 	using metadata::MacroMetadata;
 	using metadata::VarDeclMetadata;
+
+	// suppress unused variable warning
+	(void)prog;
 
 	// generate var declarations
 	VarDeclMetadata varDecls;

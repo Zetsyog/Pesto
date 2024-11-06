@@ -1,6 +1,6 @@
-#!@BASH@
+#!/usr/bin/env bash
 
-TRAHRHE_DIR=@abs_top_builddir@/trahrhe/
+TRAHRHE_DIR="@TRAHRHE_INSTALL_DIR@"
 BARVINOK_DIR="/home/cross/code/repo/barvinok-dev"
 
 # usage: ./trahrhe_wrapper.sh <output_path> [trahrhe options]
@@ -9,7 +9,7 @@ shift
 
 echo $TRAHRHE_DIR
 
-sed -i "1s|^#\!.*|#\!@BASH@|" "$TRAHRHE_DIR/trahrhe"
+sed -i "1s|^#\!.*|#\!/usr/bin/env bash|" "$TRAHRHE_DIR/trahrhe"
 
 (
     cd $TRAHRHE_DIR || (echo "Could not cd to $TRAHRHE_DIR" && exit 1)

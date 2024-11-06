@@ -1,9 +1,9 @@
 #include <pesto/Pesto.hpp>
 
-#include <pluto/internal/pluto.h>
-#include <pluto/internal/program.h>
 #include <pluto/osl_pluto.h>
 #include <pluto/pluto.h>
+#include <pluto/pluto_internal.h>
+#include <pluto/program.h>
 
 using namespace pesto;
 

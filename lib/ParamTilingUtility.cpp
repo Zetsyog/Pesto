@@ -7,8 +7,8 @@
 
 #include <cloog/isl/cloog.h>
 
-#include "clast/clast_support.h"
-#include "isl_support.h"
+#include <pesto/clast/clast_support.h>
+#include <pesto/isl_support.h>
 
 #define STR_BUF_SIZE 512
 
@@ -306,9 +306,36 @@ void pesto::ParamTilingUtility::computeCodegenData(struct StmtGroup &group,
 		trahrhe_type = trahrhe_type_algebraic;
 	}
 	struct trahrhe_codegen_data header_data = {.stmt_type = trahrhe_stmt_head,
-											   .tiling_type = trahrhe_type};
+											   .tiling_type = trahrhe_type,
+											   .nest_id = 0,
+											   .stmt_id = 0,
+											   .group_id = group.id,
+											   .lb_name = NULL,
+											   .ub_name = NULL,
+											   .inner_it_name = NULL,
+											   .depth = 0,
+											   .iterator_name = NULL,
+											   .lb_expr = NULL,
+											   .ub_expr = NULL,
+											   .npar = 0,
+											   .params = NULL,
+											   .endline = NULL};
+
 	struct trahrhe_codegen_data body_data = {.stmt_type = trahrhe_stmt_body,
-											 .tiling_type = trahrhe_type};
+											 .tiling_type = trahrhe_type,
+											 .nest_id = 0,
+											 .stmt_id = 0,
+											 .group_id = group.id,
+											 .lb_name = NULL,
+											 .ub_name = NULL,
+											 .inner_it_name = NULL,
+											 .depth = 0,
+											 .iterator_name = NULL,
+											 .lb_expr = NULL,
+											 .ub_expr = NULL,
+											 .npar = 0,
+											 .params = NULL,
+											 .endline = NULL};
 
 	header_data.group_id = group.id;
 	body_data.group_id = group.id;
@@ -441,6 +468,8 @@ void pesto::ParamTilingUtility::insertStatements(struct StmtGroup &group,
 												 struct clast_for *outter_for,
 												 struct clast_for *inner_for,
 												 int tiling_depth) {
+	(void)inner_for;
+
 	auto pair = group.tilingData[tiling_depth]->codegen_data;
 
 	struct clast_user_stmt *header_stmt =
@@ -458,6 +487,8 @@ void pesto::ParamTilingUtility::insertStatements(struct StmtGroup &group,
 void pesto::ParamTilingUtility::replaceInnerForBounds(
 	struct StmtGroup &group, struct clast_for *outter_for,
 	struct clast_for *inner_for, int tiling_depth) {
+	// suppress warning
+	(void)outter_for;
 
 	free_clast_expr(inner_for->LB);
 	free_clast_expr(inner_for->UB);
@@ -515,6 +546,9 @@ void pesto::ParamTilingUtility::replaceInnerForBounds(
 void pesto::ParamTilingUtility::replaceOutterForBounds(
 	struct StmtGroup &group, struct clast_for *outter_for,
 	struct clast_for *inner_for, int tiling_depth) {
+	// suppress warning
+	(void)inner_for;
+
 	free_clast_expr(outter_for->LB);
 	free_clast_expr(outter_for->UB);
 	outter_for->LB = NULL;

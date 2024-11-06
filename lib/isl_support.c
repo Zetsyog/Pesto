@@ -15,7 +15,7 @@
 
 #include <assert.h>
 
-#include "isl_support.h"
+#include <pesto/isl_support.h>
 
 void osl_scop_to_isl(osl_scop_p scop, isl_ctx *ctx, isl_union_map **schedules,
 					 isl_union_map **reads, isl_union_map **writes) {
