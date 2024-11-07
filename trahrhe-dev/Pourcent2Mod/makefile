@@ -1,9 +1,16 @@
 prefixe=expression
+bin=Pourcent2Mod
 
-all: $(prefixe).y $(prefixe).l
+all: $(bin)
+
+$(bin): y.tab.c lex.yy.c
+	gcc y.tab.c lex.yy.c -ly -lfl -lm -o $@
+
+y.tab.c: $(prefixe).y
 	yacc -d $(prefixe).y
+
+lex.yy.c: $(prefixe).l
 	lex $(prefixe).l
-	gcc y.tab.c lex.yy.c -ly -lfl -lm -o Pourcent2Mod
 
 clean:
-	rm *.o y.tab.c y.tab.h lex.yy.c Pourcent2Mod
+	rm -f *.o y.tab.c y.tab.h lex.yy.c $(bin)
