@@ -6,6 +6,8 @@
 #include <utility>
 #include <vector>
 
+#include <pesto/trahrhe.h>
+
 #include <isl/set.h>
 
 #include <cloog/clast.h>
@@ -167,6 +169,9 @@ class ParamTilingUtility {
 	void computeTrahrheDomain(struct StmtGroup &group);
 
 	void updateOmpPragma(struct StmtGroup &group);
+
+	__isl_give isl_set *extractIslInnerDomain(struct StmtGroup &group,
+											  __isl_take isl_set *domain);
 };
 
 } // namespace pesto

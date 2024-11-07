@@ -9,7 +9,6 @@ ClastParamTilingPB::~ClastParamTilingPB() {}
 std::unique_ptr<pesto::pass::IPass>
 ClastParamTilingPB::build(PassManagerBuilder &builder, const json &j) {
 	using pesto::pass::ClastParamTilingPass;
-	using pesto::pass::ParamTilingType;
 
 	std::unique_ptr<ClastParamTilingPass> pass =
 		std::make_unique<ClastParamTilingPass>();

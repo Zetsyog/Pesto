@@ -50,6 +50,9 @@ void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
 	}
 	tilingUtil->setScop(scop.getScop());
 	tilingUtil->setIdTrahrhePrefix(scop.getId());
+	for (auto &type : this->tiling_types) {
+		tilingUtil->pushTilingType(type);
+	}
 
 	std::shared_ptr<ClastHolder> clastDataShared = clastData.lock();
 	tilingUtil->setClastRoot((struct clast_root *)clastDataShared->root);
@@ -104,7 +107,7 @@ void pesto::pass::ClastParamTilingPass::pushTilingType(ParamTilingType type) {
 	this->tiling_types.push_back(type);
 }
 
-pesto::pass::ParamTilingType
+pesto::ParamTilingType
 pesto::pass::ClastParamTilingPass::getTilingType(size_t depth) {
 	if (this->tiling_types.size() == 0) {
 		return ParamTilingType::ALGEBRAIC;

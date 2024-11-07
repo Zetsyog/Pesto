@@ -411,29 +411,32 @@ void pesto::ParamTilingUtility::computeCodegenData(struct StmtGroup &group,
 	for (int i = firstTilingDim; i < lb_names->nb_scattering; i += 1) {
 		char *it_name = lb_names->scattering[i];
 		lb_names->scattering[i] = (char *)malloc(32 * sizeof(char));
-		snprintf(lb_names->scattering[i], 32, "g%d_lb%s", header_data.group_id,
-				 it_name);
-		TRAHRHE_GEN_INNER_LB(sprintf, lb_expr, &header_data);
+		TRAHRHE_GEN_INNER_LB(sprintf, lb_names->scattering[i], &header_data);
 		free(it_name);
 	}
 	isl_set *domain =
 		isl_set_copy(isl_set_from_cloog_domain(inner_for->domain));
 	domain = this->dropTilingConstraints(domain, group);
+	isl_set_dump(domain);
 
 	for (int bound = 0; bound < 2; bound += 1) {
 		struct clast_expr *expr = clast_bound_from_isl_set(
 			bound == 1 ? ub_names : lb_names, domain, bound);
-		FILE *fd = fmemopen(bound == 0 ? lb_expr : ub_expr, 512, "w");
-		clast_pprint_expr(this->cloogOptions, fd, expr);
-		fclose(fd);
+		if (expr != NULL) {
+			FILE *fd =
+				fmemopen(bound == 0 ? lb_expr : ub_expr, STR_BUF_SIZE, "w");
+			clast_pprint_expr(this->cloogOptions, fd, expr);
+			fclose(fd);
 
-		free_clast_expr(expr);
-
-		header_data.lb_expr = strdup(lb_expr);
-		header_data.ub_expr = strdup(ub_expr);
-		body_data.lb_expr = strdup(lb_expr);
-		body_data.ub_expr = strdup(ub_expr);
+			free_clast_expr(expr);
+		}
 	}
+	fprintf(stderr, "lb_expr: %s\n", lb_expr);
+	fprintf(stderr, "ub_expr: %s\n", ub_expr);
+	header_data.lb_expr = strdup(lb_expr);
+	header_data.ub_expr = strdup(ub_expr);
+	body_data.lb_expr = strdup(lb_expr);
+	body_data.ub_expr = strdup(ub_expr);
 
 	isl_set_free(domain);
 
@@ -617,6 +620,7 @@ pesto::ParamTilingUtility::dropTilingConstraints(__isl_take isl_set *set,
 	return res;
 }
 
+// TODO: remove because not used
 isl_set *
 pesto::ParamTilingUtility::removeTilingDimensions(__isl_take isl_set *set,
 												  struct StmtGroup &group) {
@@ -788,6 +792,46 @@ void pesto::ParamTilingUtility::computeTrahrheDomain(struct StmtGroup &group) {
 	}
 	isl_set_dump(domain);
 
+	// apply the map to original domain
+	isl_set *out = this->extractIslInnerDomain(group, isl_set_copy(domain));
+
+	int ntiled_dim = 0;
+	for (std::size_t i = 0; i < group.tilingData.size(); i += 1) {
+		if (this->getTilingType(i) != ParamTilingType::RECTANGULAR) {
+			ntiled_dim += 1;
+		}
+	}
+
+	isl_printer *printer = isl_printer_to_str(ctx);
+
+	printer = isl_printer_print_set(printer, out);
+
+	char *str = isl_printer_get_str(printer);
+
+	group.trahrheDomain.first = ntiled_dim;
+	group.trahrheDomain.second = std::string(str);
+
+	free(str);
+	isl_printer_free(printer);
+
+	isl_set_free(out);
+	isl_set_free(domain);
+
+	isl_ctx_free(ctx);
+}
+
+std::vector<std::pair<int, std::string>>
+pesto::ParamTilingUtility::getTrahrheDomains() {
+	std::vector<std::pair<int, std::string>> res;
+	for (auto &group : this->stmtGroups) {
+		res.push_back(group->trahrheDomain);
+	}
+	return res;
+}
+
+__isl_give isl_set *
+pesto::ParamTilingUtility::extractIslInnerDomain(struct StmtGroup &group,
+												 __isl_take isl_set *domain) {
 	// we are going to build a map
 	// that will transform the current dimensions to keep only the tiled
 	// dimensions in the order of the tiling iterators
@@ -831,38 +875,8 @@ void pesto::ParamTilingUtility::computeTrahrheDomain(struct StmtGroup &group) {
 	// apply the map to original domain
 	isl_set *out = isl_set_apply(isl_set_copy(domain), isl_map_copy(trans));
 
+	isl_set_free(domain);
 	isl_map_free(trans);
 
-	int ntiled_dim = 0;
-	for (std::size_t i = 0; i < group.tilingData.size(); i += 1) {
-		if (this->getTilingType(i) != ParamTilingType::RECTANGULAR) {
-			ntiled_dim += 1;
-		}
-	}
-
-	isl_printer *printer = isl_printer_to_str(ctx);
-
-	printer = isl_printer_print_set(printer, out);
-
-	char *str = isl_printer_get_str(printer);
-
-	group.trahrheDomain.first = ntiled_dim;
-	group.trahrheDomain.second = std::string(str);
-
-	free(str);
-	isl_printer_free(printer);
-
-	isl_set_free(out);
-	isl_set_free(domain);
-
-	isl_ctx_free(ctx);
-}
-
-std::vector<std::pair<int, std::string>>
-pesto::ParamTilingUtility::getTrahrheDomains() {
-	std::vector<std::pair<int, std::string>> res;
-	for (auto &group : this->stmtGroups) {
-		res.push_back(group->trahrheDomain);
-	}
-	return res;
+	return out;
 }

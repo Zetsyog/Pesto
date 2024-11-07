@@ -145,9 +145,11 @@ void trahrhe_codegen_header_stmt_rectangular(
 	// TODO
 	TRAHRHE_GEN_OUTTER_UB(fprintf, fp, data);
 	fprintf(fp, " = ceild(");
-	fprintf(fp, "%s - (%s -  ", data->ub_expr, data->lb_expr);
-	TRAHRHE_GEN_DIV(fprintf, fp, data);
-	fprintf(fp, " - 1), ");
+	fprintf(fp, "%s", data->ub_expr);
+	if (data->lb_expr[0] != '\0') {
+		fprintf(fp, "- (%s)", data->lb_expr);
+	}
+	fprintf(fp, ", ");
 	TRAHRHE_GEN_DIV(fprintf, fp, data);
 	fprintf(fp, ");\n"); // new line
 }
@@ -156,16 +158,22 @@ void trahrhe_codegen_body_stmt_rectangular(FILE *fp,
 	TRAHRHE_GEN_INNER_LB(fprintf, fp, data);
 	fprintf(fp, "= ");
 	TRAHRHE_GEN_DIV(fprintf, fp, data);
-	fprintf(fp, " * %s + %s;", data->iterator_name, data->lb_expr);
-	fprintf(fp, "\\\n"); // new line
+	fprintf(fp, " * %s", data->iterator_name);
+	if (data->lb_expr[0] != '\0') {
+		fprintf(fp, " + %s", data->lb_expr);
+	}
+	fprintf(fp, ";\\\n"); // new line
 
 	TRAHRHE_GEN_INNER_UB(fprintf, fp, data);
 	fprintf(fp, " = ");
 	TRAHRHE_GEN_DIV(fprintf, fp, data);
 	fprintf(fp, " * %s + ", data->iterator_name);
 	TRAHRHE_GEN_DIV(fprintf, fp, data);
-	fprintf(fp, " - 1 + %s;", data->lb_expr);
-	fprintf(fp, "\n"); // new line
+	fprintf(fp, " - 1");
+	if (data->lb_expr[0] != '\0') {
+		fprintf(fp, " + %s ", data->lb_expr);
+	}
+	fprintf(fp, ";\n"); // new line
 }
 
 void trahrhe_codegen_free(struct trahrhe_codegen_data *data) {

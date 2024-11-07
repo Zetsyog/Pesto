@@ -1,6 +1,7 @@
 #ifndef PESTO_PARAM_TILING_PASS_H
 #define PESTO_PARAM_TILING_PASS_H
 
+#include <pesto/ParamTiling.hpp>
 #include <pesto/Pass.hpp>
 #include <pesto/PlutoPass.hpp>
 #include <pesto/clast/GenClastPass.hpp>
@@ -25,8 +26,6 @@ struct tiling_info {
 	struct trahrhe_codegen_data gen_data[2];
 };
 
-enum class ParamTilingType { RECTANGULAR, ALGEBRAIC, SCHEDULED };
-
 /**
  * A pass that performs a parametric tiling over the Clast of each OslScop
  */
@@ -47,20 +46,20 @@ class ClastParamTilingPass : public IPass {
 	 * @param depth the depth of the loop to tile
 	 * @return the tiling type
 	 */
-	ParamTilingType getTilingType(size_t depth);
+	pesto::ParamTilingType getTilingType(size_t depth);
 
 	/**
 	 * @brief push a tiling type to the list of tiling types
 	 * @param type the tiling type to push
 	 */
-	void pushTilingType(ParamTilingType type);
+	void pushTilingType(pesto::ParamTilingType type);
 
   private:
 	bool is_stencil;
 	std::unique_ptr<IPass> pluto_pass;
 	std::unique_ptr<GenClastPass> gen_clast_pass;
 
-	std::vector<ParamTilingType> tiling_types;
+	std::vector<pesto::ParamTilingType> tiling_types;
 };
 
 } // namespace pass
