@@ -14,18 +14,14 @@ It is divided in two parts : the command-line interface, and the library.
 
 Dependencies: see pluto and trahrhe dependencies.
 nlohmann/json library is also required.
+cmake is required
 
 Then you can build the tool by running the following commands :
 
 ```bash
-# clone and download dependencies
-./get_submodules.sh
-# generate config scripts
-./autogen.sh
-# run configure script
-./configure
-
-# build using Makefile
+mkdir build
+cd build
+cmake ..
 make -j
 ```
 
@@ -48,37 +44,32 @@ pesto --config opt.json 2mm.c -o 2mm.pesto.c
     "options": {
         "input-format": "c"
     },
-    "passes":[
+    "passes": [
         {
             "uuid": "pluto",
             "options": {
-                "pluto": {
-                    "tile": false,
-                    "parallel": false,
-                    "prevector": false,
-                    "silent": true
-                }
+                "tile": false,
+                "parallel": false,
+                "prevector": false,
+                "silent": true
             }
         },
         {
             "uuid": "split-nested-loops"
         },
         {
-            "uuid": "pluto",
-            "options": {
-                "pluto": {
+            "uuid": "param-tiling",
+            "gen-trahrhe": false,
+            "trahrhe-mask": "d",
+            "pluto": {
+                "options": {
                     "tile": true,
-                    "parallel": false,
+                    "parallel": true,
                     "prevector": false,
-                    "silent": true
+                    "intratileopt": true,
+                    "silent": false
                 }
             }
-        },
-        {
-            "uuid": "clast-gen"
-        },
-        {
-            "uuid": "param-tiling"
         },
         {
             "uuid": "codegen-cloog"
