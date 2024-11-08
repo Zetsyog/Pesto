@@ -19,7 +19,7 @@ void PlutoWrapper::run(osl_scop_p scop) {
 }
 
 void PlutoWrapper::run(OslScop &oslScop) {
-	osl_scop_p scop = oslScop.getScop();
+	osl_scop_p scop = oslScop.c_scop();
 	run(scop);
 }
 

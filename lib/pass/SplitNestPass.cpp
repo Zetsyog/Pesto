@@ -22,7 +22,7 @@ void SplitNestedLoopsPass::hookBegin(Program &prog) {
 
 		log(std::cerr) << "Running pass on nest " << distance << std::endl;
 
-		osl_scop_p scop = nest->getScop();
+		osl_scop_p scop = nest->c_scop();
 
 		int nest_count = osl_scop_count_loop_nests(scop);
 		log(std::cerr) << "found " << nest_count << " nests" << std::endl;

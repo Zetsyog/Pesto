@@ -12,7 +12,7 @@ ParamContextPass::ParamContextPass(int contextValue)
 ParamContextPass::~ParamContextPass() {}
 
 void ParamContextPass::applyScop(OslScop &nest) {
-	osl_scop_p scop = nest.getScop();
+	osl_scop_p scop = nest.c_scop();
 	int nparam = osl_scop_get_nb_parameters(scop);
 	for (int i = 0; i < nparam; i += 1) {
 		osl_relation_insert_blank_row(scop->context, scop->context->nb_rows);

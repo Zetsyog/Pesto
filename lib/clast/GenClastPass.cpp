@@ -16,7 +16,7 @@ void GenClastPass::applyScop(OslScop &nest) {
 	nest.metadata.set<ClastHolder>();
 	auto data = nest.metadata.get<ClastHolder>().lock();
 
-	osl_scop_p scop = nest.getScop();
+	osl_scop_p scop = nest.c_scop();
 
 	data->cloogState = cloog_state_malloc();
 	data->cloogOptions = cloog_options_malloc(data->cloogState);

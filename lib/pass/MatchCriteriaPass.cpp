@@ -46,12 +46,11 @@ void MatchCriteriaPass::setCriteria(std::string criteria) {
 
 void MatchCriteriaPass::applyScop(OslScop &nest) {
 
-	this->variables["stmt_nb"] =
-		osl_statement_number(nest.getScop()->statement);
+	this->variables["stmt_nb"] = osl_statement_number(nest.c_scop()->statement);
 
 	int max_it = 0;
 	// count max number of iterator
-	osl_statement_p stmt = nest.getScop()->statement;
+	osl_statement_p stmt = nest.c_scop()->statement;
 	for (; stmt != NULL; stmt = stmt->next) {
 		max_it = stmt->domain->nb_output_dims > max_it
 					 ? stmt->domain->nb_output_dims

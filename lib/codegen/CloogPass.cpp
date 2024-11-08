@@ -48,7 +48,7 @@ void CloogCodegenPass::hookEnd(Program &prog) {
 }
 
 void generateStmtMacro(FILE *fd, pesto::OslScop &nest) {
-	osl_scop_p scop = nest.getScop();
+	osl_scop_p scop = nest.c_scop();
 
 	osl_statement_p statement = scop->statement;
 
@@ -100,7 +100,7 @@ void CloogCodegenPass::applyScop(OslScop &nest) {
 		options = clastData->cloogOptions;
 		program = clastData->cloogProgram;
 	} else {
-		osl_scop_p scop = nest.getScop();
+		osl_scop_p scop = nest.c_scop();
 
 		state = cloog_state_malloc();
 		options = cloog_options_malloc(state);
@@ -129,7 +129,7 @@ void CloogCodegenPass::applyScop(OslScop &nest) {
 	}
 
 	osl_scatnames_p scatnames = (osl_scatnames_p)osl_generic_lookup(
-		nest.getScop()->extension, OSL_URI_SCATNAMES);
+		nest.c_scop()->extension, OSL_URI_SCATNAMES);
 	if (scatnames) {
 		for (size_t i = 0; i < osl_strings_size(scatnames->names); i++) {
 			varDeclsData->addVar(scatnames->names->string[i]);

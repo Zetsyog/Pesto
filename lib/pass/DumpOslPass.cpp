@@ -14,7 +14,7 @@ DumpOslPass::DumpOslPass(std::string prefix)
 DumpOslPass::~DumpOslPass() {}
 
 void DumpOslPass::applyScop(OslScop &nest) {
-	osl_scop_p scop = nest.getScop();
+	osl_scop_p scop = nest.c_scop();
 	std::string path =
 		path_prefix + "." + std::to_string(nest.getId()) + ".scop";
 	log(std::cerr) << "Dumping scop to " << path << std::endl;

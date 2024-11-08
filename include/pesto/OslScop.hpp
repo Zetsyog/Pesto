@@ -24,7 +24,7 @@ class OslScop {
 	OslScop(int id, osl_scop_p scop);
 	virtual ~OslScop();
 
-	osl_scop_p getScop();
+	osl_scop_p c_scop();
 	int getId();
 };
 

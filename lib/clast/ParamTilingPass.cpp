@@ -48,7 +48,7 @@ void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
 		log(std::cerr) << "Error: "
 					   << "No clast data found" << std::endl;
 	}
-	tilingUtil->setScop(scop.getScop());
+	tilingUtil->setScop(scop.c_scop());
 	tilingUtil->setIdTrahrhePrefix(scop.getId());
 	for (auto &type : this->tiling_types) {
 		tilingUtil->pushTilingType(type);
