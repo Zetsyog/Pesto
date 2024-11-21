@@ -23,6 +23,9 @@ mkdir build
 cd build
 cmake ..
 make -j
+# make install # not implemented
+# now you can call cli with
+./pesto [args]
 ```
 
 ## CLI interface
@@ -78,16 +81,17 @@ pesto --config opt.json 2mm.c -o 2mm.pesto.c
 }
 ```
 
-## Download and install trahrhe
+## Test (wip)
 
 ```bash
-(
-    rm -rf trahrhe
-    mkdir trahrhe
-    cd trahrhe || exit 1
-    wget https://webpages.gitlabpages.inria.fr/trahrhe/trahrhe_packages/trahrhe-4.2.zip
-    unzip trahrhe-4.2.zip
-    rm trahrhe-4.2.zip
-    make
-)
+cmake --build . --target Pesto_check
+```
+
+## Docker
+
+### Build docker image
+
+```bash
+docker build . -t pesto:latest -f utils/Dockerfile --build-arg "repository_dir=./"
+docker run -it --rm pesto:latest bash
 ```
