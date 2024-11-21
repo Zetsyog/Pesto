@@ -1,0 +1,68 @@
+diff -urN pluto/candl/configure.ac pluto-patch/candl/configure.ac 
+--- pluto/candl/configure.ac	2024-11-20 14:35:36.314434554 +0100
++++ pluto-patch/candl/configure.ac	2024-11-20 14:32:42.454929676 +0100
+@@ -75,14 +75,16 @@
+ AC_CHECK_PROG(CD, cd)
+ AC_PROG_INSTALL
+ AC_PROG_LIBTOOL
+-AC_CHECK_PROGS(DOXYGEN,doxygen,doxygen)
+ 
+ AX_CC_MAXOPT
+ AC_SUBST(CFLAGS_WARN)
+ AX_CFLAGS_WARN_ALL(CFLAGS_WARN)
+ 
+-AC_CHECK_PROG(TEXINFO, makeinfo, yes)
+-AS_IF([test "x$TEXINFO" != "xyes"], [AC_MSG_ERROR([Please install texinfo.])])
++AC_CHECK_PROGS(TEXINFO, makeinfo, [], [])
++AC_CHECK_PROGS(DOXYGEN, doxygen,[], [])
++# AS_IF([test "x$TEXINFO" != "xyes"], [AC_MSG_ERROR([Please install texinfo.])])
++AM_CONDITIONAL(GEN_DOC, test -n "$TEXINFO" -a -n "$DOXYGEN")
++
+ 
+ dnl Checks for typedefs, structures, and compiler characteristics.
+ AC_C_CONST
+diff -urN pluto/clan/configure.ac pluto-patch/clan/configure.ac
+--- pluto/clan/configure.ac	2024-11-19 18:12:45.073029999 +0100
++++ pluto-patch/clan/configure.ac	2024-11-19 17:53:29.348066847 +0100
+@@ -90,8 +90,8 @@
+ AC_PROG_LEX
+ AC_PROG_YACC
+ 
+-AC_CHECK_PROGS(DOXYGEN, doxygen, doxygen, [])
+-AC_CHECK_PROGS(TEXI2PDF, texi2pdf, texi2pdf, [])
++AC_CHECK_PROGS(DOXYGEN, doxygen, [], [])
++AC_CHECK_PROGS(TEXI2PDF, texi2pdf, [], [])
+ AM_CONDITIONAL(GENERATE_DOC, test -n "$TEXI2PDF" -a -n "$DOXYGEN")
+ 
+ AC_MSG_CHECKING(flex version)
+diff -urN pluto/cloog-isl/configure.ac pluto-patch/cloog-isl/configure.ac
+--- pluto/cloog-isl/configure.ac	2024-11-19 18:12:45.092029519 +0100
++++ pluto-patch/cloog-isl/configure.ac	2024-11-19 17:58:00.972894155 +0100
+@@ -72,7 +72,7 @@
+ dnl Configure needs an empty install.sh file with this, i HATE that...
+ AC_PROG_INSTALL
+ AC_PROG_LIBTOOL
+-AC_CHECK_PROG(TEXI2DVI, texi2dvi, texi2dvi, [])
++AC_CHECK_PROG(TEXI2DVI, texi2dvi, [], [])
+ AM_CONDITIONAL(HAVE_TEXI2DVI, test -n "$TEXI2DVI")
+ 
+ AX_CC_MAXOPT
+diff -urN pluto/candl/Makefile.am pluto-patch/candl/Makefile.am 
+--- pluto/candl/Makefile.am	2024-11-20 14:05:30.321965374 +0100
++++ pluto-patch/candl/Makefile.am	2024-11-20 14:05:49.033462681 +0100
+@@ -41,10 +41,13 @@
+ if BUNDLED_PIPLIB
+   MAYBE_PIPLIB = piplib
+ endif
++if GEN_DOC
++  MAYBE_DOC = doc
++endif
+ 
+ AUTOMAKE_OPTIONS = subdir-objects
+-SUBDIRS         = $(MAYBE_OSL) $(MAYBE_PIPLIB) . doc tests
+-DIST_SUBDIRS    = $(MAYBE_OSL) $(MAYBE_PIPLIB) . doc tests
++SUBDIRS         = $(MAYBE_OSL) $(MAYBE_PIPLIB) . $(MAYBE_DOC) tests
++DIST_SUBDIRS    = $(MAYBE_OSL) $(MAYBE_PIPLIB) . $(MAYBE_DOC) tests
+ ACLOCAL_AMFLAGS = -I m4
+
+#############################################################################
