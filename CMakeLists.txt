@@ -45,15 +45,15 @@ pkg_check_modules(GMP REQUIRED gmp)
 ###################################
 # pluto
 ###################################
-set(PLUTO_INSTALL_DIR "${CMAKE_CURRENT_BINARY_DIR}/pluto-openscop-instal")
+set(PLUTO_INSTALL_DIR "${CMAKE_CURRENT_BINARY_DIR}/pluto-openscop-install")
 set(PLUTO_PATCH_FILE ${CMAKE_SOURCE_DIR}/patches/pluto_doc_gen_fix.patch)
 ExternalProject_Add(
     pluto-openscop
     GIT_REPOSITORY https://gitlab.inria.fr/crossett/pluto-openscop.git
     GIT_TAG origin/main
     PREFIX ${CMAKE_BINARY_DIR}/pluto-openscop
-    INSTALL_DIR ${PLUTO_INSTALL_DIR}
     GIT_SUBMODULES_RECURSE false
+    UPDATE_DISCONNECTED true
     PATCH_COMMAND 
     ${CMAKE_COMMAND} -E echo "Applying doc_gen_fix patch" &&
     ${CMAKE_COMMAND} -E touch ${PLUTO_PATCH_FILE} &&
@@ -152,6 +152,8 @@ file(GLOB_RECURSE LIBPESTO_SOURCES
 add_library(pesto STATIC ${LIBPESTO_SOURCES})
 
 add_dependencies(pesto pluto-openscop)
+
+# GMP dependency
 target_link_libraries(pesto PUBLIC ${GMP_LIBRARIES})
 
 # pluto-openscop dependency
