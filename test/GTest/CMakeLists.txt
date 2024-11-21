@@ -5,6 +5,7 @@ set(TEST_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
 add_executable(
     Pesto_test
     # osl_to_isl_test.cpp
+    dumb_test.cpp
 )
 
 add_dependencies(Pesto_test pesto)
