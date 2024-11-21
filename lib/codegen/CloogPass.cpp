@@ -30,6 +30,8 @@ void CloogCodegenPass::hookEnd(Program &prog) {
 	VarDeclMetadata varDecls;
 	varDecls.addVar("lbp");
 	varDecls.addVar("ubp");
+	varDecls.addVar("lbv");
+	varDecls.addVar("ubv");
 	for (auto &nest : prog.getScopNests()) {
 		auto varDeclsData = nest->metadata.get<VarDeclMetadata>().lock();
 		if (varDeclsData) {
