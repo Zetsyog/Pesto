@@ -11,27 +11,27 @@ Then you can register passes that will be applied to a program.
 
 pesto::PassManager pm;
 
-pm.addPass(std::make_unique(pesto::ParamContextPass(10)));
+pm.addPass(std::make_unique<pesto::ParamContextPass>(10));
 pm.addPass(std::make_unique<pesto::PlutoAutoTransformPass>());
 pm.addPass(std::make_unique<pesto::CloogCodegenPass>("prefix"));
 ```
 
 Be careful, passes will be applied in the order they are registered.
 
-`pesto::PassManager` can apply its passes only on a instance of `pesto::PolyProgram`. The `pesto::PolyProgram` can contain one or multiple `pesto::ScopNest`.
-The `pesto::ScopNest` is an abstraction of an Openscop representation of a program (see [OpenScop](https://icps.u-strasbg.fr/~bastoul/development/openscop/index.html))
-Each pass can apply transformation on each `pesto::ScopNest`.
-Each `pesto::ScopNest` contains an `osl_scop_p` and can store arbitrary data, set by the different passes, called metadata.
+`pesto::PassManager` can apply its passes only on a instance of `pesto::Program`. The `pesto::Program` can contain one or multiple `pesto::OslScop`.
+The `pesto::OslScop` is an abstraction of an Openscop representation of a program (see [OpenScop](https://icps.u-strasbg.fr/~bastoul/development/openscop/index.html))
+Each pass can apply transformation on each `pesto::OslScop`.
+A `pesto::OslScop` is an abstraction of `osl_scop_p`. It can store additional arbitrary data, set by the different passes, called metadata.
 
-See the following code to create a sample `pesto::PolyProgram`
+See the following code to create a sample `pesto::Program`
 
 ```c++
 #include <pesto/Pesto.hpp>
 // ...
-osl_scop_p scop; // should be initialized somewhere
+osl_scop_p scop; // should be initialized somewhere at your conveniance
 // ...
 
-std::unique_ptr<pesto::PolyProgram> prog = pesto::PolyProgramBuilder().addScop(scop).build();
+std::unique_ptr<pesto::Program> prog = pesto::Progam::Builder().addScop(scop).build();
 ```
 
 Below is a full example that reads an openscop file and generate code after some pesto optimizations.
@@ -48,20 +48,22 @@ int main() {
     osl_scop_p scop = osl_scop_read(in);
     fclose(in);
 
-    std::unique_ptr<pesto::PolyProgram> polyProgram = pesto::PolyProgramBuilder().addScop(scop).build();
+    std::unique_ptr<pesto::Program> program = pesto::Program::Builder().addScop(scop).build();
 
+    // scop has been copied by builder, we can free memory
     osl_scop_free(scop);
 
-    pesto::PassManager pestoPM;
+    pesto::PassManager passManager;
 
     // register passes
-    pestoPM.addPass(std::make_unique<pesto::ParamContextPass>(10));
-    pestoPM.addPass(std::make_unique<pesto::PlutoAutoTransformPass>());
-    pestoPM.addPass(std::make_unique<pesto::SplitNestedLoopsPass>());
-    pestoPM.addPass(std::make_unique<pesto::PlutoTilingPass>());
-    pestoPM.addPass(std::make_unique<pesto::CloogCodegenPass>("prefix"));
+    passManager.addPass(std::make_unique<pesto::ParamContextPass>(10));
+    passManager.addPass(std::make_unique<pesto::PlutoAutoTransformPass>());
+    passManager.addPass(std::make_unique<pesto::SplitNestedLoopsPass>());
+    passManager.addPass(std::make_unique<pesto::PlutoTilingPass>());
+    passManager.addPass(std::make_unique<pesto::CloogCodegenPass>("prefix"));
 
-    pestoPM.runPasses(*polyProgram.get());
+    // apply passes
+    passManager.runPasses(*program.get());
 
     return 0;
 }
@@ -112,22 +114,23 @@ See [Cloog](https://github.com/periscop/cloog)
 
 ## Write your own pass
 
-Pesto passes are very simple. There are two main interfaces: `pesto::IPestoPass` and `pesto::IPolySingleNestPass`.
-Note that the second one inherits from the first one.
+Pesto passes are very simple. There is one pass base class: `pesto::pass::IPass`.
 
-A pass is very simple, it has a name, and will perform transformations over a `pesto::PolyProgram`.
-The `pesto::IPestoPass::run(pesto::PolyProgram &prog)` will be called to apply those transformations.
-The `pesto::IPolySingleNestPass::runSingleNest(pesto::ScopNest &nest)` is very similar but is called for each `pesto::ScopNest` of the program.
+A pass is very simple, it has a name, and will perform transformations over a `pesto::Program`.
+The `pesto::pass::IPass::apply(pesto::Program &prog)` will be called to apply those transformations. This method cannot be override. But it will call three ineteral methods that you can modify at your ease.
+The `pesto::pass::IPass::hookBegin(pesto::Program &prog)` will be called first, before any computation.
+Then for each `pesto::OslScop` of the program the `pesto::pass::IPass::applyScop(pesto::OslScop &nest);` will be called.
+Finally the `pesto::pass::IPass::hookEnd(pesto::Program &prog)` method is called.
 
 Below is an example of a pass:
 
 ```c++
-class FooPass : public IPolySingleNestPass {
+class FooPass : public pesto::pass::IPass {
   public:
-    FooPass() : IPolySingleNestPass("pass-foo") {};
+    FooPass();
     virtual ~FooPass() {};
 
-    virtual void runSingleNest(ScopNest &nest) {
+    virtual void applyScop(pesto::OslScop &nest) {
         log(std::cerr) << " running foo pass on " << nest.getId() << std::endl;
         osl_scop_p scop = nest.getScop();
         // do some work on this scop...
