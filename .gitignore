@@ -57,10 +57,12 @@ configure~
 configure.ac~
 libtool
 
-# misc
+# nix
 .direnv
 .envrc
 shell.nix
+flake.nix
+flake.lock
 
 # tmp
 output_*

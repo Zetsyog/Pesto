@@ -76,8 +76,10 @@ ExternalProject_Add(
 # ##############################################################################
 # trahrhe
 # ##############################################################################
+# Check if trahrhe dependencies are installed
+find_program(BARVINOK_ISCC "iscc" REQUIRED)
+find_program(MAXIMA "maxima" REQUIRED)
 
-# then we can build it
 add_custom_target(
 	trahrhe
 	COMMAND make
