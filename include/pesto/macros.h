@@ -16,5 +16,6 @@
 #define PESTO_UUID_PASS_PLUTO_TILING "pluto-tiling"
 #define PESTO_UUID_PASS_PLUTO_GENERIC "pluto"
 #define PESTO_UUID_PASS_MATCH_CRITERIA "match"
+#define PESTO_UUID_PASS_CLAST_CUSTOM_VEC_PRAGMA "clast-custom-vec-pragma"
 
 #endif // PESTO_MACROS_H

@@ -15,10 +15,12 @@
 #include <pesto/PassManager.hpp>
 #include <pesto/PlutoPass.hpp>
 
+#include <pesto/clast/CustomVecPragma.hpp>
 #include <pesto/clast/GenClastPass.hpp>
 #include <pesto/clast/ParamTilingPass.hpp>
 
 #include <pesto/PassBuilder.hpp>
+#include <pesto/passbuilder/ClastCustomVecPragmaPB.hpp>
 #include <pesto/passbuilder/ClastParamTilingPB.hpp>
 #include <pesto/passbuilder/CloogCodegenPB.hpp>
 #include <pesto/passbuilder/GenClastPB.hpp>

@@ -28,6 +28,8 @@ std::unique_ptr<PassManagerBuilder> PassManagerBuilder::createDefault() {
 							std::make_unique<ParamContextPB>());
 	pm->registerPassBuilder(PESTO_UUID_PASS_MATCH_CRITERIA,
 							std::make_unique<MatchCriteriaPB>());
+	pm->registerPassBuilder(PESTO_UUID_PASS_CLAST_CUSTOM_VEC_PRAGMA,
+							std::make_unique<ClastCustomVecPragmaPB>());
 
 	return pm;
 }
