@@ -4,10 +4,6 @@
     },
     "passes": [
         {
-            "uuid": "param-context",
-            "value": 10
-        },
-        {
             "uuid": "pluto",
             "options": {
                 "tile": false,
@@ -21,16 +17,20 @@
         },
         {
             "uuid": "param-tiling",
-            "gen-trahrhe": false,
+            "gen-trahrhe": true,
+            "trahrhe-mask": "d",
             "pluto": {
                 "options": {
                     "tile": true,
                     "parallel": true,
-                    "prevector": false,
-                    "intratileopt": false,
-                    "silent": false
+                    "prevector": true,
+                    "intratileopt": true
                 }
             }
+        },
+        {
+            "uuid": "clast-custom-vec-pragma",
+            "pragma": "GCC ivdep"
         },
         {
             "uuid": "codegen-cloog"

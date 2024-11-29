@@ -1,7 +1,13 @@
 *.pluto.c
 *.pesto.c
+*.cloog
+*.metrics.c
+*_pesto_metrics
+*_pluto_metrics
 header.*.h
 trahrhe_header.*.h
+schedule.h
+trahrhe_schedule.*.h
 
 # datamining
 datamining/correlation/correlation
