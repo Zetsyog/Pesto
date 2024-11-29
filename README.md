@@ -47,7 +47,7 @@ Note: the `install` command is untested and shall not be used for now.
 ```bash
 mkdir build
 cd build
-cmake ..
+cmake .. -DPESTO_BUILD_JOBS=16
 cmake --build . -j
 # make install # not implemented
 # now you can call cli with
@@ -66,6 +66,12 @@ Then you can start a shell session in this container with the current host dir m
 
 ```bash
 docker run -it --rm -v "$(pwd):/mnt" -w /mnt pesto:latest bash
+```
+
+Then inside the container you can call pesto with
+
+```bash
+$PESTO --config <path to json config> <input.c> -o <output.c>
 ```
 
 ### Build using nix
@@ -191,17 +197,20 @@ pesto --config opt.json 2mm.c -o 2mm.pesto.c
         },
         {
             "uuid": "param-tiling",
-            "gen-trahrhe": false,
+            "gen-trahrhe": true,
             "trahrhe-mask": "d",
             "pluto": {
                 "options": {
                     "tile": true,
                     "parallel": true,
-                    "prevector": false,
-                    "intratileopt": true,
-                    "silent": false
+                    "prevector": true,
+                    "intratileopt": true
                 }
             }
+        },
+        {
+            "uuid": "clast-custom-vec-pragma",
+            "pragma": "GCC ivdep"
         },
         {
             "uuid": "codegen-cloog"
