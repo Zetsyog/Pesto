@@ -162,7 +162,7 @@ void pesto::ParamTilingUtility::tileGroup(StmtGroup &group) {
 		int tiling_depth = data->tiling_depth;
 
 		// TODO: remove
-		std::cerr << "Proccessing " << outter_for->iterator << std::endl;
+		std::cerr << "Processing " << outter_for->iterator << std::endl;
 
 		this->computeCodegenData(group, outter_for, inner_for, tiling_depth);
 
@@ -396,32 +396,68 @@ void pesto::ParamTilingUtility::computeCodegenData(struct StmtGroup &group,
 	memset(lb_expr, 0, STR_BUF_SIZE);
 	memset(ub_expr, 0, STR_BUF_SIZE);
 
-	int firstTilingDim = this->islFirstTilingDimIdx(group);
-
+	CloogNames *lb_names = cloog_names_hard_copy(this->cloogProgram->names);
 	CloogNames *ub_names = cloog_names_hard_copy(this->cloogProgram->names);
-	for (int i = firstTilingDim; i < ub_names->nb_scattering; i += 1) {
-		char *it_name = ub_names->scattering[i];
+	for (int i = 0; i < ub_names->nb_scattering; i += 1) {
+		free(lb_names->scattering[i]);
+		free(ub_names->scattering[i]);
+	}
+	free(lb_names->scattering);
+	free(ub_names->scattering);
+	lb_names->nb_scattering = group.tilingData.size();
+	ub_names->nb_scattering = group.tilingData.size();
+
+	lb_names->scattering =
+		(char **)malloc(lb_names->nb_scattering * sizeof(char *));
+	ub_names->scattering =
+		(char **)malloc(ub_names->nb_scattering * sizeof(char *));
+
+	for (std::size_t i = 0; i < group.tilingData.size(); i += 1) {
+		auto &data = group.tilingData[i];
+
+		lb_names->scattering[i] = (char *)malloc(32 * sizeof(char));
+		snprintf(lb_names->scattering[i], 32, "g%d_lb%s", header_data.group_id,
+				 data->inner_for->iterator);
+
 		ub_names->scattering[i] = (char *)malloc(32 * sizeof(char));
 		snprintf(ub_names->scattering[i], 32, "g%d_ub%s", header_data.group_id,
-				 it_name);
-		free(it_name);
+				 data->inner_for->iterator);
 	}
 
-	CloogNames *lb_names = cloog_names_hard_copy(this->cloogProgram->names);
-	for (int i = firstTilingDim; i < lb_names->nb_scattering; i += 1) {
-		char *it_name = lb_names->scattering[i];
-		lb_names->scattering[i] = (char *)malloc(32 * sizeof(char));
-		TRAHRHE_GEN_INNER_LB(sprintf, lb_names->scattering[i], &header_data);
-		free(it_name);
+	isl_set *inner_domain =
+		isl_set_copy(isl_set_from_cloog_domain(group.parent_for->domain));
+	// define param names
+	for (int i = 0; i < this->cloogProgram->names->nb_parameters; i += 1) {
+		inner_domain =
+			isl_set_set_dim_name(inner_domain, isl_dim_param, i,
+								 this->cloogProgram->names->parameters[i]);
 	}
-	isl_set *domain =
-		isl_set_copy(isl_set_from_cloog_domain(inner_for->domain));
-	domain = this->dropTilingConstraints(domain, group);
-	isl_set_dump(domain);
+
+	for (isl_size i = 0; i < isl_set_n_dim(inner_domain); i += 1) {
+		inner_domain =
+			isl_set_set_dim_name(inner_domain, isl_dim_set, i,
+								 this->cloogProgram->names->scattering[i]);
+	}
+	isl_set_dump(inner_domain);
+	inner_domain =
+		this->extractIslInnerTiledDomain(group, inner_domain, tiling_depth + 1);
+
+	// for (std::size_t i = 0; i < group.tilingData.size(); i += 1) {
+	// 	auto &data = group.tilingData[i];
+	// 	char *name = (char *)malloc(32 * sizeof(char));
+	// 	snprintf(name, 32, "g%d_lb%s", group.id, data->inner_for->iterator);
+
+	// 	inner_domain = isl_set_set_dim_name(inner_domain, isl_dim_set, i, name);
+	// 	free(name);
+	// }
+
+	fprintf(stderr, "inner_domain:\n");
+	isl_set_dump(inner_domain);
 
 	for (int bound = 0; bound < 2; bound += 1) {
-		struct clast_expr *expr = clast_bound_from_isl_set(
-			bound == 1 ? ub_names : lb_names, domain, bound);
+		struct clast_expr *expr =
+			clast_bound_from_isl_set(bound == 1 ? ub_names : lb_names,
+									 inner_domain, bound, tiling_depth);
 		if (expr != NULL) {
 			FILE *fd =
 				fmemopen(bound == 0 ? lb_expr : ub_expr, STR_BUF_SIZE, "w");
@@ -438,10 +474,10 @@ void pesto::ParamTilingUtility::computeCodegenData(struct StmtGroup &group,
 	body_data.lb_expr = strdup(lb_expr);
 	body_data.ub_expr = strdup(ub_expr);
 
-	isl_set_free(domain);
-
 	cloog_names_free(ub_names);
 	cloog_names_free(lb_names);
+
+	isl_set_free(inner_domain);
 
 	free(lb_expr);
 	free(ub_expr);
@@ -502,10 +538,12 @@ void pesto::ParamTilingUtility::replaceInnerForBounds(
 		isl_set_copy(isl_set_from_cloog_domain(inner_for->domain));
 	domain = this->dropTilingConstraints(domain, group);
 
-	inner_for->LB =
-		clast_bound_from_isl_set(this->cloogProgram->names, domain, 0);
-	inner_for->UB =
-		clast_bound_from_isl_set(this->cloogProgram->names, domain, 1);
+	isl_size ndim = isl_set_dim(domain, isl_dim_set);
+
+	inner_for->LB = clast_bound_from_isl_set(this->cloogProgram->names, domain,
+											 0, ndim - 1);
+	inner_for->UB = clast_bound_from_isl_set(this->cloogProgram->names, domain,
+											 1, ndim - 1);
 
 	isl_set_free(domain);
 
@@ -793,7 +831,18 @@ void pesto::ParamTilingUtility::computeTrahrheDomain(struct StmtGroup &group) {
 	isl_set_dump(domain);
 
 	// apply the map to original domain
-	isl_set *out = this->extractIslInnerDomain(group, isl_set_copy(domain));
+	isl_set *out = this->extractIslInnerTiledDomain(group, isl_set_copy(domain),
+													group.tilingData.size());
+
+	// rename the dimension
+	for (std::size_t i = 0; i < group.tilingData.size(); i += 1) {
+		auto &data = group.tilingData[i];
+		char *buffer = (char *)malloc(STR_BUF_SIZE * sizeof(char));
+		TRAHRHE_GEN_TRAHRHE_ITERATOR(sprintf, buffer,
+									 &data->codegen_data.first);
+		out = isl_set_set_dim_name(out, isl_dim_set, i, buffer);
+		free(buffer);
+	}
 
 	int ntiled_dim = 0;
 	for (std::size_t i = 0; i < group.tilingData.size(); i += 1) {
@@ -829,9 +878,10 @@ pesto::ParamTilingUtility::getTrahrheDomains() {
 	return res;
 }
 
-__isl_give isl_set *
-pesto::ParamTilingUtility::extractIslInnerDomain(struct StmtGroup &group,
-												 __isl_take isl_set *domain) {
+__isl_give isl_set *pesto::ParamTilingUtility::extractIslInnerTiledDomain(
+	struct StmtGroup &group, __isl_take isl_set *domain, std::size_t ndim) {
+	assert(ndim <= group.tilingData.size());
+
 	// we are going to build a map
 	// that will transform the current dimensions to keep only the tiled
 	// dimensions in the order of the tiling iterators
@@ -844,19 +894,13 @@ pesto::ParamTilingUtility::extractIslInnerDomain(struct StmtGroup &group,
 							  isl_map_dim(trans, isl_dim_set));
 	// we have as much output dimensions as tiled dimensions
 	// TODO: move untiled dimensions as parameters
-	trans = isl_map_add_dims(trans, isl_dim_out, group.tilingData.size());
-	isl_map_dump(trans);
+	trans = isl_map_add_dims(trans, isl_dim_out, ndim);
 
 	char *buffer = (char *)malloc(STR_BUF_SIZE * sizeof(char));
 
 	// for each tiled dimensionss
-	for (std::size_t i = 0; i < group.tilingData.size(); i += 1) {
+	for (std::size_t i = 0; i < ndim; i += 1) {
 		auto &data = group.tilingData[i];
-
-		// we the dimension
-		TRAHRHE_GEN_TRAHRHE_ITERATOR(sprintf, buffer,
-									 &data->codegen_data.first);
-		trans = isl_map_set_dim_name(trans, isl_dim_out, i, buffer);
 
 		// we add a constraint [input_dim] = [output_dim]
 		// where [input_dim] is the dimension in the original set

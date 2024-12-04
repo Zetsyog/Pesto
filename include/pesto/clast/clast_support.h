@@ -139,7 +139,8 @@ int clast_annotate_loops(osl_scop_p program, struct clast_stmt *root);
  * TODO: document
  */
 struct clast_expr *clast_bound_from_isl_set(CloogNames *names,
-											__isl_keep isl_set *set, int bound);
+											__isl_keep isl_set *set, int bound,
+											int dim);
 
 #ifdef __cplusplus
 }

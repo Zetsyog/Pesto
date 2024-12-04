@@ -170,8 +170,9 @@ class ParamTilingUtility {
 
 	void updateOmpPragma(struct StmtGroup &group);
 
-	__isl_give isl_set *extractIslInnerDomain(struct StmtGroup &group,
-											  __isl_take isl_set *domain);
+	__isl_give isl_set *extractIslInnerTiledDomain(struct StmtGroup &group,
+												   __isl_take isl_set *domain,
+												   std::size_t ndim);
 };
 
 } // namespace pesto

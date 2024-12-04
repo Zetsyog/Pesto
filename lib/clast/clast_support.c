@@ -536,9 +536,11 @@ int clast_annotate_loops(osl_scop_p program, struct clast_stmt *root) {
 }
 
 struct clast_expr *clast_bound_from_isl_set(CloogNames *names,
-											__isl_keep isl_set *set,
-											int bound) {
+											__isl_keep isl_set *set, int bound,
+											int dim) {
 	isl_size ndim = isl_set_dim(set, isl_dim_set);
+
+	assert(dim < ndim && "dim should be less than the number of dimensions");
 
 	isl_basic_set_list *bset_list = isl_set_get_basic_set_list(set);
 	isl_basic_set *bset = isl_basic_set_list_get_at(bset_list, 0);
@@ -558,7 +560,7 @@ struct clast_expr *clast_bound_from_isl_set(CloogNames *names,
 	for (int i = 0; i < n_cst; i += 1) {
 		isl_constraint *cst = isl_constraint_list_get_at(cst_list, i);
 
-		if (bound_fn(cst, isl_dim_set, ndim - 1)) {
+		if (bound_fn(cst, isl_dim_set, dim)) {
 			struct clast_expr *expr = clast_bound_from_constraint(
 				cloog_constraint_from_isl_constraint(cst), ndim, names);
 
