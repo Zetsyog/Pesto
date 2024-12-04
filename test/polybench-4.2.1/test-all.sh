@@ -92,8 +92,8 @@ for bench in "${benchmark_list[@]}"; do
     fi
 
     # run pb_chksum and get the second line of the output
-    vanilla_hash=$($CHK_BIN "$vanilla_src" "-I../include/" 2>/dev/null | awk 'NR==2{print}')
-    test_hash=$($CHK_BIN "$test_src" "-I../include/" 2>/dev/null | awk 'NR==2{print}')
+    vanilla_hash=$($CHK_BIN "$vanilla_src" "-I../include/" 2>/dev/null | awk 'NR==1{print}')
+    test_hash=$($CHK_BIN "$test_src" "-I../include/" 2>/dev/null | awk 'NR==1{print}')
 
     if [[ $vanilla_hash == "$test_hash" ]]; then
         echo "ok"
