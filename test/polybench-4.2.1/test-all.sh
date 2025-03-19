@@ -21,15 +21,15 @@ benchmark_list=(
 CHK_BIN="./tools/pb_chksum"
 
 cleanup=0
-metrics=0
-pluto=0
+variant="none"
 
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
     --cleanup) cleanup=1 ;;
-    --metrics) metrics=1 ;;
+    --metrics) variant="metrics" ;;
     --pluto) pluto=1 ;;
+    --likwid) variant="likwid" ;;
     *)
         echo "Unknown parameter passed: $1"
         exit 1
@@ -51,15 +51,15 @@ if [[ $cleanup -ne 0 ]]; then
     done
 fi
 
-if [[ $metrics -ne 0 ]]; then
-    echo "# Building ${suffix} programs (metrics)"
+if [[ $variant != "none" ]]; then
+    echo "# Building ${suffix} programs ($variant)"
 else
     echo "# Building ${suffix} programs"
 fi
 for bench in "${benchmark_list[@]}"; do
     name=$(basename "$bench")
-    if [[ $metrics -ne 0 ]]; then
-        bin=$(basename "${bench}_${suffix}_metrics")
+    if [[ $variant != "none" ]]; then
+        bin=$(basename "${bench}_${suffix}_${variant}")
     else
         bin=$(basename "${bench}_${suffix}")
     fi
@@ -71,8 +71,8 @@ for bench in "${benchmark_list[@]}"; do
     fi
 done
 
-if [[ $metrics -ne 0 ]]; then
-    echo "# Checking (metrics)..."
+if [[ $variant != "none" ]]; then
+    echo "# Checking ($variant)"
 else
     echo "# Checking..."
 fi
@@ -85,8 +85,8 @@ for bench in "${benchmark_list[@]}"; do
 
     vanilla_src="${bench}/${name}.c"
 
-    if [[ $metrics -ne 0 ]]; then
-        test_src="${bench}/${name}.${suffix}.metrics.c"
+    if [[ $variant != "none" ]]; then
+        test_src="${bench}/${name}.${suffix}.${variant}.c"
     else
         test_src="${bench}/${name}.${suffix}.c"
     fi

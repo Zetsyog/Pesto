@@ -19,6 +19,7 @@
             "uuid": "param-tiling",
             "gen-trahrhe": true,
             "trahrhe-mask": "d",
+            "bound-compute-method": "default",
             "pluto": {
                 "options": {
                     "tile": true,
