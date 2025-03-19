@@ -20,7 +20,7 @@ ClastParamTilingPB::build(PassManagerBuilder &builder, const json &j) {
 	}
 	if (j.contains("bound-compute-method")) {
 		std::string method = j["bound-compute-method"];
-		if (method == "fill-last") {
+		if (method == "fill-last" || method == "default") {
 			pass->boundComputeMethod = trahrhe_compute_fill_last;
 		} else if (method == "reduce-control") {
 			pass->boundComputeMethod = trahrhe_compute_reduce_control;
