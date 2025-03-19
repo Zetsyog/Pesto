@@ -47,6 +47,11 @@ enum ptile_type {
 	trahrhe_type_algebraic,
 };
 
+enum trahrhe_bound_compute_method {
+	trahrhe_compute_fill_last,
+	trahrhe_compute_reduce_control,
+};
+
 struct trahrhe_codegen_data {
 	enum trahrhe_stmt_type stmt_type;
 	enum ptile_type tiling_type;
@@ -63,6 +68,7 @@ struct trahrhe_codegen_data {
 	int npar;
 	char **params;
 	char *endline;
+	enum trahrhe_bound_compute_method bound_compute_method;
 };
 
 void trahrhe_codegen_stmt(FILE *fp, struct trahrhe_codegen_data *data);

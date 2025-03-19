@@ -89,6 +89,8 @@ class ParamTilingUtility {
 
 	void setIdTrahrhePrefix(int id);
 
+	void setBoundComputingMethod(trahrhe_bound_compute_method method);
+
 	std::vector<std::shared_ptr<std::string>> getNames();
 
 	std::vector<std::pair<int, std::string>> getStatements();
@@ -126,6 +128,8 @@ class ParamTilingUtility {
 	std::vector<std::pair<int, std::string>>
 		statements; /* list of statements id and their content */
 	std::vector<std::string> varList;
+
+	trahrhe_bound_compute_method boundComputeMethod;
 
 	bool canBeTiled();
 

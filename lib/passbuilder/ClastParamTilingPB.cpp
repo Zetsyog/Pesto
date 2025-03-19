@@ -18,6 +18,18 @@ ClastParamTilingPB::build(PassManagerBuilder &builder, const json &j) {
 	if (j.contains("trahrhe-mask")) {
 		pass->trahrhe_mask = j["trahrhe-mask"];
 	}
+	if (j.contains("bound-compute-method")) {
+		std::string method = j["bound-compute-method"];
+		if (method == "fill-last") {
+			pass->boundComputeMethod = trahrhe_compute_fill_last;
+		} else if (method == "reduce-control") {
+			pass->boundComputeMethod = trahrhe_compute_reduce_control;
+		} else {
+			std::cerr << "Warning: unknown bound compute method \"" << method
+					  << "\". Default to fill-last." << std::endl;
+			pass->boundComputeMethod = trahrhe_compute_fill_last;
+		}
+	}
 
 	if (j.contains("types")) {
 		for (std::string elt : j["types"]) {

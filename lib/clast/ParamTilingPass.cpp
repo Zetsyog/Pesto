@@ -20,13 +20,15 @@ using pesto::pass::metadata::MacroMetadata;
 using pesto::pass::metadata::VarDeclMetadata;
 
 pesto::pass::ClastParamTilingPass::ClastParamTilingPass()
-	: IPass("pass-param-tiling"), gen_trahrhe(false), is_stencil(false),
+	: IPass("pass-param-tiling"), gen_trahrhe(false),
+	  boundComputeMethod(trahrhe_compute_fill_last), is_stencil(false),
 	  tiling_types() {
 	using namespace pesto::pass;
 
 	this->pluto_pass = std::make_unique<PlutoPass>();
 	this->gen_clast_pass = std::make_unique<GenClastPass>();
-	this->gen_clast_pass->codegenContext = 10;
+	// TODO: WHY IS THIS HERE?
+	this->gen_clast_pass->codegenContext = 1;
 }
 
 pesto::pass::ClastParamTilingPass::~ClastParamTilingPass() {}
@@ -58,6 +60,8 @@ void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
 	tilingUtil->setClastRoot((struct clast_root *)clastDataShared->root);
 	tilingUtil->setCloogProgram(clastDataShared->cloogProgram);
 	tilingUtil->setCloogOptions(clastDataShared->cloogOptions);
+
+	tilingUtil->setBoundComputingMethod(this->boundComputeMethod);
 
 	tilingUtil->apply();
 	if (tilingUtil->hasError()) {

@@ -33,6 +33,7 @@ class ClastParamTilingPass : public IPass {
   public:
 	bool gen_trahrhe;
 	std::string trahrhe_mask;
+	trahrhe_bound_compute_method boundComputeMethod;
 
 	ClastParamTilingPass();
 	virtual ~ClastParamTilingPass();

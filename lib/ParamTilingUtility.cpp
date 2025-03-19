@@ -13,7 +13,8 @@
 #define STR_BUF_SIZE 512
 
 pesto::ParamTilingUtility::ParamTilingUtility()
-	: scop(nullptr), root(nullptr), insertedStmts(0), error(false) {}
+	: scop(nullptr), root(nullptr), insertedStmts(0), error(false),
+	  boundComputeMethod(trahrhe_compute_fill_last) {}
 
 pesto::ParamTilingUtility::~ParamTilingUtility() {
 	for (auto &group : this->stmtGroups) {
@@ -319,7 +320,9 @@ void pesto::ParamTilingUtility::computeCodegenData(struct StmtGroup &group,
 											   .ub_expr = NULL,
 											   .npar = 0,
 											   .params = NULL,
-											   .endline = NULL};
+											   .endline = NULL,
+											   .bound_compute_method =
+												   this->boundComputeMethod};
 
 	struct trahrhe_codegen_data body_data = {.stmt_type = trahrhe_stmt_body,
 											 .tiling_type = trahrhe_type,
@@ -335,7 +338,9 @@ void pesto::ParamTilingUtility::computeCodegenData(struct StmtGroup &group,
 											 .ub_expr = NULL,
 											 .npar = 0,
 											 .params = NULL,
-											 .endline = NULL};
+											 .endline = NULL,
+											 .bound_compute_method =
+												 this->boundComputeMethod};
 
 	header_data.group_id = group.id;
 	body_data.group_id = group.id;
@@ -923,4 +928,9 @@ __isl_give isl_set *pesto::ParamTilingUtility::extractIslInnerTiledDomain(
 	isl_map_free(trans);
 
 	return out;
+}
+
+void pesto::ParamTilingUtility::setBoundComputingMethod(
+	trahrhe_bound_compute_method method) {
+	this->boundComputeMethod = method;
 }

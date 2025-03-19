@@ -78,66 +78,109 @@ void trahrhe_codegen_header_stmt_algebraic(FILE *fp,
 	fprintf(fp, "\\\n"); // new line
 	TRAHRHE_GEN_TARGET_VOL(fprintf, fp, data);
 	fprintf(fp, " = ");
-	TRAHRHE_GEN_PCMAX(fprintf, fp, data);
-	fprintf(fp, " / ");
-	TRAHRHE_GEN_DIV(fprintf, fp, data);
+	if (data->bound_compute_method == trahrhe_compute_fill_last) {
+		TRAHRHE_GEN_PCMAX(fprintf, fp, data);
+		fprintf(fp, " / ");
+		TRAHRHE_GEN_DIV(fprintf, fp, data);
+	}
+	if (data->bound_compute_method == trahrhe_compute_reduce_control) {
+		fprintf(fp, "ceild(");
+		TRAHRHE_GEN_PCMAX(fprintf, fp, data);
+		fprintf(fp, ", ");
+		TRAHRHE_GEN_DIV(fprintf, fp, data);
+		fprintf(fp, ")");
+	}
 }
 
 void trahrhe_codegen_body_stmt_algebraic(FILE *fp,
 										 struct trahrhe_codegen_data *data) {
 	// lower bound
-	TRAHRHE_GEN_INNER_LB(fprintf, fp, data);
-	fprintf(fp, " = ");
-	TRAHRHE_GEN_TRAHRHE_FN(fprintf, fp, data);
-	fprintf(fp, "(max(1, (%s) * ", data->iterator_name);
-	TRAHRHE_GEN_TARGET_VOL(fprintf, fp, data);
-	fprintf(fp, ")");
+	if (data->bound_compute_method == trahrhe_compute_fill_last) {
+		TRAHRHE_GEN_INNER_LB(fprintf, fp, data);
+		fprintf(fp, " = ");
+		TRAHRHE_GEN_TRAHRHE_FN(fprintf, fp, data);
+		fprintf(fp, "(max(1, (%s) * ", data->iterator_name);
+		TRAHRHE_GEN_TARGET_VOL(fprintf, fp, data);
+		fprintf(fp, ")");
 
-	// minimum args are prog parameters
-	for (int i = 0; i < data->npar; i++) {
-		fprintf(fp, ", %s", data->params[i]);
+		// minimum args are prog parameters
+		for (int i = 0; i < data->npar; i++) {
+			fprintf(fp, ", %s", data->params[i]);
+		}
+		// append bounds of previous loops
+		// for (int i = 0; i < data->depth; i++) {
+		// 	fprintf(fp, ", %slb%u, %sub%u", data->var_prefix, i,
+		// data->var_prefix, 			i);
+		// }
+
+		fprintf(fp, ");");
+	} else if (data->bound_compute_method == trahrhe_compute_reduce_control) {
+		TRAHRHE_GEN_INNER_LB(fprintf, fp, data);
+		fprintf(fp, " = ");
+		TRAHRHE_GEN_TRAHRHE_FN(fprintf, fp, data);
+		fprintf(fp, "(max(1, (%s) * ", data->iterator_name);
+		TRAHRHE_GEN_TARGET_VOL(fprintf, fp, data);
+		fprintf(fp, ")");
+
+		// minimum args are prog parameters
+		for (int i = 0; i < data->npar; i++) {
+			fprintf(fp, ", %s", data->params[i]);
+		}
+		fprintf(fp, ") + !!%s;", data->iterator_name);
 	}
-	// append bounds of previous loops
-	// for (int i = 0; i < data->depth; i++) {
-	// 	fprintf(fp, ", %slb%u, %sub%u", data->var_prefix, i, data->var_prefix,
-	// 			i);
-	// }
 
-	fprintf(fp, ");");
 	fprintf(fp, "\\\n"); // new line
-
 	// upper bound
-	TRAHRHE_GEN_INNER_UB(fprintf, fp, data);
-	fprintf(fp, " = ");
-	TRAHRHE_GEN_TRAHRHE_FN(fprintf, fp, data);
-	fprintf(fp, "(min(");
-	TRAHRHE_GEN_PCMAX(fprintf, fp, data);
-	fprintf(fp, ", (%s + 1) * ", data->iterator_name);
-	TRAHRHE_GEN_TARGET_VOL(fprintf, fp, data);
-	fprintf(fp, ")");
+	if (data->bound_compute_method == trahrhe_compute_fill_last) {
+		TRAHRHE_GEN_INNER_UB(fprintf, fp, data);
+		fprintf(fp, " = ");
+		TRAHRHE_GEN_TRAHRHE_FN(fprintf, fp, data);
+		fprintf(fp, "(min(");
+		TRAHRHE_GEN_PCMAX(fprintf, fp, data);
+		fprintf(fp, ", (%s + 1) * ", data->iterator_name);
+		TRAHRHE_GEN_TARGET_VOL(fprintf, fp, data);
+		fprintf(fp, ")");
 
-	// minimum args are prog parameters
-	for (int i = 0; i < data->npar; i++) {
-		fprintf(fp, ", %s", data->params[i]);
+		// minimum args are prog parameters
+		for (int i = 0; i < data->npar; i++) {
+			fprintf(fp, ", %s", data->params[i]);
+		}
+		// append bounds of previous loops
+		// for (int i = 0; i < data->depth; i++) {
+		// 	fprintf(fp, ", %slb%d, %sub%d", data->var_prefix, i,
+		// data->var_prefix, 			i);
+		// }
+		fprintf(fp, ") - 1;");
+	} else if (data->bound_compute_method == trahrhe_compute_reduce_control) {
+		TRAHRHE_GEN_INNER_UB(fprintf, fp, data);
+		fprintf(fp, " = ");
+		TRAHRHE_GEN_TRAHRHE_FN(fprintf, fp, data);
+		fprintf(fp, "(min(");
+		TRAHRHE_GEN_PCMAX(fprintf, fp, data);
+		fprintf(fp, ", (%s + 1) * ", data->iterator_name);
+		TRAHRHE_GEN_TARGET_VOL(fprintf, fp, data);
+		fprintf(fp, ")");
+
+		// minimum args are prog parameters
+		for (int i = 0; i < data->npar; i++) {
+			fprintf(fp, ", %s", data->params[i]);
+		}
+		fprintf(fp, ");");
 	}
-	// append bounds of previous loops
-	// for (int i = 0; i < data->depth; i++) {
-	// 	fprintf(fp, ", %slb%d, %sub%d", data->var_prefix, i, data->var_prefix,
-	// 			i);
-	// }
-	fprintf(fp, ") - 1;");
-	fprintf(fp, "\\\n"); // new line
 
 	// last bound adjustment
-	fprintf(fp, "if(%s ==", data->iterator_name);
-	TRAHRHE_GEN_DIV(fprintf, fp, data);
-	fprintf(fp, " - 1) {");
+	if (data->bound_compute_method == trahrhe_compute_fill_last) {
+		fprintf(fp, "\\\n"); // new line
+		fprintf(fp, "if(%s ==", data->iterator_name);
+		TRAHRHE_GEN_DIV(fprintf, fp, data);
+		fprintf(fp, " - 1) {");
 
-	TRAHRHE_GEN_INNER_UB(fprintf, fp, data);
-	fprintf(fp, " = %s", data->ub_expr);
-	fprintf(fp, ";\\\n"); // new line
+		TRAHRHE_GEN_INNER_UB(fprintf, fp, data);
+		fprintf(fp, " = %s", data->ub_expr);
+		fprintf(fp, ";\\\n"); // new line
 
-	fprintf(fp, "}");
+		fprintf(fp, "}");
+	}
 }
 
 void trahrhe_codegen_header_stmt_rectangular(
