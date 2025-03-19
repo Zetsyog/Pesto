@@ -1,4 +1,4 @@
-# Pesto &#x1F90C; (not sure of the name)
+# Pesto &#x1F90C;
 
 Polyhedral flExible loop-neST Optimizer (PESTO)
 
