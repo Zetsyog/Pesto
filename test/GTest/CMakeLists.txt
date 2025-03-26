@@ -11,7 +11,7 @@ add_executable(
 
 add_dependencies(pesto_gtest pesto)
 
-target_link_libraries(pesto_gtest libpesto GTest::gtest_main)
+target_link_libraries(pesto_gtest pesto GTest::gtest_main)
 
 gtest_discover_tests(pesto_gtest)
 

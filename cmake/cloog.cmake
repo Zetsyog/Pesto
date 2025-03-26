@@ -15,8 +15,10 @@ set(CLOOG_BIN ${CMAKE_CURRENT_BINARY_DIR}/cloog)
 set(CLOOG_STATIC_LIB ${CLOOG_BIN}/lib/libcloog-isl.a)
 set(CLOOG_INCLUDES ${CLOOG_BIN}/include)
 
+file(MAKE_DIRECTORY ${CLOOG_INCLUDES})
+
 ExternalProject_Add(
-	cloog-isl
+	cloog-src
 	GIT_REPOSITORY https://github.com/periscop/cloog.git
 	GIT_TAG cloog-0.21.1 #
 	GIT_SUBMODULES_RECURSE false
@@ -36,10 +38,10 @@ ExternalProject_Add(
 	UPDATE_DISCONNECTED true
 )
 
+add_dependencies(cloog-src pluto-src)
+
 add_library(cloog STATIC IMPORTED GLOBAL)
-add_dependencies(cloog cloog-isl)
-add_dependencies(cloog isl)
-add_dependencies(cloog osl)
+add_dependencies(cloog cloog-src isl osl)
 set_target_properties(cloog PROPERTIES IMPORTED_LOCATION ${CLOOG_STATIC_LIB})
 set_target_properties(cloog PROPERTIES INTERFACE_INCLUDE_DIRECTORIES ${CLOOG_INCLUDES})
 target_link_libraries(cloog INTERFACE isl osl)

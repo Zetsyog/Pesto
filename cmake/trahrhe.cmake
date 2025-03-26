@@ -1,3 +1,6 @@
+# trahrhe
+message(STATUS "Configuring trahrhe")
+
 # Check if trahrhe dependencies are installed
 find_program(BARVINOK_ISCC "iscc" REQUIRED)
 find_program(MAXIMA "maxima" REQUIRED)

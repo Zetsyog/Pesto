@@ -15,7 +15,7 @@ pkg_check_modules(GMP REQUIRED gmp)
 set(PLUTO_PATCH_COMPILE_FIX ${CMAKE_SOURCE_DIR}/patches/pluto_doc_gen_fix.patch)
 
 ExternalProject_Add(
-	libpluto
+	pluto-src
 	GIT_REPOSITORY https://gitlab.inria.fr/crossett/pluto-openscop.git
 	GIT_TAG origin/libpluto-build #
 	GIT_SUBMODULES_RECURSE false
@@ -31,7 +31,7 @@ ExternalProject_Add(
 )
 
 add_library(pluto STATIC IMPORTED GLOBAL)
-add_dependencies(pluto libpluto)
+add_dependencies(pluto pluto-src)
 set_target_properties(pluto PROPERTIES IMPORTED_LOCATION ${PLUTO_STATIC_LIB})
 set_target_properties(pluto PROPERTIES INTERFACE_INCLUDE_DIRECTORIES ${PLUTO_INCLUDES})
 

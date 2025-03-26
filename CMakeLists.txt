@@ -75,18 +75,7 @@ file(GLOB_RECURSE LIBPESTO_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/lib/*.cpp"
 # create library
 add_library(pesto STATIC ${LIBPESTO_SOURCES})
 
-add_dependencies(
-	pesto
-	cloog
-	clan
-	candl
-	pluto
-	nlohmann_json
-	muparser
-	trahrhe
-)
-
-target_link_libraries(pesto PUBLIC cloog pluto nlohmann_json muparser)
+target_link_libraries(pesto PUBLIC pluto cloog nlohmann_json muparser)
 
 # ##################################################################################################
 # pestobin
@@ -101,10 +90,10 @@ file(GLOB_RECURSE PESTOTOOL_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/tool/*.cpp"
 add_executable(pestobin ${PESTOTOOL_SOURCES})
 
 # trahrhe dependency
-add_dependencies(pestobin pesto trahrhe)
+add_dependencies(pestobin trahrhe)
 
 # libpesto dependency
-target_link_libraries(pestobin PUBLIC pesto pluto clan cloog)
+target_link_libraries(pestobin PUBLIC pesto clan)
 
 # ##################################################################################################
 # pesto-cli
@@ -114,8 +103,9 @@ target_link_libraries(pestobin PUBLIC pesto pluto clan cloog)
 set(EXTRACT_SCOP_BIN "${CMAKE_BINARY_DIR}/extract_scop.sh")
 set(REPLACE_SCOP_BIN "${CMAKE_BINARY_DIR}/replace_scop.sh")
 set(TRAHRHE_WRAPPER_BIN "${CMAKE_BINARY_DIR}/trahrhe_wrapper.sh")
-set(PESTO_TOOL_BIN "${CMAKE_BINARY_DIR}/pestotool")
+set(PESTO_TOOL_BIN "${CMAKE_BINARY_DIR}/pestobin")
 set(TRAHRHE_INSTALL_DIR "${CMAKE_SOURCE_DIR}/trahrhe-dev")
+set(PESTO_CLI_BIN "${CMAKE_BINARY_DIR}/pesto")
 
 # Add bash scripts
 configure_file("${CMAKE_SOURCE_DIR}/extract_scop.sh" "${CMAKE_BINARY_DIR}" COPYONLY)
@@ -123,7 +113,7 @@ configure_file("${CMAKE_SOURCE_DIR}/replace_scop.sh" "${CMAKE_BINARY_DIR}" COPYO
 
 configure_file(
 	"${CMAKE_SOURCE_DIR}/pesto.in.sh" # input template file
-	"${CMAKE_BINARY_DIR}/pesto" # output file
+	${PESTO_CLI_BIN} # output file
 	FILE_PERMISSIONS
 	OWNER_READ
 	OWNER_WRITE
@@ -148,7 +138,8 @@ configure_file(
 	@ONLY
 )
 
-add_custom_target(pesto-cli DEPENDS pesto)
+add_custom_target(pesto-cli)
+add_dependencies(pesto-cli pestobin)
 
 # ##################################################################################################
 # Tests
@@ -175,8 +166,7 @@ install(
 	PATTERN "*.h"
 	PATTERN "*.hpp"
 )
-# Install trahrhe
-install(DIRECTORY ${CMAKE_BINARY_DIR}/trahrhe/ DESTINATION trahrhe)
+
 # install scripts
 install(PROGRAMS ${CMAKE_BINARY_DIR}/pesto ${CMAKE_BINARY_DIR}/trahrhe_wrapper.sh
 				 ${CMAKE_BINARY_DIR}/extract_scop.sh ${CMAKE_BINARY_DIR}/replace_scop.sh

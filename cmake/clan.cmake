@@ -15,8 +15,10 @@ set(CLAN_BIN ${CMAKE_CURRENT_BINARY_DIR}/clan)
 set(CLAN_STATIC_LIB ${CLAN_BIN}/lib/libclan.a)
 set(CLAN_INCLUDES ${CLAN_BIN}/include)
 
+file(MAKE_DIRECTORY ${CLAN_INCLUDES})
+
 ExternalProject_Add(
-	clan-dev
+	clan-src
 	GIT_REPOSITORY https://github.com/periscop/clan.git
 	GIT_TAG 0.8.1 #
 	GIT_SUBMODULES_RECURSE false
@@ -29,8 +31,9 @@ ExternalProject_Add(
 	UPDATE_DISCONNECTED true
 )
 
+add_dependencies(clan-src pluto-src)
+
 add_library(clan STATIC IMPORTED GLOBAL)
-add_dependencies(clan clan-dev)
-add_dependencies(clan osl)
+add_dependencies(clan clan-src osl)
 set_target_properties(clan PROPERTIES IMPORTED_LOCATION ${CLAN_STATIC_LIB})
 set_target_properties(clan PROPERTIES INTERFACE_INCLUDE_DIRECTORIES ${CLAN_INCLUDES})
