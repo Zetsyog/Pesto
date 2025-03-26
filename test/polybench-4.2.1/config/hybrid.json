@@ -1,0 +1,43 @@
+{
+    "options": {
+        "input-format": "c"
+    },
+    "passes": [
+        {
+            "uuid": "pluto",
+            "options": {
+                "tile": false,
+                "parallel": false,
+                "prevector": false,
+                "silent": true
+            }
+        },
+        {
+            "uuid": "split-nested-loops"
+        },
+        {
+            "uuid": "param-tiling",
+            "gen-trahrhe": true,
+            "trahrhe-mask": "d",
+            "types": [
+                "algebraic",
+                "rectangular"
+            ],
+            "pluto": {
+                "options": {
+                    "tile": true,
+                    "parallel": true,
+                    "prevector": true,
+                    "intratileopt": true
+                }
+            }
+        },
+        {
+            "uuid": "clast-custom-vec-pragma",
+            "pragma": "GCC ivdep"
+        },
+        {
+            "uuid": "codegen-cloog"
+        }
+    ]
+}
