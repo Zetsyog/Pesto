@@ -1,0 +1,176 @@
+#!/usr/env/bin bash
+
+PESTO=@PESTO_CLI_BIN@
+CC=gcc
+
+BENCHMARKS=(
+    "datamining/correlation"
+    "datamining/covariance"
+    "linear-algebra/blas/gemm"
+    "linear-algebra/blas/gemver"
+    "linear-algebra/blas/gesummv"
+    # "linear-algebra/blas/symm"
+    "linear-algebra/blas/syr2k"
+    "linear-algebra/blas/syrk"
+    "linear-algebra/blas/trmm"
+    "linear-algebra/kernels/2mm"
+    "linear-algebra/kernels/3mm"
+    "linear-algebra/kernels/atax"
+    "linear-algebra/kernels/bicg"
+    "linear-algebra/kernels/doitgen"
+    "linear-algebra/kernels/mvt"
+)
+
+CONFIGS=(
+    "config/ptile.json"
+    "config/hybrid.json"
+)
+
+CFLAGS="-march=native -O3 -fopenmp"
+EXTRA_FLAGS="-lm -DPOLYBENCH_TIME -DPOLYBENCH_DUMP_ARRAYS -DLARGE_DATASET $EXTRA_FLAGS"
+MIN_TILE_SIZE=4
+MAX_TILE_SIZE=32
+RUN_NB=5
+
+# Define colors
+GREEN="\e[32m"
+RED="\e[31m"
+BLUE="\e[34m"
+WHITE="\e[97m"
+BOLD="\e[1m"
+RESET="\e[0m"
+
+INFO="[   ${WHITE}INFO${RESET}   ]"
+
+cleanup_test() {
+    local benchmark="$1"
+    local benchmark_name
+    benchmark_name=$(basename "$benchmark")
+
+    rm -f "$benchmark/$benchmark_name"
+    rm -f "$benchmark"/*.pesto.c
+    rm -f "$benchmark"/*.pesto
+    rm -f "$benchmark"/*.dump
+    rm -f "$benchmark"/trahrhe_*.h
+}
+cleanup_all() {
+    echo ""
+    echo -e "${BOLD}===========================================${RESET}"
+    echo -e "${BOLD}              Cleaning up${RESET}"
+    echo -e "${BOLD}===========================================${RESET}"
+    for benchmark in "${BENCHMARKS[@]}"; do
+        cleanup_test "$benchmark"
+    done
+}
+
+trap cleanup_all EXIT
+
+# Print header
+echo -e "${BOLD}==========================================${RESET}"
+echo -e "${BOLD}     Pesto CLI Test Suite - Polybench${RESET}"
+echo -e "${BOLD}==========================================${RESET}\n"
+
+# Test function
+run_test() {
+    # args
+    local benchmark="$1"
+    local pesto_config="$2"
+
+    # local variables
+    local benchmark_name
+    local command
+
+    # extract test name
+    benchmark_name=$(basename "$benchmark")
+
+    echo ""
+    echo -e "[   ${BLUE}TEST${RESET}   ] $benchmark"
+
+    # compile vanilla program
+    command="$CC $CFLAGS -I ./utilities -I $benchmark ./utilities/polybench.c $benchmark/$benchmark_name.c -o $benchmark/$benchmark_name $EXTRA_FLAGS"
+    echo -e "${INFO} Compile vanilla: $command"
+    if ! $command; then
+        echo -e "[ ${RED}  FAIL  ${RESET} ] Compilation failed"
+        return 1
+    fi
+
+    # run the program
+    command="./$benchmark/${benchmark_name}"
+    output_dump="$benchmark/${benchmark_name}.dump"
+    echo -e "${INFO} Run command: ./$benchmark/${benchmark_name}"
+    if ! $command 2>"$output_dump" >/dev/null; then
+        echo -e "[ ${RED}  FAIL  ${RESET} ] Execution failed"
+        return 1
+    fi
+    expected_output=$(sha256sum "$benchmark/${benchmark_name}.dump" | cut -d' ' -f1)
+
+    command="$PESTO --config $pesto_config $benchmark/$benchmark_name.c -o $benchmark/$benchmark_name.pesto.c"
+    echo -e "${INFO} Generate pesto program: $command"
+    if ! $command >/dev/null 2>&1; then
+        echo -e "[ ${RED}  FAIL  ${RESET} ] Pesto failed"
+        return 1
+    fi
+
+    # compile and run pesto program $RUN_NB times with random divider sizes
+    div_list=$(shuf -i "$MIN_TILE_SIZE-$MAX_TILE_SIZE" -n $((RUN_NB * 3)))
+    for ((i = 0; i < RUN_NB; i++)); do
+        D1=$(sed "$((i * 3 + 1))q;d" <<<"$div_list")
+        D2=$(sed "$((i * 3 + 1))q;d" <<<"$div_list")
+        D3=$(sed "$((i * 3 + 2))q;d" <<<"$div_list")
+
+        command="$CC $CFLAGS -I ./utilities -I $benchmark ./utilities/polybench.c $benchmark/$benchmark_name.pesto.c -o $benchmark/$benchmark_name.pesto $EXTRA_FLAGS -DDIV0=$D1 -DDIV1=$D2 -DDIV2=$D3"
+        echo -e "${INFO} Compile pesto program ${D1}x${D2}x${D3}: $command"
+        if ! $command; then
+            echo -e "[ ${RED}  FAIL  ${RESET} ] Compilation failed"
+            return 1
+        fi
+        command="./$benchmark/${benchmark_name}.pesto"
+        output_dump="$benchmark/${benchmark_name}.pesto.dump"
+        echo -e "${INFO} Run command: ./$benchmark/${benchmark_name}.pesto"
+        if ! $command 2>"$output_dump" >/dev/null; then
+            echo -e "[ ${RED}  FAIL  ${RESET} ] Execution failed"
+            return 1
+        fi
+        output=$(sha256sum "$benchmark/${benchmark_name}.pesto.dump" | cut -d' ' -f1)
+        if [[ "$output" != "$expected_output" ]]; then
+            echo -e "[ ${RED}  FAIL  ${RESET} ] Output differs from expected result"
+            echo -e "[ ${RED}  DIFF  ${RESET} ] Expected: \"$expected_output\""
+            echo -e "[ ${RED}  DIFF  ${RESET} ] Got: \"$output\""
+            return 1
+        else
+            echo -e "[ ${GREEN}  PASS  ${RESET} ] Output matches expected: \"$expected_output\""
+        fi
+    done
+}
+
+# Run tests
+pass_count=0
+fail_count=0
+
+for config in "${CONFIGS[@]}"; do
+    echo ""
+    echo -e "${BOLD}==========================================================${RESET}"
+    echo -e "${BOLD}  Running tests with configuration: $config${RESET}"
+    echo -e "${BOLD}==========================================================${RESET}"
+    for benchmark in "${BENCHMARKS[@]}"; do
+        if run_test "$benchmark" "$config"; then
+            pass_count=$((pass_count + 1))
+        else
+            fail_count=$((fail_count + 1))
+        fi
+        cleanup_test "$benchmark"
+
+    done
+done
+
+# Print summary
+echo ""
+echo -e "${BOLD}============================================${RESET}"
+echo -e "${BOLD}              TEST SUMMARY${RESET}"
+echo -e "${BOLD}============================================${RESET}"
+echo -e "✔ ${GREEN}PASSED${RESET}: $pass_count"
+echo -e "✘ ${RED}FAILED${RESET}: $fail_count"
+echo -e "${BOLD}============================================${RESET}"
+
+# Exit with appropriate status
+[[ $fail_count -eq 0 ]] && exit 0 || exit 1
