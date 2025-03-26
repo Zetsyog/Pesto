@@ -25,6 +25,9 @@ cleanup() {
     rm -f .pesto_prefix .exec-once .vardecls .kernel
 }
 
+# Cleanup on exit
+trap cleanup EXIT
+
 OPTS=$(getopt -o o:ihv --long output:,indent,config:,readscop,version,help -- "$@")
 if [ $? != 0 ]; then
     echo "[pesto-cli] Failed to parse options" >&2
@@ -102,6 +105,8 @@ if [[ -d "$output_file" ]]; then
     echo "[pesto-cli] ERROR: Output is a directory" >&2
     exit 1
 fi
+
+output_dir=$(dirname "$output_file")
 
 # We work on a copy of the input file
 # Because we do in-place work
@@ -212,7 +217,7 @@ process_file() {
     # if there is a .exec-once file, each line contains a command to be executed once
     if [[ -f ".exec-once" ]]; then
         echo "[pesto-cli] Executing external commands " >&2
-        sed -i "s|^trahrhe_wrapper|${trahrhe_bin}|g" ".exec-once"
+        sed -i "s|^trahrhe_wrapper |${trahrhe_bin} ${output_dir}/|g" ".exec-once"
 
         while read -r line; do
             eval "$line"
