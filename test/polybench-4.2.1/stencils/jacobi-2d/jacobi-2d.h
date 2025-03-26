@@ -1,12 +1,3 @@
-/**
- * This version is stamped on May 10, 2016
- *
- * Contact:
- *   Louis-Noel Pouchet <pouchet.ohio-state.edu>
- *   Tomofumi Yuki <tomofumi.yuki.fr>
- *
- * Web address: http://polybench.sourceforge.net
- */
 #ifndef _JACOBI_2D_H
 # define _JACOBI_2D_H
 
@@ -20,27 +11,52 @@
 #  ifdef MINI_DATASET
 #   define TSTEPS 20
 #   define N 30
-#  endif
+#  endif 
 
 #  ifdef SMALL_DATASET
 #   define TSTEPS 40
 #   define N 90
-#  endif
+#  endif 
 
 #  ifdef MEDIUM_DATASET
 #   define TSTEPS 100
 #   define N 250
-#  endif
+#  endif 
 
 #  ifdef LARGE_DATASET
 #   define TSTEPS 500
 #   define N 1300
-#  endif
+#  endif 
 
 #  ifdef EXTRALARGE_DATASET
 #   define TSTEPS 1000
 #   define N 2800
-#  endif
+#  endif 
+
+#  ifdef XL2_DATASET
+#   define TSTEPS 2000
+#   define N 5600
+#  endif 
+
+#  ifdef XL3_DATASET
+#   define TSTEPS 3000
+#   define N 8400
+#  endif 
+
+#  ifdef XL4_DATASET
+#   define TSTEPS 4000
+#   define N 11200
+#  endif 
+
+#  ifdef XL5_DATASET
+#   define TSTEPS 5000
+#   define N 14000
+#  endif 
+
+#  ifdef XL6_DATASET
+#   define TSTEPS 6000
+#   define N 16800
+#  endif 
 
 
 #endif /* !(TSTEPS N) */
@@ -57,7 +73,7 @@
 #ifdef DATA_TYPE_IS_INT
 #  define DATA_TYPE int
 #  define DATA_PRINTF_MODIFIER "%d "
-#endif
+#endif 
 
 #ifdef DATA_TYPE_IS_FLOAT
 #  define DATA_TYPE float
@@ -78,3 +94,4 @@
 # endif
 
 #endif /* !_JACOBI_2D_H */
+

@@ -1,12 +1,3 @@
-/**
- * This version is stamped on May 10, 2016
- *
- * Contact:
- *   Louis-Noel Pouchet <pouchet.ohio-state.edu>
- *   Tomofumi Yuki <tomofumi.yuki.fr>
- *
- * Web address: http://polybench.sourceforge.net
- */
 #ifndef _CHOLESKY_H
 # define _CHOLESKY_H
 
@@ -19,23 +10,43 @@
 /* Define sample dataset sizes. */
 #  ifdef MINI_DATASET
 #   define N 40
-#  endif
+#  endif 
 
 #  ifdef SMALL_DATASET
 #   define N 120
-#  endif
+#  endif 
 
 #  ifdef MEDIUM_DATASET
 #   define N 400
-#  endif
+#  endif 
 
 #  ifdef LARGE_DATASET
 #   define N 2000
-#  endif
+#  endif 
 
 #  ifdef EXTRALARGE_DATASET
 #   define N 4000
-#  endif
+#  endif 
+
+#  ifdef XL2_DATASET
+#   define N 8000
+#  endif 
+
+#  ifdef XL3_DATASET
+#   define N 12000
+#  endif 
+
+#  ifdef XL4_DATASET
+#   define N 16000
+#  endif 
+
+#  ifdef XL5_DATASET
+#   define N 20000
+#  endif 
+
+#  ifdef XL6_DATASET
+#   define N 24000
+#  endif 
 
 
 #endif /* !(N) */
@@ -51,7 +62,7 @@
 #ifdef DATA_TYPE_IS_INT
 #  define DATA_TYPE int
 #  define DATA_PRINTF_MODIFIER "%d "
-#endif
+#endif 
 
 #ifdef DATA_TYPE_IS_FLOAT
 #  define DATA_TYPE float
@@ -72,3 +83,4 @@
 # endif
 
 #endif /* !_CHOLESKY_H */
+

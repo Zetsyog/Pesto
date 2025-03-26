@@ -19,7 +19,7 @@ fi
 
 DIR="./tmp"
 
-make clean
+# make clean
 mkdir -p $DIR
 
 EXTRA_FLAGS="-march=native -O3 -fopenmp -DPOLYBENCH_TIME -DPOLYBENCH_DUMP_ARRAYS $USR_EXTRA_FLAGS"

@@ -1,12 +1,3 @@
-/**
- * This version is stamped on May 10, 2016
- *
- * Contact:
- *   Louis-Noel Pouchet <pouchet.ohio-state.edu>
- *   Tomofumi Yuki <tomofumi.yuki.fr>
- *
- * Web address: http://polybench.sourceforge.net
- */
 #ifndef _GEMM_H
 # define _GEMM_H
 
@@ -21,31 +12,61 @@
 #   define NI 20
 #   define NJ 25
 #   define NK 30
-#  endif
+#  endif 
 
 #  ifdef SMALL_DATASET
 #   define NI 60
 #   define NJ 70
 #   define NK 80
-#  endif
+#  endif 
 
 #  ifdef MEDIUM_DATASET
 #   define NI 200
 #   define NJ 220
 #   define NK 240
-#  endif
+#  endif 
 
 #  ifdef LARGE_DATASET
 #   define NI 1000
 #   define NJ 1100
 #   define NK 1200
-#  endif
+#  endif 
 
 #  ifdef EXTRALARGE_DATASET
 #   define NI 2000
 #   define NJ 2300
 #   define NK 2600
-#  endif
+#  endif 
+
+#  ifdef XL2_DATASET
+#   define NI 4000
+#   define NJ 4600
+#   define NK 5200
+#  endif 
+
+#  ifdef XL3_DATASET
+#   define NI 6000
+#   define NJ 6900
+#   define NK 7800
+#  endif 
+
+#  ifdef XL4_DATASET
+#   define NI 8000
+#   define NJ 9200
+#   define NK 10400
+#  endif 
+
+#  ifdef XL5_DATASET
+#   define NI 10000
+#   define NJ 11500
+#   define NK 13000
+#  endif 
+
+#  ifdef XL6_DATASET
+#   define NI 12000
+#   define NJ 13800
+#   define NK 15600
+#  endif 
 
 
 #endif /* !(NI NJ NK) */
@@ -63,7 +84,7 @@
 #ifdef DATA_TYPE_IS_INT
 #  define DATA_TYPE int
 #  define DATA_PRINTF_MODIFIER "%d "
-#endif
+#endif 
 
 #ifdef DATA_TYPE_IS_FLOAT
 #  define DATA_TYPE float
@@ -84,3 +105,4 @@
 # endif
 
 #endif /* !_GEMM_H */
+

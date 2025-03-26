@@ -1,12 +1,3 @@
-/**
- * This version is stamped on May 10, 2016
- *
- * Contact:
- *   Louis-Noel Pouchet <pouchet.ohio-state.edu>
- *   Tomofumi Yuki <tomofumi.yuki.fr>
- *
- * Web address: http://polybench.sourceforge.net
- */
 #ifndef _BICG_H
 # define _BICG_H
 
@@ -20,27 +11,52 @@
 #  ifdef MINI_DATASET
 #   define M 38
 #   define N 42
-#  endif
+#  endif 
 
 #  ifdef SMALL_DATASET
 #   define M 116
 #   define N 124
-#  endif
+#  endif 
 
 #  ifdef MEDIUM_DATASET
 #   define M 390
 #   define N 410
-#  endif
+#  endif 
 
 #  ifdef LARGE_DATASET
 #   define M 1900
 #   define N 2100
-#  endif
+#  endif 
 
 #  ifdef EXTRALARGE_DATASET
 #   define M 1800
 #   define N 2200
-#  endif
+#  endif 
+
+#  ifdef XL2_DATASET
+#   define M 3600
+#   define N 4400
+#  endif 
+
+#  ifdef XL3_DATASET
+#   define M 5400
+#   define N 6600
+#  endif 
+
+#  ifdef XL4_DATASET
+#   define M 7200
+#   define N 8800
+#  endif 
+
+#  ifdef XL5_DATASET
+#   define M 9000
+#   define N 11000
+#  endif 
+
+#  ifdef XL6_DATASET
+#   define M 10800
+#   define N 13200
+#  endif 
 
 
 #endif /* !(M N) */
@@ -57,7 +73,7 @@
 #ifdef DATA_TYPE_IS_INT
 #  define DATA_TYPE int
 #  define DATA_PRINTF_MODIFIER "%d "
-#endif
+#endif 
 
 #ifdef DATA_TYPE_IS_FLOAT
 #  define DATA_TYPE float
@@ -78,3 +94,4 @@
 # endif
 
 #endif /* !_BICG_H */
+

@@ -1,12 +1,3 @@
-/**
- * This version is stamped on May 10, 2016
- *
- * Contact:
- *   Louis-Noel Pouchet <pouchet.ohio-state.edu>
- *   Tomofumi Yuki <tomofumi.yuki.fr>
- *
- * Web address: http://polybench.sourceforge.net
- */
 #ifndef _DOITGEN_H
 # define _DOITGEN_H
 
@@ -21,31 +12,61 @@
 #   define NQ 8
 #   define NR 10
 #   define NP 12
-#  endif
+#  endif 
 
 #  ifdef SMALL_DATASET
 #   define NQ 20
 #   define NR 25
 #   define NP 30
-#  endif
+#  endif 
 
 #  ifdef MEDIUM_DATASET
 #   define NQ 40
 #   define NR 50
 #   define NP 60
-#  endif
+#  endif 
 
 #  ifdef LARGE_DATASET
 #   define NQ 140
 #   define NR 150
 #   define NP 160
-#  endif
+#  endif 
 
 #  ifdef EXTRALARGE_DATASET
 #   define NQ 220
 #   define NR 250
 #   define NP 270
-#  endif
+#  endif 
+
+#  ifdef XL2_DATASET
+#   define NQ 440
+#   define NR 500
+#   define NP 540
+#  endif 
+
+#  ifdef XL3_DATASET
+#   define NQ 660
+#   define NR 750
+#   define NP 810
+#  endif 
+
+#  ifdef XL4_DATASET
+#   define NQ 880
+#   define NR 1000
+#   define NP 1080
+#  endif 
+
+#  ifdef XL5_DATASET
+#   define NQ 1100
+#   define NR 1250
+#   define NP 1350
+#  endif 
+
+#  ifdef XL6_DATASET
+#   define NQ 1320
+#   define NR 1500
+#   define NP 1620
+#  endif 
 
 
 #endif /* !(NQ NR NP) */
@@ -63,7 +84,7 @@
 #ifdef DATA_TYPE_IS_INT
 #  define DATA_TYPE int
 #  define DATA_PRINTF_MODIFIER "%d "
-#endif
+#endif 
 
 #ifdef DATA_TYPE_IS_FLOAT
 #  define DATA_TYPE float
@@ -84,3 +105,4 @@
 # endif
 
 #endif /* !_DOITGEN_H */
+
