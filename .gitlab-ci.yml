@@ -2,20 +2,26 @@ stages:
   - build
   - test
 
-build-docker-ci:
+build:docker-ci:
   stage: build
   when: manual
   image: docker:stable
   tags:
-    - ci.inria.fr
+    - linux
     - large
+  rules:
+    - changes:
+        - docker/ci.dockerfile
+      when: always
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      when: never
   before_script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
     - docker build . -t "$CI_REGISTRY_IMAGE/pesto-ci" -f docker/ci.dockerfile
     - docker push "$CI_REGISTRY_IMAGE/pesto-ci"
 
-.build-pesto:
+build:pesto:
   stage: build
   script:
     - mkdir build
@@ -27,17 +33,13 @@ build-docker-ci:
   variables:
     GIT_STRATEGY: FETCH
   tags:
-    - ci.inria.fr
+    - linux
   image: "$CI_REGISTRY_IMAGE/pesto-ci"
-  before_script:
-    - mkdir -p build
-    - cd build
-    - cmake ..
 
-.test-polybench:
+test:polybench:
   extends: .test
   tags:
-    - ci.inria.fr
     - large
   script:
+    - cd build
     - cmake --build .  --target test-polybench
