@@ -1,0 +1,26 @@
+From 41f0743c0bb4616c57db8196248e2d46e1412381 Mon Sep 17 00:00:00 2001
+From: Zetsyog <crossetti@unistra.fr>
+Date: Mon, 25 Nov 2024 19:15:09 +0100
+Subject: [PATCH] configure.ac: fix TEXI2DVI check to handle missing program
+ case
+
+---
+ configure.ac | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/configure.ac b/configure.ac
+index f5eed07..77d5948 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -73,7 +73,7 @@ AC_CHECK_PROG(CD, cd)
+ dnl Configure needs an empty install.sh file with this, i HATE that...
+ AC_PROG_INSTALL
+ LT_INIT
+-AC_CHECK_PROG(TEXI2DVI, texi2dvi, texi2dvi, [])
++AC_CHECK_PROG(TEXI2DVI, texi2dvi, [], [])
+ AM_CONDITIONAL(HAVE_TEXI2DVI, test -n "$TEXI2DVI")
+ 
+ AX_CC_MAXOPT
+-- 
+2.48.1
+

@@ -1,0 +1,16 @@
+# muparser
+FetchContent_Declare(
+	muparser
+	GIT_REPOSITORY https://github.com/beltoforion/muparser.git
+	GIT_TAG v2.3.5
+	EXCLUDE_FROM_ALL
+)
+if(CMAKE_VERSION VERSION_LESS "3.28")
+	FetchContent_GetProperties(muparser)
+	if(NOT muparser_POPULATED)
+		FetchContent_Populate(muparser)
+		add_subdirectory(${muparser_SOURCE_DIR} ${muparser_BINARY_DIR} EXCLUDE_FROM_ALL)
+	endif()
+else()
+	FetchContent_MakeAvailable(muparser)
+endif()

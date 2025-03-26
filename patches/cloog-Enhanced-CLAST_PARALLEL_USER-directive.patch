@@ -1,0 +1,482 @@
+From ebdb9964fb541ce089078efc91834be3f8014a87 Mon Sep 17 00:00:00 2001
+From: Zetsyog <crossetti@unistra.fr>
+Date: Tue, 26 Nov 2024 16:52:35 +0100
+Subject: [PATCH] Enhanced CLAST_PARALLEL_USER directive Clast_for
+ user_directive was only used alongside OpenMP parallel directive, allowing to
+ only customize the OpenMP parallel for pragma. Now it can be used alongside
+ loops marked with CLAST_PARALLEL_VEC to customize the pragma. It can also be
+ used alone, to add a custom pragma to any clast_for. Added loops2 test to
+ check this new feature
+
+---
+ Makefile.am                 |   1 +
+ source/pprint.c             |  30 ++++-
+ test/openscop/loops2.c      |  57 ++++++++
+ test/openscop/loops2.good.c |  60 +++++++++
+ test/openscop/loops2.scop   | 262 ++++++++++++++++++++++++++++++++++++
+ 5 files changed, 409 insertions(+), 1 deletion(-)
+ create mode 100644 test/openscop/loops2.c
+ create mode 100644 test/openscop/loops2.good.c
+ create mode 100644 test/openscop/loops2.scop
+
+diff --git a/Makefile.am b/Makefile.am
+index 4397b08..3f7248f 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -365,6 +365,7 @@ CLOOGTEST_OPENSCOP = \
+ 	test/openscop/matmult \
+ 	test/openscop/empty \
+ 	test/openscop/loops \
++	test/openscop/loops2 \
+ 	test/openscop/union \
+ 	test/openscop/coordinates \
+ 	test/openscop/clay
+diff --git a/source/pprint.c b/source/pprint.c
+index 6d85a5d..37f6f88 100644
+--- a/source/pprint.c
++++ b/source/pprint.c
+@@ -534,7 +534,28 @@ void pprint_for(struct cloogoptions *options, FILE *dst, int indent,
+             fprintf(dst, "%*s", indent, "");
+         }
+         if ((f->parallel & CLAST_PARALLEL_VEC) && !(f->parallel & CLAST_PARALLEL_OMP)
+-               && !(f->parallel & CLAST_PARALLEL_MPI)) {
++               && !(f->parallel & CLAST_PARALLEL_MPI) && (f->parallel & CLAST_PARALLEL_USER)) {
++            if (f->LB) {
++                fprintf(dst, "lbv=");
++                pprint_expr(options, dst, f->LB);
++                fprintf(dst, ";\n");
++            }
++            if (f->UB) {
++                fprintf(dst, "%*s", indent, "");
++                fprintf(dst, "ubv=");
++                pprint_expr(options, dst, f->UB);
++                fprintf(dst, ";\n");
++            }
++            if(f->user_directive) {
++                fprintf(dst, "%*s#pragma %s\n", indent, "", f->user_directive);
++            } else {
++                fprintf(dst, "%*s#pragma ivdep\n", indent, "");
++                fprintf(dst, "%*s#pragma vector always\n", indent, "");
++            }
++            fprintf(dst, "%*s", indent, "");
++        }
++        if ((f->parallel & CLAST_PARALLEL_VEC) && !(f->parallel & CLAST_PARALLEL_OMP)
++               && !(f->parallel & CLAST_PARALLEL_MPI) && !(f->parallel & CLAST_PARALLEL_USER)) {
+             if (f->LB) {
+                 fprintf(dst, "lbv=");
+                 pprint_expr(options, dst, f->LB);
+@@ -575,6 +596,13 @@ void pprint_for(struct cloogoptions *options, FILE *dst, int indent,
+             }
+             fprintf(dst, "%*s", indent, "");
+         }
++        if ((f->parallel & CLAST_PARALLEL_USER) && !(f->parallel & CLAST_PARALLEL_OMP)
++               && !(f->parallel & CLAST_PARALLEL_MPI) && !(f->parallel & CLAST_PARALLEL_VEC)) {
++            if(f->user_directive) {
++                fprintf(dst, "#pragma %s\n", f->user_directive);
++            }
++            fprintf(dst, "%*s", indent, "");
++        }
+ 
+     }
+ 
+diff --git a/test/openscop/loops2.c b/test/openscop/loops2.c
+new file mode 100644
+index 0000000..ade7f27
+--- /dev/null
++++ b/test/openscop/loops2.c
+@@ -0,0 +1,57 @@
++/* Generated from test/openscop/loops2.scop by CLooG 0.21.1-4330f9e gmp bits in 0.02s. */
++/* Useful macros. */
++#define floord(n,d) (((n)<0) ? -((-(n)+(d)-1)/(d)) : (n)/(d))
++#define ceild(n,d)  (((n)<0) ? -((-(n))/(d)) : ((n)+(d)-1)/(d))
++#define max(x,y)    ((x) > (y) ? (x) : (y))
++#define min(x,y)    ((x) < (y) ? (x) : (y))
++
++#ifdef TIME 
++#define IF_TIME(foo) foo; 
++#else
++#define IF_TIME(foo)
++#endif
++
++/* Scattering iterators. */
++int t2, t3, t4, t5, t6, t9;
++/* Original iterators. */
++int i, j, k, l, m, n;
++int lbp, ubp;
++int lbv, ubv;
++
++if (N >= 1) {
++  lbp=0;
++  ubp=floord(N-1,32);
++#pragma omp parallel for private(lbv,ubv,t3,t4,t5,t6,t7,t8,t9)
++  for (t2=lbp;t2<=ubp;t2++) {
++    for (t3=0;t3<=floord(N-1,32);t3++) {
++      for (t4=32*t2;t4<=min(N-1,32*t2+31);t4++) {
++        lbv=32*t3;
++        ubv=min(N-1,32*t3+31);
++        #pragma gcc ivdep
++        for (t9=lbv;t9<=ubv;t9++) {
++          c[t4][t9] = 0.0;
++        }
++      }
++    }
++  }
++  lbp=0;
++  ubp=floord(N-1,32);
++#pragma omp parallel for private(lbv,ubv,t3,t4,t5,t6,t7,t8,t9)
++  for (t2=lbp;t2<=ubp;t2++) {
++    for (t3=0;t3<=floord(N-1,32);t3++) {
++      #pragma custom user pragma
++      for (t4=0;t4<=floord(N-1,32);t4++) {
++        for (t5=32*t2;t5<=min(N-1,32*t2+31);t5++) {
++          for (t6=32*t4;t6<=min(N-1,32*t4+31);t6++) {
++            lbv=32*t3;
++            ubv=min(N-1,32*t3+31);
++            #pragma gcc ivdep
++            for (t9=lbv;t9<=ubv;t9++) {
++              c[t5][t9] = c[t5][t9] + a[t5][t6]*b[t6][t9];
++            }
++          }
++        }
++      }
++    }
++  }
++}
+\ No newline at end of file
+diff --git a/test/openscop/loops2.good.c b/test/openscop/loops2.good.c
+new file mode 100644
+index 0000000..0116860
+--- /dev/null
++++ b/test/openscop/loops2.good.c
+@@ -0,0 +1,60 @@
++/* Generated from loops.scop by CLooG 0.20.0-bb9d408 gmp bits in 0.05s. */
++extern void hash(int);
++
++/* Useful macros. */
++#define floord(n,d) (((n)<0) ? -((-(n)+(d)-1)/(d)) : (n)/(d))
++#define ceild(n,d)  (((n)<0) ? -((-(n))/(d)) : ((n)+(d)-1)/(d))
++#define max(x,y)    ((x) > (y) ? (x) : (y))
++#define min(x,y)    ((x) < (y) ? (x) : (y))
++
++#ifdef TIME 
++#define IF_TIME(foo) foo; 
++#else
++#define IF_TIME(foo)
++#endif
++
++#define S1(i,j,k,l) { hash(1); hash(i); hash(j); hash(k); hash(l); }
++#define S2(i,j,k,l,m,n) { hash(2); hash(i); hash(j); hash(k); hash(l); hash(m); hash(n); }
++
++void test(int N)
++{
++  /* Scattering iterators. */
++  int t2, t3, t4, t5, t6, t9;
++  /* Original iterators. */
++  int i, j, k, l, m, n;
++  int lbp, ubp;
++  int lbv, ubv;
++  if (N >= 1) {
++    #pragma omp parallel for private(lbv,ubv,t3,t4,t5,t6,t7,t8,t9)
++    for (t2=0;t2<=floord(N-1,32);t2++) {
++      for (t3=0;t3<=floord(N-1,32);t3++) {
++        for (t4=32*t2;t4<=min(N-1,32*t2+31);t4++) {
++          lbv=32*t3;
++          ubv=min(N-1,32*t3+31);
++          #pragma gcc ivdep
++          for (t9=lbv;t9<=ubv;t9++) {
++            S1(t3,t2,t4,t9);
++          }
++        }
++      }
++    }
++    #pragma omp parallel for private(lbv,ubv,t3,t4,t5,t6,t7,t8,t9)
++    for (t2=0;t2<=floord(N-1,32);t2++) {
++      for (t3=0;t3<=floord(N-1,32);t3++) {
++        #pragma custom user pragma
++        for (t4=0;t4<=floord(N-1,32);t4++) {
++          for (t5=32*t2;t5<=min(N-1,32*t2+31);t5++) {
++            for (t6=32*t4;t6<=min(N-1,32*t4+31);t6++) {
++              lbv=32*t3;
++              ubv=min(N-1,32*t3+31);
++              #pragma gcc ivdep
++              for (t9=lbv;t9<=ubv;t9++) {
++                S2(t4,t3,t2,t5,t9,t6);
++              }
++            }
++          }
++        }
++      }
++    }
++  }
++}
+diff --git a/test/openscop/loops2.scop b/test/openscop/loops2.scop
+new file mode 100644
+index 0000000..190fcd5
+--- /dev/null
++++ b/test/openscop/loops2.scop
+@@ -0,0 +1,262 @@
++# [File generated by the OpenScop Library 0.8.4]
++
++<OpenScop>
++
++# =============================================== Global
++# Language
++C
++
++# Context
++CONTEXT
++0 3 0 0 0 1
++
++# Parameters are provided
++1
++<strings>
++N
++</strings>
++
++# Number of statements
++2
++
++# =============================================== Statement 1
++# Number of relations describing the statement:
++3
++
++# ----------------------------------------------  1.1 Domain
++DOMAIN
++10 7 4 0 0 1
++# e/i| fk0  fk1   i    j |  N |  1  
++   1    0    0    1    0    0    0    ## i >= 0
++   1    0    0   -1    0    1   -1    ## -i+N-1 >= 0
++   1    0    0    0    0    1   -1    ## N-1 >= 0
++   1    0    0    0    1    0    0    ## j >= 0
++   1    0    0    0   -1    1   -1    ## -j+N-1 >= 0
++   0    0    0    0    0    0    0    ## 0 == 0
++   1    0  -32    1    0    0    0    ## -32*fk1+i >= 0
++   1    0   32   -1    0    0   31    ## 32*fk1-i+31 >= 0
++   1  -32    0    0    1    0    0    ## -32*fk0+j >= 0
++   1   32    0    0   -1    0   31    ## 32*fk0-j+31 >= 0
++
++# ----------------------------------------------  1.2 Scattering
++SCATTERING
++9 16 9 4 0 1
++# e/i| c1   c2   c3   c4   c5   c6   c7   c8   c9 | fk0  fk1   i    j |  N |  1  
++   0   -1    0    0    0    0    0    0    0    0    0    0    0    0    0    0    ## c1 == 0
++   0    0   -1    0    0    0    0    0    0    0    0    1    0    0    0    0    ## c2 == fk1
++   0    0    0   -1    0    0    0    0    0    0    1    0    0    0    0    0    ## c3 == fk0
++   0    0    0    0   -1    0    0    0    0    0    0    0    1    0    0    0    ## c4 == i
++   0    0    0    0    0   -1    0    0    0    0    0    0    0    0    0    0    ## c5 == 0
++   0    0    0    0    0    0   -1    0    0    0    0    0    0    0    0    0    ## c6 == 0
++   0    0    0    0    0    0    0   -1    0    0    0    0    0    0    0    0    ## c7 == 0
++   0    0    0    0    0    0    0    0   -1    0    0    0    0    0    0    0    ## c8 == 0
++   0    0    0    0    0    0    0    0    0   -1    0    0    0    1    0    0    ## c9 == j
++
++# ----------------------------------------------  1.3 Access
++WRITE
++3 10 3 4 0 1
++# e/i| Arr  [1]  [2]| fk0  fk1   i    j |  N |  1  
++   0   -1    0    0    0    0    0    0    0    4    ## Arr == c
++   0    0   -1    0    0    0    1    0    0    0    ## [1] == i
++   0    0    0   -1    0    0    0    1    0    0    ## [2] == j
++
++# ----------------------------------------------  1.4 Body
++# Statement body is provided
++1
++<body>
++# Number of original iterators
++4
++# List of original iterators
++fk0 fk1 i j
++# Statement body expression
++c[i][j] = 0.0;
++</body>
++
++# =============================================== Statement 2
++# Number of relations describing the statement:
++6
++
++# ----------------------------------------------  2.1 Domain
++DOMAIN
++13 9 6 0 0 1
++# e/i| fk0  fk1  fk2   i    j    k |  N |  1  
++   1    0    0    0    1    0    0    0    0    ## i >= 0
++   1    0    0    0   -1    0    0    1   -1    ## -i+N-1 >= 0
++   1    0    0    0    0    0    0    1   -1    ## N-1 >= 0
++   1    0    0    0    0    1    0    0    0    ## j >= 0
++   1    0    0    0    0   -1    0    1   -1    ## -j+N-1 >= 0
++   1    0    0    0    0    0    1    0    0    ## k >= 0
++   1    0    0    0    0    0   -1    1   -1    ## -k+N-1 >= 0
++   1    0    0  -32    1    0    0    0    0    ## -32*fk2+i >= 0
++   1    0    0   32   -1    0    0    0   31    ## 32*fk2-i+31 >= 0
++   1    0  -32    0    0    1    0    0    0    ## -32*fk1+j >= 0
++   1    0   32    0    0   -1    0    0   31    ## 32*fk1-j+31 >= 0
++   1  -32    0    0    0    0    1    0    0    ## -32*fk0+k >= 0
++   1   32    0    0    0    0   -1    0   31    ## 32*fk0-k+31 >= 0
++
++# ----------------------------------------------  2.2 Scattering
++SCATTERING
++9 18 9 6 0 1
++# e/i| c1   c2   c3   c4   c5   c6   c7   c8   c9 | fk0  fk1  fk2   i    j    k |  N |  1  
++   0   -1    0    0    0    0    0    0    0    0    0    0    0    0    0    0    0    1    ## c1 == 1
++   0    0   -1    0    0    0    0    0    0    0    0    0    1    0    0    0    0    0    ## c2 == fk2
++   0    0    0   -1    0    0    0    0    0    0    0    1    0    0    0    0    0    0    ## c3 == fk1
++   0    0    0    0   -1    0    0    0    0    0    1    0    0    0    0    0    0    0    ## c4 == fk0
++   0    0    0    0    0   -1    0    0    0    0    0    0    0    1    0    0    0    0    ## c5 == i
++   0    0    0    0    0    0   -1    0    0    0    0    0    0    0    0    1    0    0    ## c6 == k
++   0    0    0    0    0    0    0   -1    0    0    0    0    0    0    0    0    0    0    ## c7 == 0
++   0    0    0    0    0    0    0    0   -1    0    0    0    0    0    0    0    0    0    ## c8 == 0
++   0    0    0    0    0    0    0    0    0   -1    0    0    0    0    1    0    0    0    ## c9 == j
++
++# ----------------------------------------------  2.3 Access
++WRITE
++3 12 3 6 0 1
++# e/i| Arr  [1]  [2]| fk0  fk1  fk2   i    j    k |  N |  1  
++   0   -1    0    0    0    0    0    0    0    0    0    4    ## Arr == c
++   0    0   -1    0    0    0    0    1    0    0    0    0    ## [1] == i
++   0    0    0   -1    0    0    0    0    1    0    0    0    ## [2] == j
++
++READ
++3 12 3 6 0 1
++# e/i| Arr  [1]  [2]| fk0  fk1  fk2   i    j    k |  N |  1  
++   0   -1    0    0    0    0    0    0    0    0    0    4    ## Arr == c
++   0    0   -1    0    0    0    0    1    0    0    0    0    ## [1] == i
++   0    0    0   -1    0    0    0    0    1    0    0    0    ## [2] == j
++
++READ
++3 12 3 6 0 1
++# e/i| Arr  [1]  [2]| fk0  fk1  fk2   i    j    k |  N |  1  
++   0   -1    0    0    0    0    0    0    0    0    0    6    ## Arr == a
++   0    0   -1    0    0    0    0    1    0    0    0    0    ## [1] == i
++   0    0    0   -1    0    0    0    0    0    1    0    0    ## [2] == k
++
++READ
++3 12 3 6 0 1
++# e/i| Arr  [1]  [2]| fk0  fk1  fk2   i    j    k |  N |  1  
++   0   -1    0    0    0    0    0    0    0    0    0    7    ## Arr == b
++   0    0   -1    0    0    0    0    0    0    1    0    0    ## [1] == k
++   0    0    0   -1    0    0    0    0    1    0    0    0    ## [2] == j
++
++# ----------------------------------------------  2.4 Body
++# Statement body is provided
++1
++<body>
++# Number of original iterators
++6
++# List of original iterators
++fk0 fk1 fk2 i j k
++# Statement body expression
++c[i][j] = c[i][j] + a[i][k]*b[k][j];
++</body>
++
++# =============================================== Extensions
++<arrays>
++# Number of arrays
++7
++# Mapping array-identifiers/array-names
++1 i
++2 N
++3 j
++4 c
++5 k
++6 a
++7 b
++</arrays>
++
++<scatnames>
++t1 t2 t3 t4 t5 t6 t7 t8 t9
++</scatnames>
++
++<loop>
++# Number of loops
++7
++# ===========================================
++# Loop number 1 
++# Iterator name
++t2
++# Number of stmts
++1
++# Statement identifiers
++1
++# Private variables
++lbv,ubv,t3,t4,t5,t6,t7,t8,t9
++# Directive
++1
++# ===========================================
++# Loop number 2 
++# Iterator name
++t2
++# Number of stmts
++1
++# Statement identifiers
++2
++# Private variables
++lbv,ubv,t3,t4,t5,t6,t7,t8,t9
++# Directive
++1
++# ===========================================
++# Loop number 3 
++# Iterator name
++t9
++# Number of stmts
++1
++# Statement identifiers
++1
++# Private variables
++(null)
++# Directive
++4
++# ===========================================
++# Loop number 4 
++# Iterator name
++t9
++# Number of stmts
++1
++# Statement identifiers
++2
++# Private variables
++(null)
++# Directive
++4
++# ===========================================
++# Loop number 5 
++# Iterator name
++t9
++# Number of stmts
++1
++# Statement identifiers
++1
++# Private variables
++(null)
++# Directive
++8
++gcc ivdep
++# ===========================================
++# Loop number 6 
++# Iterator name
++t9
++# Number of stmts
++1
++# Statement identifiers
++2
++# Private variables
++(null)
++# Directive
++8
++gcc ivdep
++# ===========================================
++# Loop number 7 
++# Iterator name
++t4
++# Number of stmts
++1
++# Statement identifiers
++2
++# Private variables
++(null)
++# Directive
++8
++custom user pragma
++</loop>
++
++</OpenScop>
+-- 
+2.48.1
+
