@@ -22,7 +22,7 @@ usage() {
 }
 
 cleanup() {
-    rm -f .pesto_prefix .exec-once .vardecls .kernel
+    rm -f .pesto* .vardecls .kernel .exec-once
 }
 
 # Cleanup on exit
@@ -85,6 +85,9 @@ if [ $# -ne 1 ]; then
     echo "[pesto-cli] ERROR: Only one input file is allowed" >&2
     usage
 fi
+
+# prevent uncleanups files from previous runs to interfere
+cleanup
 
 input_file=$1
 full_filename=$(basename "$input_file")
@@ -217,12 +220,11 @@ process_file() {
     # if there is a .exec-once file, each line contains a command to be executed once
     if [[ -f ".exec-once" ]]; then
         echo "[pesto-cli] Executing external commands " >&2
-        sed -i "s|^trahrhe_wrapper |${trahrhe_bin} ${output_dir}/|g" ".exec-once"
+        sed -i "s|^gen_trahrhe |${trahrhe_bin} -o ${output_dir}/|g" ".exec-once"
 
         while read -r line; do
             eval "$line"
         done <.exec-once
-        rm -f .exec-once
     fi
 
     echo "[pesto-cli] DEBUG: replacing scop in $infile with $body_file" >&2

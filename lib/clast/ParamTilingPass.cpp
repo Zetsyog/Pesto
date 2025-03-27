@@ -20,7 +20,8 @@ using pesto::pass::metadata::MacroMetadata;
 using pesto::pass::metadata::VarDeclMetadata;
 
 pesto::pass::ClastParamTilingPass::ClastParamTilingPass()
-	: IPass("pass-param-tiling"), gen_trahrhe(false),
+	: IPass("pass-param-tiling"), gen_trahrhe(false), trahrhe_mask(""),
+	  trahrhe_use_dichotomy(true),
 	  boundComputeMethod(trahrhe_compute_fill_last), is_stencil(false),
 	  tiling_types() {
 	using namespace pesto::pass;
@@ -89,13 +90,40 @@ void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
 	for (auto &pair : trahrheDomains) {
 		log(std::cerr) << "Trahrhe domain = " << pair.second << std::endl;
 		if (this->gen_trahrhe) {
+
+			// format is trahrhe <output_file> -d "<domain>" -e -t
+			// <tiling_depth> -m "mask"
+			std::vector<std::string> cmd;
+			cmd.push_back("gen_trahrhe");
+			cmd.push_back("trahrhe_header.n" + std::to_string(scop.getId()) +
+						  ".g" + std::to_string(domainCount) + ".h");
+			cmd.push_back("-d");
+			cmd.push_back("\"" + pair.second + "\"");
+			cmd.push_back("-e");
+			cmd.push_back("-t");
+			cmd.push_back(std::to_string(pair.first));
+			if (!this->trahrhe_use_dichotomy || this->trahrhe_mask == "r") {
+				cmd.push_back("--no-dichotomy");
+			}
+			if (this->trahrhe_mask != "") {
+				cmd.push_back("-m");
+				cmd.push_back(this->trahrhe_mask);
+			}
+
 			std::ofstream outfile;
 			outfile.open(".exec-once", std::ios::app);
-			outfile << "trahrhe_wrapper trahrhe_header.n" << scop.getId()
-					<< ".g" << domainCount << ".h ";
-			outfile << " -d\"" << pair.second << "\"";
-			outfile << " -e -t" << pair.first << " -m\"" << this->trahrhe_mask
-					<< "\" \n";
+			outfile << std::accumulate(
+				cmd.begin(), cmd.end(), std::string(),
+				[](const std::string &a, const std::string &b) -> std::string {
+					if (a.empty()) {
+						return b;
+					}
+					if (b.empty()) {
+						return a;
+					}
+					return a + " " + b;
+				});
+			outfile << std::endl;
 			outfile.close();
 		}
 		// TODO: function to generate the header file name

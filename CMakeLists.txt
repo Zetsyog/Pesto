@@ -89,9 +89,6 @@ file(GLOB_RECURSE PESTOTOOL_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/tool/*.cpp"
 # Add executables
 add_executable(pestobin ${PESTOTOOL_SOURCES})
 
-# trahrhe dependency
-add_dependencies(pestobin trahrhe)
-
 # libpesto dependency
 target_link_libraries(pestobin PUBLIC pesto clan)
 
@@ -104,7 +101,6 @@ set(EXTRACT_SCOP_BIN "${CMAKE_BINARY_DIR}/extract_scop.sh")
 set(REPLACE_SCOP_BIN "${CMAKE_BINARY_DIR}/replace_scop.sh")
 set(TRAHRHE_WRAPPER_BIN "${CMAKE_BINARY_DIR}/trahrhe_wrapper.sh")
 set(PESTO_TOOL_BIN "${CMAKE_BINARY_DIR}/pestobin")
-set(TRAHRHE_INSTALL_DIR "${CMAKE_SOURCE_DIR}/trahrhe-dev")
 set(PESTO_CLI_BIN "${CMAKE_BINARY_DIR}/pesto")
 
 # Add bash scripts

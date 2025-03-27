@@ -16,7 +16,14 @@ ClastParamTilingPB::build(PassManagerBuilder &builder, const json &j) {
 		pass->gen_trahrhe = j["gen-trahrhe"];
 	}
 	if (j.contains("trahrhe-mask")) {
+		std::cerr
+			<< "Warning: trahrhe-mask is deprecated. Use trahrhe-use-dichtomy"
+			   "attribute instead."
+			<< std::endl;
 		pass->trahrhe_mask = j["trahrhe-mask"];
+	}
+	if (j.contains("trahrhe-use-dichtomy")) {
+		pass->trahrhe_use_dichotomy = j["trahrhe-use-dichtomy"];
 	}
 	if (j.contains("bound-compute-method")) {
 		std::string method = j["bound-compute-method"];

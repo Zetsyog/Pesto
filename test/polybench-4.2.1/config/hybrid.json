@@ -18,7 +18,7 @@
         {
             "uuid": "param-tiling",
             "gen-trahrhe": true,
-            "trahrhe-mask": "d",
+            "trahrhe-use-dichotomy": true,
             "types": [
                 "algebraic",
                 "rectangular"
