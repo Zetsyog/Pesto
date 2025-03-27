@@ -23,7 +23,7 @@ ExternalProject_Add(
 	GIT_TAG 0.8.1 #
 	GIT_SUBMODULES_RECURSE false
 	GIT_SUBMODULES ""
-	PREFIX ${PLUTO_BIN}
+	PREFIX ${CLAN_BIN}
 	BUILD_IN_SOURCE true
 	CONFIGURE_COMMAND ./autogen.sh && ./configure --prefix=${CLAN_BIN} --with-osl=system
 					  --with-osl-prefix=${PLUTO_BIN}

@@ -19,6 +19,7 @@ ExternalProject_Add(
 	GIT_REPOSITORY https://gitlab.inria.fr/crossett/pluto-openscop.git
 	GIT_TAG origin/libpluto-build #
 	GIT_SUBMODULES_RECURSE false
+	GIT_SUBMODULES isl openscop piplib candl #
 	PREFIX ${PLUTO_BIN}
 	BUILD_IN_SOURCE true
 	CONFIGURE_COMMAND ./autogen.sh && ./configure --prefix=${PLUTO_BIN} --enable-libonly
