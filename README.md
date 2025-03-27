@@ -53,6 +53,9 @@ The supported CMake options are the following:
 
 - `PESTO_BUILD_JOBS`: define the number of threads/jobs that will be used to build subprojects (i.e. it will call `make -j ${PESTO_BUILD_JOBS})
 - `PESTO_TRAHRHE_VERSION`: specify trahrhe version to use (default is `4.2`)
+- `PESTO_TEST_POLYBENCH_DATASET`: for PolyBench tests, set which dataset will be used
+- `PESTO_TEST_POLYBENCH_TILE_DIVIDER_MIN`: for PolyBench tests with random tile sizes, set the minimum tile divider/size
+- `PESTO_TEST_POLYBENCH_TILE_DIVIDER_MAX`: for PolyBench tests with random tile sizes, set the maximum tile divider/size
 
 ```bash
 mkdir build

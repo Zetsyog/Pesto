@@ -20,22 +20,6 @@ dist/
 local/
 sourceme
 
-# Generated files
-/Makefile
-/Makefile.in
-lib/Makefile
-lib/Makefile.in
-tool/Makefile
-tool/Makefile.in
-configure
-config.log
-config.status
-/pesto
-pesto.sh
-tool/pesto
-/trahrhe_wrapper
-trahrhe_wrapper.sh
-
 # Editor/IDE specific files
 .vscode/
 .idea/
@@ -69,5 +53,4 @@ output_*
 *.tmp.c
 .pesto_prefix
 
-# submodule
-trahrhe/
+publish/

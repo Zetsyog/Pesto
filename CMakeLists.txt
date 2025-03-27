@@ -27,9 +27,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 
 include(FetchContent)
 
-# Include directories
-include_directories(${CMAKE_SOURCE_DIR}/include/)
-
 # ##################################################################################################
 # Dependencies
 # ##################################################################################################
@@ -66,31 +63,12 @@ include(cmake/trahrhe.cmake)
 # ##################################################################################################
 # libpesto
 # ##################################################################################################
-
-# Sources files
-file(GLOB_RECURSE LIBPESTO_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/lib/*.cpp"
-	 "${CMAKE_CURRENT_SOURCE_DIR}/lib/*.c"
-)
-
-# create library
-add_library(pesto STATIC ${LIBPESTO_SOURCES})
-
-target_link_libraries(pesto PUBLIC pluto cloog nlohmann_json muparser)
+add_subdirectory(lib)
 
 # ##################################################################################################
 # pestobin
 # ##################################################################################################
-
-# Sources files
-file(GLOB_RECURSE PESTOTOOL_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/tool/*.cpp"
-	 "${CMAKE_CURRENT_SOURCE_DIR}/tool/*.c"
-)
-
-# Add executables
-add_executable(pestobin ${PESTOTOOL_SOURCES})
-
-# libpesto dependency
-target_link_libraries(pestobin PUBLIC pesto clan)
+add_subdirectory(tool)
 
 # ##################################################################################################
 # pesto-cli

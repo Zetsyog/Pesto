@@ -39,7 +39,7 @@ build:pesto:
 .test:
   stage: test
   variables:
-    GIT_STRATEGY: FETCH
+    GIT_STRATEGY: fetch
   tags:
     - ci.inria.fr
   image: $CI_REGISTRY_IMAGE/pesto-ci

@@ -25,9 +25,6 @@ cleanup() {
     rm -f .pesto* .vardecls .kernel .exec-once
 }
 
-# Cleanup on exit
-trap cleanup EXIT
-
 OPTS=$(getopt -o o:ihv --long output:,indent,config:,readscop,version,help -- "$@")
 if [ $? != 0 ]; then
     echo "[pesto-cli] Failed to parse options" >&2
@@ -225,6 +222,7 @@ process_file() {
         while read -r line; do
             eval "$line"
         done <.exec-once
+        rm -f .exec-once
     fi
 
     echo "[pesto-cli] DEBUG: replacing scop in $infile with $body_file" >&2
@@ -266,5 +264,4 @@ echo "[pesto-cli] Done working on $output_file" >&2
 mv "$working_file" "$output_file"
 
 # cleanup
-# TODO
-rm -f .pesto_prefix
+cleanup

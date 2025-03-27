@@ -9,7 +9,11 @@ find_program(MAXIMA "maxima" REQUIRED)
 
 set(TRAHRHE_DIR ${CMAKE_BINARY_DIR}/trahrhe)
 
-option(PESTO_TRAHRHE_VERSION "Trahrhe version to use" "4.2")
+# default trahrhe version
+set(PESTO_TRAHRHE_VERSION
+	5.0
+	CACHE STRING "Trahrhe version to use"
+)
 
 if(${PESTO_TRAHRHE_VERSION} VERSION_LESS 5.0)
 	set(TRAHRHE_IS_LEGACY true)
@@ -37,10 +41,6 @@ else()
 		message(FATAL_ERROR "No suitable shell found")
 	endif()
 
-	# Quick fix the makefile
-	message(STATUS "Fixing trahrhe makefile")
-	execute_process(COMMAND sed -i "s/-lglpk//g" ${TRAHRHE_DIR}/makefile)
-
 	set(TRAHRHE_BUILD_COMMAND ${CMAKE_MAKE_PROGRAM} SHELL=${TRAHRHE_SHELL} all)
 endif()
 
@@ -58,8 +58,22 @@ else()
 	FetchContent_MakeAvailable(trahrhe)
 endif()
 
-message(STATUS "Building trahrhe")
+if(NOT TRAHRHE_IS_LEGACY)
+	# Quick fix the makefile
+	message(STATUS "Fixing trahrhe makefile")
+	execute_process(COMMAND sed -i "s/-lglpk//g" ${TRAHRHE_DIR}/makefile)
+endif()
 
+# if trahrhe is version 5.0 we need to apply a patch
+if(PESTO_TRAHRHE_VERSION VERSION_EQUAL 5.0)
+	message(STATUS "Applying trahrhe buffer overflow patch for version 5.0")
+	execute_process(
+		COMMAND patch -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/patches/trahrhe-5.0-buffer-overflow.patch
+		WORKING_DIRECTORY ${TRAHRHE_DIR}
+	)
+endif()
+
+message(STATUS "Building trahrhe")
 execute_process(
 	COMMAND ${TRAHRHE_BUILD_COMMAND}
 	WORKING_DIRECTORY ${TRAHRHE_DIR}
