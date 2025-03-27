@@ -22,6 +22,7 @@ ExternalProject_Add(
 	GIT_REPOSITORY https://github.com/periscop/cloog.git
 	GIT_TAG cloog-0.21.1 #
 	GIT_SUBMODULES_RECURSE false
+	GIT_SUBMODULES "" #
 	PREFIX ${CLOOG_BIN}
 	BUILD_IN_SOURCE true
 	CONFIGURE_COMMAND

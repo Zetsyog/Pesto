@@ -22,6 +22,7 @@ ExternalProject_Add(
 	GIT_REPOSITORY https://github.com/periscop/clan.git
 	GIT_TAG 0.8.1 #
 	GIT_SUBMODULES_RECURSE false
+	GIT_SUBMODULES ""
 	PREFIX ${PLUTO_BIN}
 	BUILD_IN_SOURCE true
 	CONFIGURE_COMMAND ./autogen.sh && ./configure --prefix=${CLAN_BIN} --with-osl=system
