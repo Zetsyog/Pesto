@@ -30,7 +30,11 @@ build:pesto:
   script:
     - mkdir build
     - cd build
-    - cmake .. && cmake --build .
+    - cmake .. -DPESTO_BUILD_JOBS=4 && cmake --build . -j
+  artifacts:
+    paths:
+      - build
+    expire_in: 1 day
 
 .test:
   stage: test
@@ -46,4 +50,4 @@ test:polybench:
     - large
   script:
     - cd build
-    - cmake --build .  --target test-polybench
+    - cmake --build .  --target test-polybench -j
