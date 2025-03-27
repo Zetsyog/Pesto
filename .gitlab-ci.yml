@@ -7,7 +7,7 @@ build:docker-ci:
   when: manual
   image: docker:stable
   tags:
-    - linux
+    - ci.inria.fr
     - large
   rules:
     - changes:
@@ -23,6 +23,10 @@ build:docker-ci:
 
 build:pesto:
   stage: build
+  image: $CI_REGISTRY_IMAGE/pesto-ci
+  tags:
+    - ci.inria.fr
+    - large
   script:
     - mkdir build
     - cd build
@@ -33,8 +37,8 @@ build:pesto:
   variables:
     GIT_STRATEGY: FETCH
   tags:
-    - linux
-  image: "$CI_REGISTRY_IMAGE/pesto-ci"
+    - ci.inria.fr
+  image: $CI_REGISTRY_IMAGE/pesto-ci
 
 test:polybench:
   extends: .test
