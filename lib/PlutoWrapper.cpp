@@ -7,7 +7,12 @@
 
 using namespace pesto;
 
-PlutoWrapper::PlutoWrapper() { this->context = pluto_context_alloc(); }
+PlutoWrapper::PlutoWrapper() {
+	this->context = pluto_context_alloc();
+	getOptions().tile_sizes_len = 1;
+	getOptions().tile_sizes =
+		(int *)malloc(getOptions().tile_sizes_len * sizeof(int));
+}
 
 PlutoWrapper::~PlutoWrapper() { pluto_context_free(context); }
 
