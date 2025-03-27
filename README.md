@@ -47,7 +47,12 @@ Then you will need to install barvinok by source.
 ### Build on your own machine
 
 Run the following commands to create a pesto executable.
-Note: the `install` command is untested and shall not be used for now.
+Note: the `install` command is untested and can be unpredictable.
+
+The supported CMake options are the following:
+
+- `PESTO_BUILD_JOBS`: define the number of threads/jobs that will be used to build subprojects (i.e. it will call `make -j ${PESTO_BUILD_JOBS})
+- `PESTO_TRAHRHE_VERSION`: specify trahrhe version to use (default is `4.2`)
 
 ```bash
 mkdir build

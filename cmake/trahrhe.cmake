@@ -9,7 +9,7 @@ find_program(MAXIMA "maxima" REQUIRED)
 
 set(TRAHRHE_DIR ${CMAKE_BINARY_DIR}/trahrhe)
 
-option(PESTO_TRAHRHE_VERSION "Trahrhe version to use" "5.0")
+option(PESTO_TRAHRHE_VERSION "Trahrhe version to use" "4.2")
 
 if(${PESTO_TRAHRHE_VERSION} VERSION_LESS 5.0)
 	set(TRAHRHE_IS_LEGACY true)
@@ -37,6 +37,10 @@ else()
 		message(FATAL_ERROR "No suitable shell found")
 	endif()
 
+	# Quick fix the makefile
+	message(STATUS "Fixing trahrhe makefile")
+	execute_process(COMMAND sed -i "s/-lglpk//g" ${TRAHRHE_DIR}/makefile)
+
 	set(TRAHRHE_BUILD_COMMAND ${CMAKE_MAKE_PROGRAM} SHELL=${TRAHRHE_SHELL} all)
 endif()
 
@@ -55,8 +59,14 @@ else()
 endif()
 
 message(STATUS "Building trahrhe")
+
 execute_process(
 	COMMAND ${TRAHRHE_BUILD_COMMAND}
 	WORKING_DIRECTORY ${TRAHRHE_DIR}
 	OUTPUT_QUIET ERROR_QUIET
+	RESULT_VARIABLE TRAHRHE_BUILD_RESULT
 )
+
+if(NOT TRAHRHE_BUILD_RESULT EQUAL 0)
+	message(FATAL_ERROR "Failed to build trahrhe")
+endif()
