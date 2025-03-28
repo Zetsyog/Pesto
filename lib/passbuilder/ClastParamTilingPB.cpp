@@ -10,6 +10,8 @@ std::unique_ptr<pesto::pass::IPass>
 ClastParamTilingPB::build(PassManagerBuilder &builder, const json &j) {
 	using pesto::pass::ClastParamTilingPass;
 
+	(void)builder;
+
 	std::unique_ptr<ClastParamTilingPass> pass =
 		std::make_unique<ClastParamTilingPass>();
 	if (j.contains("gen-trahrhe")) {
@@ -58,10 +60,14 @@ ClastParamTilingPB::build(PassManagerBuilder &builder, const json &j) {
 	}
 
 	if (j.contains("pluto")) {
-		PlutoPB pluto_pb = PlutoPB();
-		std::unique_ptr<pesto::pass::IPass> plutoPass =
-			pluto_pb.build(builder, j["pluto"]);
-		pass->setPlutoPass(std::move(plutoPass));
+		std::cerr
+			<< "Warning: pluto pass is deprecated. You should call a pluto "
+			   "pass before the param-tiling pass instead."
+			<< std::endl;
+	}
+
+	if (j.contains("tile-size-hint")) {
+		pass->tileSizeHint = j["tile-size-hint"];
 	}
 
 	// TODO: trahrhe parameters

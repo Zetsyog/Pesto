@@ -9,6 +9,8 @@
 
 #include <isl/set.h>
 
+#define PESTO_PARAM_TILING_DEFAULT_TILE_SIZE_HINT 32
+
 namespace pesto {
 
 namespace pass {
@@ -35,13 +37,12 @@ class ClastParamTilingPass : public IPass {
 	std::string trahrhe_mask;
 	bool trahrhe_use_dichotomy;
 	trahrhe_bound_compute_method boundComputeMethod;
+	int tileSizeHint;
 
 	ClastParamTilingPass();
 	virtual ~ClastParamTilingPass();
 
 	virtual void applyScop(pesto::OslScop &nest) override;
-
-	void setPlutoPass(std::unique_ptr<IPass> pluto_pass);
 
 	/**
 	 * @brief given a depth, return the tiling type
@@ -58,7 +59,6 @@ class ClastParamTilingPass : public IPass {
 
   private:
 	bool is_stencil;
-	std::unique_ptr<IPass> pluto_pass;
 	std::unique_ptr<GenClastPass> gen_clast_pass;
 
 	std::vector<pesto::ParamTilingType> tiling_types;

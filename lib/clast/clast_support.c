@@ -131,7 +131,7 @@ struct clast_stmt *clast_insert_before(struct clast_stmt *root,
 }
 
 int clast_for_is_outter_tile_loop(__isl_keep isl_set *set,
-								  struct clast_for *for_stmt) {
+								  struct clast_for *for_stmt, int tilesize) {
 	assert(for_stmt->domain != NULL);
 
 	isl_set *domain = isl_set_copy(set);
@@ -164,7 +164,7 @@ int clast_for_is_outter_tile_loop(__isl_keep isl_set *set,
 			isl_val *val =
 				isl_constraint_get_coefficient_val(cst, isl_dim_set, idx);
 
-			if (isl_val_eq_si(val, 32) || isl_val_eq_si(val, -32)) {
+			if (isl_val_eq_si(val, tilesize) || isl_val_eq_si(val, -tilesize)) {
 				is_outter_tile = 1;
 			}
 
@@ -189,22 +189,24 @@ int clast_for_is_outter_tile_loop(__isl_keep isl_set *set,
 
 int clast_for_get_outter_tile_depth(__isl_keep isl_set *domain,
 									struct clast_stmt *root,
-									struct clast_for *outter_for) {
+									struct clast_for *outter_for,
+									int tilesize) {
 	int depth = 0;
 	while ((outter_for = clast_get_parent_clast_for(
 				root, (struct clast_stmt *)outter_for)) != NULL) {
-		if (clast_for_is_outter_tile_loop(domain, outter_for)) {
+		if (clast_for_is_outter_tile_loop(domain, outter_for, tilesize)) {
 			depth += 1;
 		}
 	}
 	return depth;
 }
 
-int clast_for_is_inner_tile_loop(struct clast_for *for_stmt) {
-	return clast_for_get_inner_tile_outter_dim(for_stmt) != -1;
+int clast_for_is_inner_tile_loop(struct clast_for *for_stmt, int tile_size) {
+	return clast_for_get_inner_tile_outter_dim(for_stmt, tile_size) != -1;
 }
 
-int clast_for_get_inner_tile_outter_dim(struct clast_for *for_stmt) {
+int clast_for_get_inner_tile_outter_dim(struct clast_for *for_stmt,
+										int tile_size) {
 	assert(for_stmt->domain != NULL);
 
 	isl_set *set = isl_set_from_cloog_domain(for_stmt->domain);
@@ -245,7 +247,8 @@ int clast_for_get_inner_tile_outter_dim(struct clast_for *for_stmt) {
 				isl_val *idxval =
 					isl_constraint_get_coefficient_val(cst, isl_dim_set, idx);
 
-				if (isl_val_eq_si(idxval, 1) && isl_val_eq_si(kval, -32)) {
+				if (isl_val_eq_si(idxval, 1) &&
+					isl_val_eq_si(kval, -tile_size)) {
 					corresponding_outter_dim = k;
 				}
 
@@ -332,8 +335,10 @@ struct clast_for *clast_get_parent_clast_for(struct clast_stmt *root,
 }
 
 struct clast_for *clast_get_outter_tiling_for(struct clast_stmt *root,
-											  struct clast_for *inner_for) {
-	int outter_tile_idx = clast_for_get_inner_tile_outter_dim(inner_for);
+											  struct clast_for *inner_for,
+											  int tile_size) {
+	int outter_tile_idx =
+		clast_for_get_inner_tile_outter_dim(inner_for, tile_size);
 	if (outter_tile_idx == -1) {
 		return NULL;
 	}

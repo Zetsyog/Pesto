@@ -27,6 +27,10 @@ class PlutoWrapper {
 	PlutoWrapper &debug(bool debug);
 	PlutoWrapper &moreDebug(bool moreDebug);
 
+	/* Tile size utility */
+	PlutoWrapper &setTileSizes(std::initializer_list<int> sizes);
+	PlutoWrapper &pushTileSize(int size);
+
 	/**
 	 * Run the Pluto polyhedral compiler on a given scop
 	 * Optimisations are applied in place

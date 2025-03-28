@@ -22,11 +22,11 @@ using pesto::pass::metadata::VarDeclMetadata;
 pesto::pass::ClastParamTilingPass::ClastParamTilingPass()
 	: IPass("pass-param-tiling"), gen_trahrhe(false), trahrhe_mask(""),
 	  trahrhe_use_dichotomy(true),
-	  boundComputeMethod(trahrhe_compute_fill_last), is_stencil(false),
-	  tiling_types() {
+	  boundComputeMethod(trahrhe_compute_fill_last),
+	  tileSizeHint(PESTO_PARAM_TILING_DEFAULT_TILE_SIZE_HINT),
+	  is_stencil(false), tiling_types() {
 	using namespace pesto::pass;
 
-	this->pluto_pass = std::make_unique<PlutoPass>();
 	this->gen_clast_pass = std::make_unique<GenClastPass>();
 	// TODO: WHY IS THIS HERE?
 	this->gen_clast_pass->codegenContext = 1;
@@ -37,11 +37,6 @@ pesto::pass::ClastParamTilingPass::~ClastParamTilingPass() {}
 void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
 	// run the pass on each nest
 	auto tilingUtil = std::make_unique<ParamTilingUtility>();
-
-	// First we apply pluto
-	log(std::cerr) << "Running pluto pass on nest " << scop.getId()
-				   << std::endl;
-	((PlutoPass *)this->pluto_pass.get())->applyScop(scop);
 
 	// Then we generate the clast
 	log(std::cerr) << "Generating clast for nest " << scop.getId() << std::endl;
@@ -63,6 +58,7 @@ void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
 	tilingUtil->setCloogOptions(clastDataShared->cloogOptions);
 
 	tilingUtil->setBoundComputingMethod(this->boundComputeMethod);
+	tilingUtil->setTileSizeTarget(this->tileSizeHint);
 
 	tilingUtil->apply();
 	if (tilingUtil->hasError()) {
@@ -148,9 +144,4 @@ pesto::pass::ClastParamTilingPass::getTilingType(size_t depth) {
 		return this->tiling_types[depth];
 	}
 	return this->tiling_types[this->tiling_types.size() - 1];
-}
-
-void pesto::pass::ClastParamTilingPass::setPlutoPass(
-	std::unique_ptr<pass::IPass> pluto_pass) {
-	this->pluto_pass = std::move(pluto_pass);
 }

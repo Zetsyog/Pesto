@@ -99,6 +99,8 @@ class ParamTilingUtility {
 
 	std::vector<std::pair<int, std::string>> getTrahrheDomains();
 
+	void setTileSizeTarget(int tilesize);
+
   private:
 	/* polyhedral stuff */
 	osl_scop_p scop; /* scop that will be tiled */
@@ -114,6 +116,7 @@ class ParamTilingUtility {
 
 	/* stmt utilities */
 	int insertedStmts;
+	int tilesizeTarget;
 
 	/* error handling */
 	bool error;

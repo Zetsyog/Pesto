@@ -13,8 +13,8 @@
 #define STR_BUF_SIZE 512
 
 pesto::ParamTilingUtility::ParamTilingUtility()
-	: scop(nullptr), root(nullptr), insertedStmts(0), error(false),
-	  boundComputeMethod(trahrhe_compute_fill_last) {}
+	: scop(nullptr), root(nullptr), insertedStmts(0), tilesizeTarget(32),
+	  error(false), boundComputeMethod(trahrhe_compute_fill_last) {}
 
 pesto::ParamTilingUtility::~ParamTilingUtility() {
 	for (auto &group : this->stmtGroups) {
@@ -235,10 +235,11 @@ void pesto::ParamTilingUtility::associateTilingFor(StmtGroup &group) {
 
 	while (current_for != NULL) {
 		// if the current for is an inner tiled for
-		if (clast_for_is_inner_tile_loop(current_for)) {
+		if (clast_for_is_inner_tile_loop(current_for, this->tilesizeTarget)) {
 			// we get the corresponding outter for
-			struct clast_for *outter_for = clast_get_outter_tiling_for(
-				(struct clast_stmt *)this->root, current_for);
+			struct clast_for *outter_for =
+				clast_get_outter_tiling_for((struct clast_stmt *)this->root,
+											current_for, this->tilesizeTarget);
 			if (outter_for == NULL) {
 				std::cerr << "[param-tiling] Warning: found a inner tiled for "
 							 "with no outter tiling for"
@@ -933,4 +934,8 @@ __isl_give isl_set *pesto::ParamTilingUtility::extractIslInnerTiledDomain(
 void pesto::ParamTilingUtility::setBoundComputingMethod(
 	trahrhe_bound_compute_method method) {
 	this->boundComputeMethod = method;
+}
+
+void pesto::ParamTilingUtility::setTileSizeTarget(int size) {
+	this->tilesizeTarget = size;
 }

@@ -78,7 +78,7 @@ add_subdirectory(tool)
 set(EXTRACT_SCOP_BIN "${CMAKE_BINARY_DIR}/extract_scop.sh")
 set(REPLACE_SCOP_BIN "${CMAKE_BINARY_DIR}/replace_scop.sh")
 set(TRAHRHE_WRAPPER_BIN "${CMAKE_BINARY_DIR}/trahrhe_wrapper.sh")
-set(PESTO_TOOL_BIN "${CMAKE_BINARY_DIR}/pestobin")
+set(PESTO_TOOL_BIN "${CMAKE_BINARY_DIR}/tool/pestobin")
 set(PESTO_CLI_BIN "${CMAKE_BINARY_DIR}/pesto")
 
 # Add bash scripts
