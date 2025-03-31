@@ -16,7 +16,7 @@ build:docker-ci:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
       when: never
   before_script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
   script:
     - docker build . -t "$CI_REGISTRY_IMAGE/pesto-ci" -f docker/ci.dockerfile
     - docker push "$CI_REGISTRY_IMAGE/pesto-ci"
@@ -31,11 +31,6 @@ build:pesto:
     - mkdir build
     - cd build
     - cmake .. -DPESTO_BUILD_JOBS=4 && cmake --build . -j
-  artifacts:
-    paths:
-      - build
-    expire_in: 1 week
-
 .test:
   stage: test
   variables:
@@ -49,5 +44,17 @@ test:polybench:
   tags:
     - large
   script:
+    - mkdir build
     - cd build
-    - cmake --build .  --target test-polybench -j
+    - cmake .. -DPESTO_BUILD_JOBS=4 && cmake --build . -j
+    - cmake --build . --target test-polybench
+
+test:polybench-legacy:
+  extends: .test
+  tags:
+    - large
+  script:
+    - mkdir build
+    - cd build
+    - cmake .. -DPESTO_BUILD_JOBS=4 -DPESTO_TRAHRHE_VERSION=4.2 && cmake --build . -j
+    - cmake --build . --target test-polybench

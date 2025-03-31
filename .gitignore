@@ -45,7 +45,6 @@ libtool
 .direnv
 .envrc
 shell.nix
-flake.nix
 flake.lock
 
 # tmp
@@ -54,3 +53,8 @@ output_*
 .pesto_prefix
 
 publish/
+
+# gilab-ci-local
+.gitlab-ci-local/
+.gitlab-ci-local.env
+.gitlab-ci-local-variables.yml
