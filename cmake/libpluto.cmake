@@ -17,7 +17,7 @@ set(PLUTO_PATCH_COMPILE_FIX ${CMAKE_SOURCE_DIR}/patches/pluto_doc_gen_fix.patch)
 ExternalProject_Add(
 	pluto-src
 	GIT_REPOSITORY https://gitlab.inria.fr/crossett/pluto-openscop.git
-	GIT_TAG origin/libpluto-build #
+	GIT_TAG 83871ff7db4c956d2e564af8efb928d9ea1f870b #
 	GIT_SUBMODULES_RECURSE false
 	GIT_SUBMODULES isl openscop piplib candl #
 	PREFIX ${PLUTO_BIN}
