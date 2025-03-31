@@ -34,7 +34,7 @@ build:pesto:
   artifacts:
     paths:
       - build
-    expire_in: 1 day
+    expire_in: 1 week
 
 .test:
   stage: test
