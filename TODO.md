@@ -1,57 +1,28 @@
-# Todolist
+# TODO
 
-- [ ] This list
-- [ ] Find a new name
-- [ ] Better build
-- [ ] Lib structure
-- [ ] Tool
-- [ ] Namespace everything
-- [ ] Some refactor ? Better code architecture ?
-- [ ] Tests
-
-## Example transform.json
-
-```json
-{
-    "options": {
-        "output-format": "c", // osl, or c
-        "input-format": "osl", // osl, or c
-        "opt-osl": true,
-        "opt-clast": true
-    },
-    "passes":[
-        {
-            "uuid": "pluto-pass",
-            "pluto-opt": {
-                "tile": false,
-                "parallel": false,
-                "prevector": false
-            },
-            "filters": [
-                "$nest_depth >= 2",
-            ]
-        },
-        {
-            "uuid": "split-loop-nest",
-        },
-        {
-            "uuid": "pluto-pass",
-            "pluto-opt": {
-                "tile": true,
-                "parallel": false,
-                "prevector": false
-            }
-        },
-        {
-            "uuid": "clast-gen"
-        },
-        {
-            "uuid": "clast-param-tiling"
-        },
-        {
-            "uuid": "codegen-cloog"
-        }
-    ]
-    
-}
-```
+- [ ] Ensure passes input/output are compatible i.e. some pass might only alter clast. This prevents any later passes to work on openscop of the program
+- [ ] Pet Frontend
+- [ ] Do a Changelog
+- [ ] Cleanup log messages
+- [ ] Add a quiet option
+- [ ] More documentation
+- [ ] Release !
+- [x] Tests
+  - [ ] Polybench
+    - [x] linear-algebra/blas
+      - [ ] symm (no tiling)
+    - [x] linear-algebra/kernels
+    - [ ] linear-algebra/solvers
+    - [x] datamining
+    - [ ] stencils
+    - [ ] medley
+  - [ ] Unit Tests
+- [x] This list
+- [x] Pipeline setup
+- [x] Trahrhe 5.0 support
+- [x] CMake rework
+- [x] Find a new name
+- [x] Better build -> switched to CMake
+- [x] Lib structure
+- [x] Tool
+- [x] Namespace everything
