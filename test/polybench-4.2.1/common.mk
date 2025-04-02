@@ -7,6 +7,7 @@ PESTO_FLAGS?=--indent
 
 PESTO_CONFIG?=$(BASEDIR)/config/ptile.json
 
+POLYCC?=polycc
 PLUTO_FLAGS=--tile --parallel --prevector --nounroll
 
 CLEANFILES=\
@@ -42,7 +43,7 @@ check:
 	@$(BASEDIR)/tools/pb_chksum $(SRC).pesto.c "-DLARGE_DATASET"
 
 rand:
-	$(BASEDIR)/tools/rand_ptiles 5 32 $(SRC)_pesto "-DMEDIUM_DATASET"
+	@$(BASEDIR)/tools/rand_ptiles 5 32 $(SRC)_pesto "-MEDIUM_DATASET"
 
 clean:
 	rm -f $(CLEANFILES) *.scop

@@ -6,18 +6,6 @@
         {
             "uuid": "pluto",
             "options": {
-                "tile": false,
-                "parallel": false,
-                "prevector": false,
-                "silent": true
-            }
-        },
-        {
-            "uuid": "split-nested-loops"
-        },
-        {
-            "uuid": "pluto",
-            "options": {
                 "tile": true,
                 "parallel": true,
                 "prevector": true,
