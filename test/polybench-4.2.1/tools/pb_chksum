@@ -26,11 +26,11 @@ cleanup() {
 source_file=$1
 source_dir=$(dirname $source_file)
 
-gcc -o __tmp $CFLAGS "$POLYBENCH_DIR/polybench.c" -I "$ROOT_DIR/include/" -I "$source_dir" "$source_file" $LD_FLAGS $EXTRAFLAGS
+gcc -o __tmp $CFLAGS "$POLYBENCH_DIR/utilities/polybench.c" -I "$ROOT_DIR/utilities/" -I "$source_dir" "$source_file" $LD_FLAGS $EXTRAFLAGS
 if [ $? -ne 0 ]; then
     echo "Compilation failed" >&2
     echo "command :" >&2
-    echo gcc -o __tmp $CFLAGS "$POLYBENCH_DIR/polybench.c" -I "$ROOT_DIR/include/" -I "$source_dir" "$source_file" $LD_FLAGS $EXTRAFLAGS >&2
+    echo gcc -o __tmp $CFLAGS "$POLYBENCH_DIR/utilities/polybench.c" -I "$ROOT_DIR/utilities/" -I "$source_dir" "$source_file" $LD_FLAGS $EXTRAFLAGS >&2
     exit 1
 fi
 
