@@ -44,10 +44,12 @@ void pesto::ParamTilingUtility::apply() {
 	// i.e tiling bands
 	std::cerr << "[param-tiling] Computing stmt groups..." << std::endl;
 	this->computeStmtGroups();
+
 	std::cerr << "[param-tiling] Found " << this->stmtGroups.size()
 			  << " statements groups" << std::endl;
 
 	if (this->stmtGroups.size() == 0) {
+		// TODO: this error handling seems not appropriate...
 		this->error = true;
 		this->errorMessage = "No statement groups found";
 		return;
@@ -120,6 +122,16 @@ void pesto::ParamTilingUtility::computeStmtGroups() {
 			} else {
 				++it;
 			}
+		}
+
+		isl_set *group_domain =
+			isl_set_copy(isl_set_from_cloog_domain(group->parent_for->domain));
+		isl_bool empty = isl_set_is_empty(group_domain);
+		int tiling_dim_count = isl_set_count_tiling_dimensions(group_domain);
+		isl_set_free(group_domain);
+
+		if (empty == isl_bool_true || tiling_dim_count == 0) {
+			continue;
 		}
 
 		// append group to the list of groups
