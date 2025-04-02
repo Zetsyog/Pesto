@@ -72,7 +72,7 @@ cmake --build . -j
 To build the container run the following command:
 
 ```bash
-docker build . -t pesto:latest -f utils/Dockerfile --build-arg "repository_dir=./"
+docker build . -t pesto:latest -f docker/Dockerfile --build-arg "repository_dir=./"
 ```
 
 Then you can start a shell session in this container with the current host dir mounted as `/mnt` like this:
@@ -85,6 +85,12 @@ Then inside the container you can call pesto with
 
 ```bash
 $PESTO --config <path to json config> <input.c> -o <output.c>
+```
+
+Build the ci container
+
+```bash
+docker build . -t pesto-ci:latest -f docker/ci.dockerfile 
 ```
 
 ### Build using nix
@@ -117,7 +123,9 @@ flake.nix
             sha256 = "sha256-zED+7lqILqn7ruaWswPzd+nEayMhgxMDSAvtGtuOyjo=";
           };
           buildInputs = [
+            pkgs.stdenv.cc.cc.lib
             pkgs.gmp
+            pkgs.gcc
             pkgs.ntl
             pkgs.libtool
             pkgs.automake
@@ -142,6 +150,8 @@ flake.nix
           packages =
             with pkgs;
             [
+              git
+              gcc
               libyaml
               gmp
               cmake
@@ -149,25 +159,18 @@ flake.nix
               automake
               pkgconf
               libtool
-              llvmPackages_14.libllvm
-              llvmPackages_14.clang
-              llvmPackages_14.lld
-              llvmPackages_14.libclang
-              llvmPackages_14.compiler-rt
-              llvmPackages_14.lldb
-              llvmPackages_14.openmp
               bison
               flex
               # trahrhe
               ntl
               maxima
               libmpc
-              #misc
               bc
             ]
             ++ [ barvinok ];
           shellHook = ''
             export PESTO="$PWD/build/pesto"
+            export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
           '';
         };
       }

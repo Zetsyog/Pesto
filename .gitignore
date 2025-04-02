@@ -53,6 +53,7 @@ output_*
 .pesto_prefix
 
 publish/
+test/polybench-4.2.1/tmp/
 
 # gilab-ci-local
 .gitlab-ci-local/
