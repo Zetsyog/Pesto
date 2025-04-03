@@ -1,5 +1,7 @@
 # Pesto &#x1F90C;
 
+[![pipeline status](https://gitlab.inria.fr/crossett/pesto/badges/main/pipeline.svg?key_text=Build+and+Test+(main)&key_width=150)](https://gitlab.inria.fr/crossett/pesto/-/commits/main)
+
 Polyhedral flExible loop-neST Optimizer (PESTO)
 
 ```bash
@@ -42,7 +44,15 @@ Then you will need to install barvinok by source.
 ### Build on your own machine
 
 Run the following commands to create a pesto executable.
-Note: the `install` command is untested and shall not be used for now.
+Note: the `install` command is untested and can be unpredictable.
+
+The supported CMake options are the following:
+
+- `PESTO_BUILD_JOBS`: define the number of threads/jobs that will be used to build subprojects (i.e. it will call `make -j ${PESTO_BUILD_JOBS})
+- `PESTO_TRAHRHE_VERSION`: specify trahrhe version to use (default is `4.2`)
+- `PESTO_TEST_POLYBENCH_DATASET`: for PolyBench tests, set which dataset will be used
+- `PESTO_TEST_POLYBENCH_TILE_DIVIDER_MIN`: for PolyBench tests with random tile sizes, set the minimum tile divider/size
+- `PESTO_TEST_POLYBENCH_TILE_DIVIDER_MAX`: for PolyBench tests with random tile sizes, set the maximum tile divider/size
 
 ```bash
 mkdir build
@@ -59,7 +69,7 @@ cmake --build . -j
 To build the container run the following command:
 
 ```bash
-docker build . -t pesto:latest -f utils/Dockerfile --build-arg "repository_dir=./"
+docker build . -t pesto:latest -f docker/Dockerfile --build-arg "repository_dir=./"
 ```
 
 Then you can start a shell session in this container with the current host dir mounted as `/mnt` like this:
@@ -72,6 +82,12 @@ Then inside the container you can call pesto with
 
 ```bash
 $PESTO --config <path to json config> <input.c> -o <output.c>
+```
+
+Build the ci container
+
+```bash
+docker build . -t pesto-ci:latest -f docker/ci.dockerfile 
 ```
 
 ### Build using nix
@@ -104,7 +120,9 @@ flake.nix
             sha256 = "sha256-zED+7lqILqn7ruaWswPzd+nEayMhgxMDSAvtGtuOyjo=";
           };
           buildInputs = [
+            pkgs.stdenv.cc.cc.lib
             pkgs.gmp
+            pkgs.gcc
             pkgs.ntl
             pkgs.libtool
             pkgs.automake
@@ -129,6 +147,8 @@ flake.nix
           packages =
             with pkgs;
             [
+              git
+              gcc
               libyaml
               gmp
               cmake
@@ -136,25 +156,18 @@ flake.nix
               automake
               pkgconf
               libtool
-              llvmPackages_14.libllvm
-              llvmPackages_14.clang
-              llvmPackages_14.lld
-              llvmPackages_14.libclang
-              llvmPackages_14.compiler-rt
-              llvmPackages_14.lldb
-              llvmPackages_14.openmp
               bison
               flex
               # trahrhe
               ntl
               maxima
               libmpc
-              #misc
               bc
             ]
             ++ [ barvinok ];
           shellHook = ''
             export PESTO="$PWD/build/pesto"
+            export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
           '';
         };
       }

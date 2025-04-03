@@ -6,28 +6,17 @@
         {
             "uuid": "pluto",
             "options": {
-                "tile": false,
-                "parallel": false,
-                "prevector": false,
-                "silent": true
+                "tile": true,
+                "parallel": true,
+                "prevector": true,
+                "intratileopt": true
             }
-        },
-        {
-            "uuid": "split-nested-loops"
         },
         {
             "uuid": "param-tiling",
             "gen-trahrhe": true,
-            "trahrhe-mask": "d",
-            "bound-compute-method": "default",
-            "pluto": {
-                "options": {
-                    "tile": true,
-                    "parallel": true,
-                    "prevector": true,
-                    "intratileopt": true
-                }
-            }
+            "trahrhe-use-dichotomy": true,
+            "bound-compute-method": "default"
         },
         {
             "uuid": "clast-custom-vec-pragma",

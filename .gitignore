@@ -20,22 +20,6 @@ dist/
 local/
 sourceme
 
-# Generated files
-/Makefile
-/Makefile.in
-lib/Makefile
-lib/Makefile.in
-tool/Makefile
-tool/Makefile.in
-configure
-config.log
-config.status
-/pesto
-pesto.sh
-tool/pesto
-/trahrhe_wrapper
-trahrhe_wrapper.sh
-
 # Editor/IDE specific files
 .vscode/
 .idea/
@@ -61,7 +45,6 @@ libtool
 .direnv
 .envrc
 shell.nix
-flake.nix
 flake.lock
 
 # tmp
@@ -69,5 +52,10 @@ output_*
 *.tmp.c
 .pesto_prefix
 
-# submodule
-trahrhe/
+publish/
+test/polybench-4.2.1/tmp/
+
+# gilab-ci-local
+.gitlab-ci-local/
+.gitlab-ci-local.env
+.gitlab-ci-local-variables.yml

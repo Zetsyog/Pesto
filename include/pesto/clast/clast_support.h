@@ -62,30 +62,34 @@ struct clast_user_stmt *pesto_clast_create_stmt(CloogOptions *cloogOptions,
 												unsigned int id);
 
 int clast_for_is_outter_tile_loop(__isl_keep isl_set *domain,
-								  struct clast_for *for_stmt);
+								  struct clast_for *for_stmt, int tilesize);
 
 int clast_for_get_outter_tile_depth(__isl_keep isl_set *domain,
 									struct clast_stmt *root,
-									struct clast_for *outter_for);
+									struct clast_for *outter_for, int tilesize);
 
-int clast_for_is_inner_tile_loop(struct clast_for *for_stmt);
+int clast_for_is_inner_tile_loop(struct clast_for *for_stmt, int tile_size);
 
 /**
  * For a given clast_for, return the index of the isl_dimension
  * that reprensent the corresponding outter tiling dimension
  * @param for_stmt
+ * @param tile_size the size of the done tiling
  * @return index of the outter tiling dimension or -1 if the loop is not tiled
  */
-int clast_for_get_inner_tile_outter_dim(struct clast_for *for_stmt);
+int clast_for_get_inner_tile_outter_dim(struct clast_for *for_stmt,
+										int tile_size);
 
 /**
  * For a given clast_for, return the corresponding outter tiling clast_for
  * @param root the root of the syntax tree
  * @param inner_for the inner tiling loop
+ * @param tile_size hint on the tile size used for tiling
  * @return the outter tiling loop or NULL if the loop is not tiled
  */
 struct clast_for *clast_get_outter_tiling_for(struct clast_stmt *root,
-											  struct clast_for *inner_for);
+											  struct clast_for *inner_for,
+											  int tile_size);
 
 /**
  * For a given clast, traverse the syntax tree and return all the user

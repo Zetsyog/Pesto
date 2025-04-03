@@ -7,7 +7,13 @@
 
 using namespace pesto;
 
-PlutoWrapper::PlutoWrapper() { this->context = pluto_context_alloc(); }
+PlutoWrapper::PlutoWrapper() {
+	this->context = pluto_context_alloc();
+	getOptions().tile_sizes_len = 1;
+	getOptions().tile_sizes =
+		(int *)malloc(getOptions().tile_sizes_len * sizeof(int));
+	getOptions().tile_sizes[0] = 32; // default tile size is 32
+}
 
 PlutoWrapper::~PlutoWrapper() { pluto_context_free(context); }
 
@@ -81,3 +87,22 @@ PlutoWrapper &PlutoWrapper::moreDebug(bool moreDebug) {
 PlutoContext &PlutoWrapper::getContext() { return *context; }
 
 PlutoOptions &PlutoWrapper::getOptions() { return *(context->options); }
+
+PlutoWrapper &PlutoWrapper::setTileSizes(std::initializer_list<int> sizes) {
+	if (getOptions().tile_sizes != nullptr) {
+		free(getOptions().tile_sizes);
+	}
+	getOptions().tile_sizes_len = sizes.size();
+	getOptions().tile_sizes =
+		(int *)malloc(getOptions().tile_sizes_len * sizeof(int));
+	std::copy(sizes.begin(), sizes.end(), getOptions().tile_sizes);
+	return *this;
+}
+
+PlutoWrapper &PlutoWrapper::pushTileSize(int size) {
+	getOptions().tile_sizes_len += 1;
+	getOptions().tile_sizes = (int *)realloc(
+		getOptions().tile_sizes, getOptions().tile_sizes_len * sizeof(int));
+	getOptions().tile_sizes[getOptions().tile_sizes_len - 1] = size;
+	return *this;
+}

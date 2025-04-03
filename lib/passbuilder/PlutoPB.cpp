@@ -83,6 +83,17 @@ std::unique_ptr<pesto::pass::IPass> PlutoPB::build(PassManagerBuilder &builder,
 	PESTO_BIND_PLUTO_OPT(pluto_opt, pass->getOptions(), time);
 	PESTO_BIND_PLUTO_OPT(pluto_opt, pass->getOptions(), flic);
 
+	if (pluto_opt.contains("tile-sizes")) {
+		std::vector<int> tile_sizes;
+		pluto_opt.at("tile-sizes").get_to(tile_sizes);
+		pass->getOptions().tile_sizes_len = tile_sizes.size();
+		pass->getOptions().tile_sizes =
+			(int *)malloc(tile_sizes.size() * sizeof(int));
+		for (int i = 0; i < pass->getOptions().tile_sizes_len; i++) {
+			pass->getOptions().tile_sizes[i] = tile_sizes[i];
+		}
+	}
+
 	// warnings for unhandled options
 	if (pluto_opt.contains("out_file")) {
 		std::cerr

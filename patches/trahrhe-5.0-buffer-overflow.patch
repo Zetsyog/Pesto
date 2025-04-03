@@ -1,0 +1,2360 @@
+--- trahrhe/trahrhe_generate_header.c	2025-03-25 12:27:27.000000000 +0100
++++ trahrhe_generate_header.c	2025-03-27 17:47:06.492604082 +0100
+@@ -1,1218 +1,1227 @@
+-//g++ -o generateheader trahrhe_generate_header.c trahrhe_math.c -I/usr/local/include -L/usr/local/lib -lbarvinok -lisl -lgmp -lpolylibgmp -lntl -lpthread
+-// -lglpk
++// g++ -o generateheader trahrhe_generate_header.c trahrhe_math.c
++// -I/usr/local/include -L/usr/local/lib -lbarvinok -lisl -lgmp -lpolylibgmp
++// -lntl -lpthread
++//  -lglpk
+ 
+-//./generateheader "[N, M] -> { [i, j, k] : N >= 11 and M >= 101 and 0 <= i < N and i <= j < M and j < k < N }" -e -r
++//./generateheader "[N, M] -> { [i, j, k] : N >= 11 and M >= 101 and 0 <= i < N
++// and i <= j < M and j < k < N }" -e -r
+ 
+ #include "trahrhe_generate_header.h"
+ 
+ #define STR_EXPAND(tok) #tok
+ #define STR(tok) STR_EXPAND(tok)
+ 
++#ifndef STR_SIZE
++#define STR_SIZE 512
++#endif
++
++#ifndef STR_VAR_SIZE
++#define STR_VAR_SIZE 128
++#endif
++
+ // Replace "rep" substring from "orig" string with "with" substring
+-char *str_replace(char *orig, const char *rep, const char *with)
+-{
+-    char *result; // the return string
+-    char *ins;    // the next insert point
+-    char *tmp;    // varies
+-    int len_rep;  // length of rep (the string to remove)
+-    int len_with; // length of with (the string to replace rep with)
+-    int len_front; // distance between rep and end of last rep
+-    int count;    // number of replacements
+-
+-    // sanity checks and initialization
+-    if (!orig || !rep || !with)
+-        return NULL;
+-    len_rep = strlen(rep);
+-    if (len_rep == 0)
+-        return NULL; // empty rep causes infinite loop during count
+-    len_with = strlen(with);
+-
+-    // count the number of replacements needed
+-    ins = orig;
+-    for (count = 0; (tmp = strstr(ins, rep)); ++count)
+-    {
+-        ins = tmp + len_rep;
+-    }
+-
+-    tmp = result = (char*)malloc(strlen(orig) + (len_with - len_rep) * count + 1);
+-
+-    if (!result)
+-        return NULL;
+-
+-    while (count--)
+-    {
+-        ins = strstr(orig, rep);
+-        len_front = ins - orig;
+-        tmp = strncpy(tmp, orig, len_front) + len_front;
+-        tmp = strcpy(tmp, with) + len_with;
+-        orig += len_front + len_rep; // move to next "end of rep"
+-    }
+-    strcpy(tmp, orig);
+-    return result;
++char *str_replace(char *orig, const char *rep, const char *with) {
++	char *result;  // the return string
++	char *ins;	   // the next insert point
++	char *tmp;	   // varies
++	int len_rep;   // length of rep (the string to remove)
++	int len_with;  // length of with (the string to replace rep with)
++	int len_front; // distance between rep and end of last rep
++	int count;	   // number of replacements
++
++	// sanity checks and initialization
++	if (!orig || !rep || !with)
++		return NULL;
++	len_rep = strlen(rep);
++	if (len_rep == 0)
++		return NULL; // empty rep causes infinite loop during count
++	len_with = strlen(with);
++
++	// count the number of replacements needed
++	ins = orig;
++	for (count = 0; (tmp = strstr(ins, rep)); ++count) {
++		ins = tmp + len_rep;
++	}
++
++	tmp = result =
++		(char *)malloc(strlen(orig) + (len_with - len_rep) * count + 1);
++
++	if (!result)
++		return NULL;
++
++	while (count--) {
++		ins = strstr(orig, rep);
++		len_front = ins - orig;
++		tmp = strncpy(tmp, orig, len_front) + len_front;
++		tmp = strcpy(tmp, with) + len_with;
++		orig += len_front + len_rep; // move to next "end of rep"
++	}
++	strcpy(tmp, orig);
++	return result;
+ }
+ 
+ // Convert the ISL string format into a valid C condition
+-char* isl_str_condition_to_c_str_condition(char *input_isl_str_condition)
+-{
+-    size_t str_size = strlen(input_isl_str_condition)*2+20;
++char *isl_str_condition_to_c_str_condition(char *input_isl_str_condition) {
++	size_t str_size = strlen(input_isl_str_condition) * 2 + 20;
+ 
+-    char *c_str_condition = (char*)malloc(str_size * sizeof(char));
++	char *c_str_condition = (char *)malloc(str_size * sizeof(char));
+ 
+-    // Use ./Dom2Cond parser to convert the ISL domain syntax to C condition syntax
+-    char *bash_cmd = (char*)malloc((strlen(input_isl_str_condition)+50) * sizeof(char));
+-    snprintf(bash_cmd, strlen(input_isl_str_condition)+50, "echo '%s;' | ./Dom2Cond", input_isl_str_condition);
++	// Use ./Dom2Cond parser to convert the ISL domain syntax to C condition
++	// syntax
++	char *bash_cmd = (char *)malloc(
++		(strlen(input_isl_str_condition) + STR_SIZE) * sizeof(char));
++	snprintf(bash_cmd, strlen(input_isl_str_condition) + STR_SIZE,
++			 "echo '%s;' | ./Dom2Cond", input_isl_str_condition);
+ 
+-    char buffer[str_size];
+-    FILE *pipe;
++	char buffer[str_size];
++	FILE *pipe;
+ 
+-    pipe = popen(bash_cmd, "r");
++	pipe = popen(bash_cmd, "r");
+ 
+-    if (!pipe)
+-    {
+-        perror("pipe");
+-        exit(1);
+-    } 
++	if (!pipe) {
++		perror("pipe");
++		exit(1);
++	}
+ 
+-    fgets(buffer, sizeof(buffer), pipe);
+-    snprintf(c_str_condition, str_size, "%s", buffer);
++	fgets(buffer, sizeof(buffer), pipe);
++	snprintf(c_str_condition, str_size, "%s", buffer);
+ 
+-    return c_str_condition;
++	return c_str_condition;
+ }
+ 
+ // Convert the ISL string format into a valid long int C calculation
+-char* isl_str_qpolynomial_to_c_str_calculation(char *input_isl_str_qpolynomial)
+-{
+-    size_t str_size = strlen(input_isl_str_qpolynomial)*3+256;
++char *
++isl_str_qpolynomial_to_c_str_calculation(char *input_isl_str_qpolynomial) {
++	size_t str_size = strlen(input_isl_str_qpolynomial) * 3 + STR_SIZE;
+ 
+-    char *c_str_calculation = (char*)malloc(str_size * sizeof(char));
++	char *c_str_calculation = (char *)malloc(str_size * sizeof(char));
+ 
+-    // Remove the spaces to use Maxima's horner()
+-    sprintf(c_str_calculation, "%s", str_replace(input_isl_str_qpolynomial, " ", ""));
++	// Remove the spaces to use Maxima's horner()
++	sprintf(c_str_calculation, "%s",
++			str_replace(input_isl_str_qpolynomial, " ", ""));
+ 
+-    // Use Maxima's horner() to factorize
+-    char *bash_cmd = (char*)malloc((strlen(input_isl_str_qpolynomial)+256) * sizeof(char));
+-    sprintf(bash_cmd, "echo 'display2d:false$ linel:8192$ horner(%s);' | maxima --very-quiet", c_str_calculation); 
++	// Use Maxima's horner() to factorize
++	char *bash_cmd = (char *)malloc(
++		(strlen(input_isl_str_qpolynomial) + STR_SIZE) * sizeof(char));
++	sprintf(
++		bash_cmd,
++		"echo 'display2d:false$ linel:8192$ horner(%s);' | maxima --very-quiet",
++		c_str_calculation);
+ 
+-    char buffer[str_size];
+-    FILE *pipe;
++	char buffer[str_size];
++	FILE *pipe;
+ 
+-    pipe = popen(bash_cmd, "r");
++	pipe = popen(bash_cmd, "r");
+ 
+-    if (!pipe)
+-    {
+-        perror("pipe");
+-        exit(1);
+-    } 
++	if (!pipe) {
++		perror("pipe");
++		exit(1);
++	}
+ 
+-    fgets(buffer, sizeof(buffer), pipe);
+-    fgets(buffer, sizeof(buffer), pipe);
++	fgets(buffer, sizeof(buffer), pipe);
++	fgets(buffer, sizeof(buffer), pipe);
+ 
+-    sprintf(c_str_calculation, "%s", buffer);
++	sprintf(c_str_calculation, "%s", buffer);
+ 
+-    // Use ./Maxima2Cint parser to convert the factorized Maxima syntax to C syntax
+-    char *bash_cmd2 = (char*)malloc((strlen(c_str_calculation)+256) * sizeof(char));
+-    sprintf(bash_cmd2, "echo '%s;' | ./Maxima2Cint", c_str_calculation);
++	// Use ./Maxima2Cint parser to convert the factorized Maxima syntax to C
++	// syntax
++	char *bash_cmd2 =
++		(char *)malloc((strlen(c_str_calculation) + STR_SIZE) * sizeof(char));
++	sprintf(bash_cmd2, "echo '%s;' | ./Maxima2Cint", c_str_calculation);
+ 
+-    printf("--> %s\n", bash_cmd2);
++	printf("--> %s\n", bash_cmd2);
+ 
+-    pipe = popen(bash_cmd2, "r");
++	pipe = popen(bash_cmd2, "r");
+ 
+-    fgets(buffer, sizeof(buffer), pipe);
++	fgets(buffer, sizeof(buffer), pipe);
+ 
+-    sprintf(c_str_calculation, "%s", buffer);
++	sprintf(c_str_calculation, "%s", buffer);
+ 
+-    pclose(pipe);
++	pclose(pipe);
+ 
+-    return c_str_calculation;
++	return c_str_calculation;
+ }
+ 
+ // Convert the ISL string format into a valid long int C calculation
+-char* isl_str_to_c_str_calculation(char *input_isl_str)
+-{
+-    size_t str_size = strlen(input_isl_str)*3+256;
++char *isl_str_to_c_str_calculation(char *input_isl_str) {
++	size_t str_size = strlen(input_isl_str) * 3 + STR_SIZE;
+ 
+-    char *c_str_calculation = (char*)malloc(str_size * sizeof(char));
++	char *c_str_calculation = (char *)malloc(str_size * sizeof(char));
+ 
+-    // Remove the spaces to use Maxima's horner()
+-    sprintf(c_str_calculation, "%s", str_replace(input_isl_str, " ", ""));
++	// Remove the spaces to use Maxima's horner()
++	sprintf(c_str_calculation, "%s", str_replace(input_isl_str, " ", ""));
+ 
+-    // Use ./Maxima2Cint parser to convert the factorized Maxima syntax to C syntax
+-    char *bash_cmd2 = (char*)malloc((strlen(c_str_calculation)+256) * sizeof(char));
+-    sprintf(bash_cmd2, "echo '%s;' | ./Maxima2Cint", c_str_calculation);
++	// Use ./Maxima2Cint parser to convert the factorized Maxima syntax to C
++	// syntax
++	char *bash_cmd2 =
++		(char *)malloc((strlen(c_str_calculation) + STR_SIZE) * sizeof(char));
++	sprintf(bash_cmd2, "echo '%s;' | ./Maxima2Cint", c_str_calculation);
+ 
+-    char buffer[str_size];
+-    FILE *pipe;
++	char buffer[str_size];
++	FILE *pipe;
+ 
+-    pipe = popen(bash_cmd2, "r");
++	pipe = popen(bash_cmd2, "r");
+ 
+-    fgets(buffer, sizeof(buffer), pipe);
++	fgets(buffer, sizeof(buffer), pipe);
+ 
+-    sprintf(c_str_calculation, "%s", buffer);
++	sprintf(c_str_calculation, "%s", buffer);
+ 
+-    pclose(pipe);
++	pclose(pipe);
+ 
+-    return c_str_calculation;
++	return c_str_calculation;
+ }
+ 
+-// Convert an isl_pw_qpolynomial into a string C function, function_type is 1 when Ehrhart and 2 when ranking
+-int isl_pw_qpolynomial_to_c_function_str(isl_pw_qpolynomial *input_pw_qpolynomial, isl_set *input_set, int function_type, FILE *input_header_file)
+-{
+-    struct isl_ctx *printer_ctx = isl_ctx_alloc();
+-
+-    struct isl_printer *p = isl_printer_to_str(printer_ctx);
+-
+-    p = isl_printer_set_output_format(p, ISL_FORMAT_C);
+-
+-    char *function_name = (char*)malloc(16 * sizeof(char));
+-
+-
+-    if(function_type==0)
+-    {
+-        sprintf(function_name, "Ehrhart");
+-    }
+-    if(function_type==1)
+-    {
+-        sprintf(function_name, "Ranking");
+-    }
+-    if(function_type==2)
+-    {
+-        sprintf(function_name, "%s_Ehrhart", isl_set_get_dim_name(input_set, isl_dim_out, 0));
+-    }
+-    if(function_type==3)
+-    {
+-        sprintf(function_name, "%s_Ranking", isl_set_get_dim_name(input_set, isl_dim_out, 0));
+-    }
+-    
+-    int nb_case = isl_pw_qpolynomial_n_piece(input_pw_qpolynomial);
+-    
+-    fprintf(input_header_file, "/******************************** %s Polynomials ********************************/\n"
+-                              "static inline long int %s(", function_name, function_name);
+-
+-    int nb_var = isl_set_dim(input_set, isl_dim_out);
+-    int nb_param = isl_set_dim(input_set, isl_dim_param);
+-
+-    if(function_type==1 || function_type==3)
+-    {
+-        if(nb_var>0)
+-        {
+-            for(int i=0; i<nb_var-1; i++)
+-            {
+-               fprintf(input_header_file, "long int %s,", isl_set_get_dim_name(input_set, isl_dim_out, i));
+-            }
+-            fprintf(input_header_file, "long int %s", isl_set_get_dim_name(input_set, isl_dim_out, nb_var-1));
+-        }       
+-    }
+-
+-    if(function_type==0 || function_type==2)
+-    {
+-        if(nb_param>0)
+-        {
+-            for(int i=0; i<nb_param-1; i++)
+-            {
+-                fprintf(input_header_file, "long int %s,", isl_set_get_dim_name(input_set, isl_dim_param, i));
+-            }
+-            fprintf(input_header_file, "long int %s", isl_set_get_dim_name(input_set, isl_dim_param, nb_param-1));
+-        }
+-    }
+-    else
+-    {
+-        if(nb_param>0)
+-        {
+-            for(int i=0; i<nb_param; i++)
+-            {
+-                fprintf(input_header_file, ",long int %s", isl_set_get_dim_name(input_set, isl_dim_param, i));
+-            }
+-        }  
+-    }
+-    fprintf(input_header_file, ")\n{\n");
+-
+-    p = isl_printer_print_pw_qpolynomial(p, input_pw_qpolynomial);
+-
+-    // Copy the input string to a modifiable buffer
+-    char* str_pw_qpolynomial_input = isl_printer_get_str(p);
+-
+-    p = isl_printer_flush(p);
+-
+-    char* start_expr;
+-    char* start_cond;
+-    char* context = NULL; // For strtok_r
+-    char* token;
+-
+-    token = strtok_r(str_pw_qpolynomial_input, ":", &context);
+-
+-    if(!strchr(token, '?'))
+-    {
+-        fprintf(input_header_file,
+-                                "    return %s;\n"
+-                                "}\n", token);
+-        return 0;
+-    }
+-    else
+-    {
+-        // Loop through the polynomials
+-        for (int i = 0; i < nb_case; i++)
+-        {
+-            // Split the token into expression and condition based on '?'
+-            start_cond = strtok_r(token, "?", &token);
+-            start_expr = strtok_r(NULL, "?", &token);
+-
+-            // Trim spaces
+-            while (*start_expr == ' ') start_expr++;
+-            while (*start_cond == ' ') start_cond++;
+-
+-            fprintf(input_header_file, "    if(%s)\n"
+-                                    "    {\n"
+-                                    "        return %s;\n"
+-                                    "    }\n",
+-                                    start_cond,
+-                                    start_expr);
+-
+-            // Get the next token for the loop
+-            token = strtok_r(NULL, ":", &context);
+-        }
+-    }
+-
+-    fprintf(input_header_file, "    fprintf(stderr,\"Error %s: no corresponding domain: (", function_name);
+-
+-    if(function_type==1 || function_type==3)
+-    {
+-        if(nb_var>0)
+-        {
+-            for(int i=0; i<nb_var-1; i++)
+-            {
+-                fprintf(input_header_file, "%s,", isl_set_get_dim_name(input_set, isl_dim_out, i));
+-            }
+-            fprintf(input_header_file, "%s", isl_set_get_dim_name(input_set, isl_dim_out, nb_var-1));
+-        }     
+-    }
+-    if(nb_param>0)
+-    {
+-        for(int i=0; i<nb_param; i++)
+-        {
+-            fprintf(input_header_file, ",%s", isl_set_get_dim_name(input_set, isl_dim_param, i));
+-        }
+-
+-    }
+-
+-    fprintf(input_header_file, ") = (");
+-
+-    if(function_type==1 || function_type==3)
+-    {
+-        if(nb_var>0)
+-        {
+-            for(int i=0; i<nb_var-1; i++)
+-            {
+-                fprintf(input_header_file, "%%ld,");
+-            }
+-            fprintf(input_header_file, "%%ld");
+-        }     
+-    }
+-    if(nb_param>0)
+-    {
+-        for(int i=0; i<nb_param; i++)
+-        {
+-            fprintf(input_header_file, ",%%ld");
+-        }
+-    }
+-    
+-    fprintf(input_header_file, ")\\n\"");
+-
+-    if(function_type==1 || function_type==3)
+-    {
+-        if(nb_var>0)
+-        {
+-            for(int i=0; i<nb_var; i++)
+-            {
+-                fprintf(input_header_file, ",%s", isl_set_get_dim_name(input_set, isl_dim_out, i));
+-            }
+-        }     
+-    }
+-    if(nb_param>0)
+-    {
+-        for(int i=0; i<nb_param; i++)
+-        {
+-            fprintf(input_header_file, ",%s", isl_set_get_dim_name(input_set, isl_dim_param, i));
+-        }
+-    }
+-
+-    fprintf(input_header_file, ");\n"
+-                         "    exit(1);\n"
+-                         "}  /* end %s */\n\n", function_name);
++// Convert an isl_pw_qpolynomial into a string C function, function_type is 1
++// when Ehrhart and 2 when ranking
++int isl_pw_qpolynomial_to_c_function_str(
++	isl_pw_qpolynomial *input_pw_qpolynomial, isl_set *input_set,
++	int function_type, FILE *input_header_file) {
++	struct isl_ctx *printer_ctx = isl_ctx_alloc();
++
++	struct isl_printer *p = isl_printer_to_str(printer_ctx);
++
++	p = isl_printer_set_output_format(p, ISL_FORMAT_C);
++
++	char *function_name = (char *)malloc(STR_VAR_SIZE * sizeof(char));
++
++	if (function_type == 0) {
++		sprintf(function_name, "Ehrhart");
++	}
++	if (function_type == 1) {
++		sprintf(function_name, "Ranking");
++	}
++	if (function_type == 2) {
++		sprintf(function_name, "%s_Ehrhart",
++				isl_set_get_dim_name(input_set, isl_dim_out, 0));
++	}
++	if (function_type == 3) {
++		sprintf(function_name, "%s_Ranking",
++				isl_set_get_dim_name(input_set, isl_dim_out, 0));
++	}
++
++	int nb_case = isl_pw_qpolynomial_n_piece(input_pw_qpolynomial);
++
++	fprintf(input_header_file,
++			"/******************************** %s Polynomials "
++			"********************************/\n"
++			"static inline long int %s(",
++			function_name, function_name);
++
++	int nb_var = isl_set_dim(input_set, isl_dim_out);
++	int nb_param = isl_set_dim(input_set, isl_dim_param);
++
++	if (function_type == 1 || function_type == 3) {
++		if (nb_var > 0) {
++			for (int i = 0; i < nb_var - 1; i++) {
++				fprintf(input_header_file, "long int %s,",
++						isl_set_get_dim_name(input_set, isl_dim_out, i));
++			}
++			fprintf(input_header_file, "long int %s",
++					isl_set_get_dim_name(input_set, isl_dim_out, nb_var - 1));
++		}
++	}
++
++	if (function_type == 0 || function_type == 2) {
++		if (nb_param > 0) {
++			for (int i = 0; i < nb_param - 1; i++) {
++				fprintf(input_header_file, "long int %s,",
++						isl_set_get_dim_name(input_set, isl_dim_param, i));
++			}
++			fprintf(
++				input_header_file, "long int %s",
++				isl_set_get_dim_name(input_set, isl_dim_param, nb_param - 1));
++		}
++	} else {
++		if (nb_param > 0) {
++			for (int i = 0; i < nb_param; i++) {
++				fprintf(input_header_file, ",long int %s",
++						isl_set_get_dim_name(input_set, isl_dim_param, i));
++			}
++		}
++	}
++	fprintf(input_header_file, ")\n{\n");
++
++	p = isl_printer_print_pw_qpolynomial(p, input_pw_qpolynomial);
++
++	// Copy the input string to a modifiable buffer
++	char *str_pw_qpolynomial_input = isl_printer_get_str(p);
++
++	p = isl_printer_flush(p);
++
++	char *start_expr;
++	char *start_cond;
++	char *context = NULL; // For strtok_r
++	char *token;
++
++	token = strtok_r(str_pw_qpolynomial_input, ":", &context);
++
++	if (!strchr(token, '?')) {
++		fprintf(input_header_file,
++				"    return %s;\n"
++				"}\n",
++				token);
++		return 0;
++	} else {
++		// Loop through the polynomials
++		for (int i = 0; i < nb_case; i++) {
++			// Split the token into expression and condition based on '?'
++			start_cond = strtok_r(token, "?", &token);
++			start_expr = strtok_r(NULL, "?", &token);
++
++			// Trim spaces
++			while (*start_expr == ' ')
++				start_expr++;
++			while (*start_cond == ' ')
++				start_cond++;
++
++			fprintf(input_header_file,
++					"    if(%s)\n"
++					"    {\n"
++					"        return %s;\n"
++					"    }\n",
++					start_cond, start_expr);
++
++			// Get the next token for the loop
++			token = strtok_r(NULL, ":", &context);
++		}
++	}
++
++	fprintf(input_header_file,
++			"    fprintf(stderr,\"Error %s: no corresponding domain: (",
++			function_name);
++
++	if (function_type == 1 || function_type == 3) {
++		if (nb_var > 0) {
++			for (int i = 0; i < nb_var - 1; i++) {
++				fprintf(input_header_file, "%s,",
++						isl_set_get_dim_name(input_set, isl_dim_out, i));
++			}
++			fprintf(input_header_file, "%s",
++					isl_set_get_dim_name(input_set, isl_dim_out, nb_var - 1));
++		}
++	}
++	if (nb_param > 0) {
++		for (int i = 0; i < nb_param; i++) {
++			fprintf(input_header_file, ",%s",
++					isl_set_get_dim_name(input_set, isl_dim_param, i));
++		}
++	}
++
++	fprintf(input_header_file, ") = (");
++
++	if (function_type == 1 || function_type == 3) {
++		if (nb_var > 0) {
++			for (int i = 0; i < nb_var - 1; i++) {
++				fprintf(input_header_file, "%%ld,");
++			}
++			fprintf(input_header_file, "%%ld");
++		}
++	}
++	if (nb_param > 0) {
++		for (int i = 0; i < nb_param; i++) {
++			fprintf(input_header_file, ",%%ld");
++		}
++	}
++
++	fprintf(input_header_file, ")\\n\"");
++
++	if (function_type == 1 || function_type == 3) {
++		if (nb_var > 0) {
++			for (int i = 0; i < nb_var; i++) {
++				fprintf(input_header_file, ",%s",
++						isl_set_get_dim_name(input_set, isl_dim_out, i));
++			}
++		}
++	}
++	if (nb_param > 0) {
++		for (int i = 0; i < nb_param; i++) {
++			fprintf(input_header_file, ",%s",
++					isl_set_get_dim_name(input_set, isl_dim_param, i));
++		}
++	}
++
++	fprintf(input_header_file,
++			");\n"
++			"    exit(1);\n"
++			"}  /* end %s */\n\n",
++			function_name);
+ 
+-    return 0;
++	return 0;
+ }
+ 
+-int isl_pw_aff_to_c_if_statement(isl_pw_aff *input_pw_aff, FILE *input_header_file, const char *var_name)
+-{
+-    struct isl_ctx *printer_ctx = isl_ctx_alloc();
+-
+-    struct isl_printer *p = isl_printer_to_str(printer_ctx);
+-
+-    p = isl_printer_set_output_format(p, ISL_FORMAT_C);
+-
+-    int nb_case = isl_pw_aff_n_piece(input_pw_aff);
+-
+-    p = isl_printer_print_pw_aff(p, input_pw_aff);
+-
+-    // Copy the input string to a modifiable buffer
+-    char* str_isl_pw_aff = isl_printer_get_str(p);
+-    p = isl_printer_flush(p);
+-
+-    char* start_expr;
+-    char* start_cond;
+-    char* context = NULL; // For strtok_r
+-    char* token;
+-
+-    token = strtok_r(str_isl_pw_aff, ":", &context);
+-    
+-    if(!strchr(token, '?'))
+-    {
+-        fprintf(input_header_file, "    %s = %s;\n", var_name, token);
+-    }
+-    else
+-    {
+-        // Loop through the polynomials
+-        for (int i = 0; i < nb_case; i++)
+-        {
+-            // printf("token --> %s\n", token);
+-            // Split the token into expression and condition based on '?'
+-            start_cond = strtok_r(token, "?", &token);
+-            // printf("start_cond --> %s\n\n", start_cond);
+-            start_expr = strtok_r(NULL, "?", &token);
+-            // printf("start_expr --> %s\n\n", start_expr);
+-
+-            // Trim spaces
+-            // while (*start_expr == ' ') start_expr++;
+-            // while (*start_cond == ' ') start_cond++;
+-
+-            if(!start_expr)
+-            {
+-                fprintf(input_header_file, "        %s = %s;\n", var_name, start_cond);
+-                for (int j=0; j<i; j++)
+-                {
+-                    fprintf(input_header_file, "}");
+-                }
+-                fprintf(input_header_file, "\n");
+-
+-                return 0;
+-            }
+-
+-            fprintf(input_header_file, "    if(%s){\n"
+-                                       "        %s = %s;\n"
+-                                       "    }else{\n", start_cond, var_name, start_expr);
+-
+-            // Get the next token for the loop
+-            token = strtok_r(NULL, ":", &context);
+-        }
+-    }
+-    return 0;
++int isl_pw_aff_to_c_if_statement(isl_pw_aff *input_pw_aff,
++								 FILE *input_header_file,
++								 const char *var_name) {
++	struct isl_ctx *printer_ctx = isl_ctx_alloc();
++
++	struct isl_printer *p = isl_printer_to_str(printer_ctx);
++
++	p = isl_printer_set_output_format(p, ISL_FORMAT_C);
++
++	int nb_case = isl_pw_aff_n_piece(input_pw_aff);
++
++	p = isl_printer_print_pw_aff(p, input_pw_aff);
++
++	// Copy the input string to a modifiable buffer
++	char *str_isl_pw_aff = isl_printer_get_str(p);
++	p = isl_printer_flush(p);
++
++	char *start_expr;
++	char *start_cond;
++	char *context = NULL; // For strtok_r
++	char *token;
++
++	token = strtok_r(str_isl_pw_aff, ":", &context);
++
++	if (!strchr(token, '?')) {
++		fprintf(input_header_file, "    %s = %s;\n", var_name, token);
++	} else {
++		// Loop through the polynomials
++		for (int i = 0; i < nb_case; i++) {
++			// printf("token --> %s\n", token);
++			// Split the token into expression and condition based on '?'
++			start_cond = strtok_r(token, "?", &token);
++			// printf("start_cond --> %s\n\n", start_cond);
++			start_expr = strtok_r(NULL, "?", &token);
++			// printf("start_expr --> %s\n\n", start_expr);
++
++			// Trim spaces
++			// while (*start_expr == ' ') start_expr++;
++			// while (*start_cond == ' ') start_cond++;
++
++			if (!start_expr) {
++				fprintf(input_header_file, "        %s = %s;\n", var_name,
++						start_cond);
++				for (int j = 0; j < i; j++) {
++					fprintf(input_header_file, "}");
++				}
++				fprintf(input_header_file, "\n");
++
++				return 0;
++			}
++
++			fprintf(input_header_file,
++					"    if(%s){\n"
++					"        %s = %s;\n"
++					"    }else{\n",
++					start_cond, var_name, start_expr);
++
++			// Get the next token for the loop
++			token = strtok_r(NULL, ":", &context);
++		}
++	}
++	return 0;
+ }
+ 
+-int isl_set_to_c_dichotomic_function_str(isl_set *input_set, FILE *input_header_file, unsigned mode=0)
+-{
+-    struct isl_ctx *printer_ctx = isl_ctx_alloc();
+-
+-    struct isl_printer *p = isl_printer_to_str(printer_ctx);
+-
+-    p = isl_printer_set_output_format(p, ISL_FORMAT_C);
+-
+-    int nb_param = isl_set_dim(input_set, isl_dim_param);
+-    int nb_var = isl_set_dim(input_set, isl_dim_out);
+-
+-    const char *main_var = (char *)malloc(16 * sizeof(char));
+-    char *function_name = (char *)malloc(32 * sizeof(char));
+-    char *ranking_function_name = (char *)malloc(32 * sizeof(char));
+-
+-    // Tiling mode
+-    if(mode == 0)
+-    {
+-        main_var = isl_set_get_dim_name(input_set, isl_dim_out, 0);
+-        sprintf(function_name, "%s_trahrhe_%s", main_var, main_var);
+-        sprintf(ranking_function_name, "%s_Ranking", main_var);
+-    }
+-    else
+-    {
+-        // Non tiling mode, indicate the rank of the var to consider
+-        main_var = isl_set_get_dim_name(input_set, isl_dim_out, mode-1);
+-        sprintf(function_name, "trahrhe_%s", main_var);
+-        sprintf(ranking_function_name, "Ranking");
+-    }
+-
+-    fprintf(input_header_file, "/************************************** %s **************************************/\n"
+-                               "static inline long int %s(long int pc", function_name, function_name);
+-
+-    if(mode>1)
+-    {
+-        for(int i=0; i<mode-1; i++)
+-        {
+-           fprintf(input_header_file, ",long int %s", isl_set_get_dim_name(input_set, isl_dim_out, i));
+-        }
+-    }
+-
+-    if(nb_param>0)
+-    {
+-        for(int i=0; i<nb_param; i++)
+-        {
+-           fprintf(input_header_file, ",long int %s", isl_set_get_dim_name(input_set, isl_dim_param, i));
+-        }
+-    }
+-    fprintf(input_header_file, ")\n"
+-                               "{\n");
+-
+-    if(mode==0)
+-    {
+-        fprintf(input_header_file, "    long int %s", isl_set_get_dim_name(input_set, isl_dim_set, 0));
+-        for(int i=1; i<nb_var; i++)
+-        {
+-           fprintf(input_header_file, ", %s", isl_set_get_dim_name(input_set, isl_dim_set, i));
+-        }
+-        fprintf(input_header_file, ";\n");
+-    }
+-    else
+-    {
+-        fprintf(input_header_file, "    long int %s", isl_set_get_dim_name(input_set, isl_dim_set, mode-1));
+-        for(int i=mode; i<nb_var; i++)
+-        {
+-           fprintf(input_header_file, ", %s", isl_set_get_dim_name(input_set, isl_dim_set, i));
+-        }
+-        fprintf(input_header_file, ";\n");
+-    }
+-
+-    fprintf(input_header_file, "    long int upper_bound;\n"
+-                               "    long int m, rank;\n"
+-                               "\n");
+-
+-    struct isl_pw_aff *main_var_min = isl_set_dim_min(isl_set_copy(input_set),0);
+-
+-    isl_pw_aff_to_c_if_statement(main_var_min, input_header_file, main_var);
+-
+-    fprintf(input_header_file, "\n");
+-
+-    struct isl_pw_aff *upper_bound_max = isl_set_dim_max(isl_set_copy(input_set),0);
+-
+-    isl_pw_aff_to_c_if_statement(upper_bound_max, input_header_file, "upper_bound");
+-
+-    fprintf(input_header_file, "\n"
+-                               "    while (%s+1 < upper_bound)\n"
+-                               "    {\n"
+-                               "        m = (%s + upper_bound)/2;\n\n", main_var, main_var);
+-
+-    // Adding constraint main_var=m
+-    struct isl_set *input_set_copy = isl_set_copy(input_set);
+-    input_set_copy = isl_set_add_dims(input_set_copy, isl_dim_param, 1);
+-    input_set_copy = isl_set_set_dim_name(input_set_copy, isl_dim_param, nb_param, "m");
+-
+-    isl_space *space = isl_set_get_space(input_set_copy);
+-    isl_local_space *ls = isl_local_space_from_space(space);
+-    isl_constraint *c;
+-
+-
+-    c = isl_constraint_alloc_equality(isl_local_space_copy(ls));
+-    if(mode == 0)
+-    {
+-        c = isl_constraint_set_coefficient_si(c, isl_dim_out, 0 , 1);
+-    }
+-    else
+-    {
+-        c = isl_constraint_set_coefficient_si(c, isl_dim_out, mode-1 , 1);
+-    }
+-    c = isl_constraint_set_coefficient_si(c, isl_dim_param, nb_param, -1);
+-
+-    input_set_copy = isl_set_add_constraint(input_set_copy, c);
+-
+-    struct isl_pw_aff *var_min;
+-
+-    if(mode == 0)
+-    {
+-        for(int j = 1; j < nb_var; j++)
+-        {
+-            var_min = isl_set_dim_min(isl_set_copy(input_set_copy),j);
+-            isl_pw_aff_to_c_if_statement(isl_set_dim_min(isl_set_copy(input_set_copy),j),
+-                                         input_header_file,
+-                                         isl_set_get_dim_name(isl_set_copy(input_set_copy), isl_dim_out, j));
+-        }
+-    }
+-    else
+-    {
+-        for(int k = mode; k < nb_var; k++)
+-        {
+-            var_min = isl_set_dim_min(isl_set_copy(input_set_copy),k);
+-            isl_pw_aff_to_c_if_statement(isl_set_dim_min(isl_set_copy(input_set_copy),k),
+-                                         input_header_file,
+-                                         isl_set_get_dim_name(isl_set_copy(input_set_copy), isl_dim_out, k));
+-        }
+-    }
+-
+-    fprintf(input_header_file, "\n"
+-                               "        rank = %s(", ranking_function_name);
+-
+-    if(mode < 2)
+-    {
+-        fprintf(input_header_file, "m");
+-
+-        for(int l = 1; l < nb_var; l++)
+-        {
+-            fprintf(input_header_file, ", %s", isl_set_get_dim_name(isl_set_copy(input_set), isl_dim_out, l));
+-        }
+-        // if(mode == 0)
+-        // {                
+-        //     for(int m = 0; m < nb_param; m++)
+-        //     {
+-        //         fprintf(input_header_file, ", %s", isl_set_get_dim_name(isl_set_copy(input_set), isl_dim_param, m));
+-        //     }
+-        // }
+-    }
+-    else
+-    {
+-        for(int n = 0; n < mode-1; n++)
+-        {
+-            fprintf(input_header_file, "%s, ", isl_set_get_dim_name(isl_set_copy(input_set), isl_dim_out, n));
+-        }
+-        fprintf(input_header_file, "m");
+-        for(int o = mode; o < nb_var; o++)
+-        {
+-            fprintf(input_header_file, ", %s", isl_set_get_dim_name(isl_set_copy(input_set), isl_dim_out, o));
+-        }
+-    } 
+-
+-    if(nb_param>0)
+-    {
+-        for(int i=0; i<nb_param; i++)
+-        {
+-           fprintf(input_header_file, ", %s", isl_set_get_dim_name(input_set, isl_dim_param, i));
+-        }
+-    }
+-    fprintf(input_header_file, ");\n");
+-
+-    fprintf(input_header_file, "\n"
+-                               "        if (rank <= pc)\n"
+-                               "            %s = m;\n"
+-                               "        else\n"
+-                               "            upper_bound = m;\n"
+-                               "    }\n"
+-                               "\n"
+-                               "    return %s;\n"
+-                               "}\n", main_var, main_var);
+-    
++int isl_set_to_c_dichotomic_function_str(isl_set *input_set,
++										 FILE *input_header_file,
++										 unsigned mode = 0) {
++	struct isl_ctx *printer_ctx = isl_ctx_alloc();
++
++	struct isl_printer *p = isl_printer_to_str(printer_ctx);
++
++	p = isl_printer_set_output_format(p, ISL_FORMAT_C);
++
++	int nb_param = isl_set_dim(input_set, isl_dim_param);
++	int nb_var = isl_set_dim(input_set, isl_dim_out);
++
++	const char *main_var = (char *)malloc(STR_VAR_SIZE * sizeof(char));
++	char *function_name = (char *)malloc(STR_VAR_SIZE * sizeof(char));
++	char *ranking_function_name = (char *)malloc(STR_VAR_SIZE * sizeof(char));
++
++	// Tiling mode
++	if (mode == 0) {
++		main_var = isl_set_get_dim_name(input_set, isl_dim_out, 0);
++		sprintf(function_name, "%s_trahrhe_%s", main_var, main_var);
++		sprintf(ranking_function_name, "%s_Ranking", main_var);
++	} else {
++		// Non tiling mode, indicate the rank of the var to consider
++		main_var = isl_set_get_dim_name(input_set, isl_dim_out, mode - 1);
++		sprintf(function_name, "trahrhe_%s", main_var);
++		sprintf(ranking_function_name, "Ranking");
++	}
++
++	fprintf(input_header_file,
++			"/************************************** %s "
++			"**************************************/\n"
++			"static inline long int %s(long int pc",
++			function_name, function_name);
++
++	if (mode > 1) {
++		for (int i = 0; i < mode - 1; i++) {
++			fprintf(input_header_file, ",long int %s",
++					isl_set_get_dim_name(input_set, isl_dim_out, i));
++		}
++	}
++
++	if (nb_param > 0) {
++		for (int i = 0; i < nb_param; i++) {
++			fprintf(input_header_file, ",long int %s",
++					isl_set_get_dim_name(input_set, isl_dim_param, i));
++		}
++	}
++	fprintf(input_header_file, ")\n"
++							   "{\n");
++
++	if (mode == 0) {
++		fprintf(input_header_file, "    long int %s",
++				isl_set_get_dim_name(input_set, isl_dim_set, 0));
++		for (int i = 1; i < nb_var; i++) {
++			fprintf(input_header_file, ", %s",
++					isl_set_get_dim_name(input_set, isl_dim_set, i));
++		}
++		fprintf(input_header_file, ";\n");
++	} else {
++		fprintf(input_header_file, "    long int %s",
++				isl_set_get_dim_name(input_set, isl_dim_set, mode - 1));
++		for (int i = mode; i < nb_var; i++) {
++			fprintf(input_header_file, ", %s",
++					isl_set_get_dim_name(input_set, isl_dim_set, i));
++		}
++		fprintf(input_header_file, ";\n");
++	}
++
++	fprintf(input_header_file, "    long int upper_bound;\n"
++							   "    long int m, rank;\n"
++							   "\n");
++
++	struct isl_pw_aff *main_var_min =
++		isl_set_dim_min(isl_set_copy(input_set), 0);
++
++	isl_pw_aff_to_c_if_statement(main_var_min, input_header_file, main_var);
++
++	fprintf(input_header_file, "\n");
++
++	struct isl_pw_aff *upper_bound_max =
++		isl_set_dim_max(isl_set_copy(input_set), 0);
++
++	isl_pw_aff_to_c_if_statement(upper_bound_max, input_header_file,
++								 "upper_bound");
++
++	fprintf(input_header_file,
++			"\n"
++			"    while (%s+1 < upper_bound)\n"
++			"    {\n"
++			"        m = (%s + upper_bound)/2;\n\n",
++			main_var, main_var);
++
++	// Adding constraint main_var=m
++	struct isl_set *input_set_copy = isl_set_copy(input_set);
++	input_set_copy = isl_set_add_dims(input_set_copy, isl_dim_param, 1);
++	input_set_copy =
++		isl_set_set_dim_name(input_set_copy, isl_dim_param, nb_param, "m");
++
++	isl_space *space = isl_set_get_space(input_set_copy);
++	isl_local_space *ls = isl_local_space_from_space(space);
++	isl_constraint *c;
++
++	c = isl_constraint_alloc_equality(isl_local_space_copy(ls));
++	if (mode == 0) {
++		c = isl_constraint_set_coefficient_si(c, isl_dim_out, 0, 1);
++	} else {
++		c = isl_constraint_set_coefficient_si(c, isl_dim_out, mode - 1, 1);
++	}
++	c = isl_constraint_set_coefficient_si(c, isl_dim_param, nb_param, -1);
++
++	input_set_copy = isl_set_add_constraint(input_set_copy, c);
++
++	struct isl_pw_aff *var_min;
++
++	if (mode == 0) {
++		for (int j = 1; j < nb_var; j++) {
++			var_min = isl_set_dim_min(isl_set_copy(input_set_copy), j);
++			isl_pw_aff_to_c_if_statement(
++				isl_set_dim_min(isl_set_copy(input_set_copy), j),
++				input_header_file,
++				isl_set_get_dim_name(isl_set_copy(input_set_copy), isl_dim_out,
++									 j));
++		}
++	} else {
++		for (int k = mode; k < nb_var; k++) {
++			var_min = isl_set_dim_min(isl_set_copy(input_set_copy), k);
++			isl_pw_aff_to_c_if_statement(
++				isl_set_dim_min(isl_set_copy(input_set_copy), k),
++				input_header_file,
++				isl_set_get_dim_name(isl_set_copy(input_set_copy), isl_dim_out,
++									 k));
++		}
++	}
++
++	fprintf(input_header_file,
++			"\n"
++			"        rank = %s(",
++			ranking_function_name);
++
++	if (mode < 2) {
++		fprintf(input_header_file, "m");
++
++		for (int l = 1; l < nb_var; l++) {
++			fprintf(
++				input_header_file, ", %s",
++				isl_set_get_dim_name(isl_set_copy(input_set), isl_dim_out, l));
++		}
++		// if(mode == 0)
++		// {
++		//     for(int m = 0; m < nb_param; m++)
++		//     {
++		//         fprintf(input_header_file, ", %s",
++		//         isl_set_get_dim_name(isl_set_copy(input_set), isl_dim_param,
++		//         m));
++		//     }
++		// }
++	} else {
++		for (int n = 0; n < mode - 1; n++) {
++			fprintf(
++				input_header_file, "%s, ",
++				isl_set_get_dim_name(isl_set_copy(input_set), isl_dim_out, n));
++		}
++		fprintf(input_header_file, "m");
++		for (int o = mode; o < nb_var; o++) {
++			fprintf(
++				input_header_file, ", %s",
++				isl_set_get_dim_name(isl_set_copy(input_set), isl_dim_out, o));
++		}
++	}
++
++	if (nb_param > 0) {
++		for (int i = 0; i < nb_param; i++) {
++			fprintf(input_header_file, ", %s",
++					isl_set_get_dim_name(input_set, isl_dim_param, i));
++		}
++	}
++	fprintf(input_header_file, ");\n");
++
++	fprintf(input_header_file,
++			"\n"
++			"        if (rank <= pc)\n"
++			"            %s = m;\n"
++			"        else\n"
++			"            upper_bound = m;\n"
++			"    }\n"
++			"\n"
++			"    return %s;\n"
++			"}\n",
++			main_var, main_var);
+ 
+-    return 0;
++	return 0;
+ }
+ 
+-isl_stat printfbs(__isl_take isl_basic_set *bset, void *user)
+-{
+-    pcminmax_or_data *data = (pcminmax_or_data *)user;
++isl_stat printfbs(__isl_take isl_basic_set *bset, void *user) {
++	pcminmax_or_data *data = (pcminmax_or_data *)user;
+ 
+-    struct isl_ctx *printer_ctx = isl_ctx_alloc();
++	struct isl_ctx *printer_ctx = isl_ctx_alloc();
+ 
+-    struct isl_printer *p = isl_printer_to_str(printer_ctx);
++	struct isl_printer *p = isl_printer_to_str(printer_ctx);
+ 
+-    struct isl_pw_qpolynomial *pw_qp = isl_pw_qpolynomial_gist_params(isl_pw_qpolynomial_from_qpolynomial(data->qp), isl_basic_set_to_set(isl_basic_set_copy(bset)));
++	struct isl_pw_qpolynomial *pw_qp = isl_pw_qpolynomial_gist_params(
++		isl_pw_qpolynomial_from_qpolynomial(data->qp),
++		isl_basic_set_to_set(isl_basic_set_copy(bset)));
+ 
+-    bset = isl_basic_set_remove_dims(isl_basic_set_copy(bset), isl_dim_out, 0, isl_basic_set_dim(isl_basic_set_copy(bset), isl_dim_out));
++	bset = isl_basic_set_remove_dims(
++		isl_basic_set_copy(bset), isl_dim_out, 0,
++		isl_basic_set_dim(isl_basic_set_copy(bset), isl_dim_out));
+ 
+-    isl_printer_print_basic_set(p, bset);
++	isl_printer_print_basic_set(p, bset);
+ 
+-    // Copy the input string to a modifiable buffer
+-    char* str_bset_input = isl_printer_get_str(p);
++	// Copy the input string to a modifiable buffer
++	char *str_bset_input = isl_printer_get_str(p);
+ 
+-    p = isl_printer_flush(p);
++	p = isl_printer_flush(p);
+ 
+-    p = isl_printer_set_output_format(p, ISL_FORMAT_C);
++	p = isl_printer_set_output_format(p, ISL_FORMAT_C);
+ 
+-    isl_printer_print_qpolynomial(p, isl_pw_qpolynomial_as_qpolynomial(pw_qp));
++	isl_printer_print_qpolynomial(p, isl_pw_qpolynomial_as_qpolynomial(pw_qp));
+ 
+-    char* str_qpolynomial_input = isl_printer_get_str(p);
++	char *str_qpolynomial_input = isl_printer_get_str(p);
+ 
+-    char* start_cond;
+-    char* context = NULL; // For strtok_r
+-    char* token;
++	char *start_cond;
++	char *context = NULL; // For strtok_r
++	char *token;
+ 
+-    // printf("osku %s\n", str_bset_input);
++	// printf("osku %s\n", str_bset_input);
+ 
+-    token = strtok_r(str_bset_input, "}", &context);
++	token = strtok_r(str_bset_input, "}", &context);
+ 
+-    // Split the token into expression and condition based on ':'
+-    start_cond = strtok_r(token, ":", &token);
+-    start_cond = strtok_r(NULL, ":", &token);
++	// Split the token into expression and condition based on ':'
++	start_cond = strtok_r(token, ":", &token);
++	start_cond = strtok_r(NULL, ":", &token);
+ 
+-    // Trim spaces
+-    while (*start_cond == ' ') start_cond++;
++	// Trim spaces
++	while (*start_cond == ' ')
++		start_cond++;
+ 
+-    // Use Maxima2Cifloat parser to convert Maxima syntax to C syntax
+-    int str_size = strlen(start_cond)*4+512;
+-    char buffer[str_size];
+-    FILE *pipe;
+-    char *bash_cmd = (char*)malloc((strlen(start_cond)+256) * sizeof(char));
+-    sprintf(bash_cmd, "echo '%s;' | ./Dom2Cond", start_cond);
++	// Use Maxima2Cifloat parser to convert Maxima syntax to C syntax
++	int str_size = strlen(start_cond) * 4 + STR_SIZE;
++	char buffer[str_size];
++	FILE *pipe;
++	char *bash_cmd =
++		(char *)malloc((strlen(start_cond) + STR_SIZE) * sizeof(char));
++	sprintf(bash_cmd, "echo '%s;' | ./Dom2Cond", start_cond);
+ 
+-    pipe = popen(bash_cmd, "r");
++	pipe = popen(bash_cmd, "r");
+ 
+-    // printf("===> %s\n", bash_cmd);
++	// printf("===> %s\n", bash_cmd);
+ 
+-    fgets(buffer, sizeof(buffer), pipe);
++	fgets(buffer, sizeof(buffer), pipe);
+ 
+-    // sprintf(c_str_calculation, "%s", buffer);
++	// sprintf(c_str_calculation, "%s", buffer);
+ 
+-    fprintf(data->input_header_file, "    if(%s)\n"
+-                                     "    {\n"
+-                                     "        return %s;\n"
+-                                     "    }\n", buffer, str_qpolynomial_input);
++	fprintf(data->input_header_file,
++			"    if(%s)\n"
++			"    {\n"
++			"        return %s;\n"
++			"    }\n",
++			buffer, str_qpolynomial_input);
+ 
+-    pclose(pipe);
++	pclose(pipe);
+ 
+-    // isl_pw_qpolynomial_dump(isl_pw_qpolynomial_gist_params(isl_pw_qpolynomial_from_qpolynomial(data->qp), isl_basic_set_to_set(isl_basic_set_copy(bset))));
++	// isl_pw_qpolynomial_dump(isl_pw_qpolynomial_gist_params(isl_pw_qpolynomial_from_qpolynomial(data->qp),
++	// isl_basic_set_to_set(isl_basic_set_copy(bset))));
+ 
+-    // isl_basic_set_dump(isl_basic_set_remove_dims(isl_basic_set_copy(bset), isl_dim_out, 0, isl_basic_set_dim(isl_basic_set_copy(bset), isl_dim_out)));
++	// isl_basic_set_dump(isl_basic_set_remove_dims(isl_basic_set_copy(bset),
++	// isl_dim_out, 0, isl_basic_set_dim(isl_basic_set_copy(bset),
++	// isl_dim_out)));
+ 
+-    // isl_pw_qpolynomial_dump(isl_pw_qpolynomial_gist(isl_pw_qpolynomial_alloc(isl_basic_set_to_set(isl_basic_set_copy(bset)), data->qp), isl_basic_set_to_set(isl_basic_set_copy(bset))));
++	// isl_pw_qpolynomial_dump(isl_pw_qpolynomial_gist(isl_pw_qpolynomial_alloc(isl_basic_set_to_set(isl_basic_set_copy(bset)),
++	// data->qp), isl_basic_set_to_set(isl_basic_set_copy(bset))));
+ 
+-    // isl_basic_set_foreach_constraint(bset, printc, NULL);
+-    // isl_pw_qpolynomial_fix_val
++	// isl_basic_set_foreach_constraint(bset, printc, NULL);
++	// isl_pw_qpolynomial_fix_val
+ 
+-    return isl_stat_ok;
++	return isl_stat_ok;
+ }
+ 
+-isl_stat pw_qpolynomial_piece_pcminmax(__isl_take isl_set *set, __isl_take isl_qpolynomial *qp, void *user)
+-{
+-    pcminmax_function_data *data = (pcminmax_function_data *)user;
+-
+-    const char *main_var = (char *)malloc(16 * sizeof(char));
+-    char *function_pcminmax_name = (char *)malloc(32 * sizeof(char));
+-    char *function_ehrhart_name = (char *)malloc(32 * sizeof(char));
+-
+-    // Tiling mode
+-    if(data->tiling_level == 0)
+-    {
+-        main_var = isl_set_get_dim_name(set, isl_dim_out, 0);
+-        sprintf(function_ehrhart_name, "%s_Ehrhart", main_var);
+-
+-        if(data->mode==0)
+-        {
+-            sprintf(function_pcminmax_name, "%s_PCMin_%d", main_var, data->count);
+-        }
+-        else
+-        {
+-            sprintf(function_pcminmax_name, "%s_PCMax_%d", main_var, data->count);
+-        }
+-    }
+-    else
+-    {
+-        // Non tiling mode
+-        sprintf(function_ehrhart_name, "Ehrhart");
+-
+-        if(data->mode==0)
+-        {
+-            sprintf(function_pcminmax_name, "PCMin_%d", data->count);
+-        }
+-        else
+-        {
+-            sprintf(function_pcminmax_name, "PCMax_%d", data->count);
+-        }
+-    }
+-
+-    fprintf(data->input_header_file, "static inline long int %s(", function_pcminmax_name);
+-
+-    if(isl_set_dim(set, isl_dim_param)>0)
+-    {
+-        for(int i=0; i<isl_set_dim(set, isl_dim_param)-1; i++)
+-        {
+-           fprintf(data->input_header_file, "long int %s, ", isl_set_get_dim_name(set, isl_dim_param, i));
+-        }
+-    
+-        fprintf(data->input_header_file, "long int %s", isl_set_get_dim_name(set, isl_dim_param, isl_set_dim(set, isl_dim_param)-1));
+-    }
+-    fprintf(data->input_header_file, ")\n"
+-                                     "{\n");
+-
+-    pcminmax_or_data testdata = {isl_qpolynomial_copy(qp), data->input_header_file};
+-
+-    isl_set_foreach_basic_set(isl_set_copy(set), printfbs, &testdata);
+-
+-    if(isl_set_dim(set, isl_dim_param)>0)
+-    {
+-        fprintf(data->input_header_file, "\n"
+-                                         "    return %s(", function_ehrhart_name);
+-
+-        for(int i=0; i<isl_set_dim(set, isl_dim_param)-1; i++)
+-        {
+-           fprintf(data->input_header_file, "%s, ", isl_set_get_dim_name(set, isl_dim_param, i));
+-        }
+-        fprintf(data->input_header_file, "%s);\n", isl_set_get_dim_name(set, isl_dim_param, isl_set_dim(set, isl_dim_param)-1));
+-    }
+-    fprintf(data->input_header_file, "}\n\n");
++isl_stat pw_qpolynomial_piece_pcminmax(__isl_take isl_set *set,
++									   __isl_take isl_qpolynomial *qp,
++									   void *user) {
++	pcminmax_function_data *data = (pcminmax_function_data *)user;
++
++	const char *main_var = (char *)malloc(STR_VAR_SIZE * sizeof(char));
++	char *function_pcminmax_name = (char *)malloc(STR_VAR_SIZE * sizeof(char));
++	char *function_ehrhart_name = (char *)malloc(STR_VAR_SIZE * sizeof(char));
++
++	// Tiling mode
++	if (data->tiling_level == 0) {
++		main_var = isl_set_get_dim_name(set, isl_dim_out, 0);
++		sprintf(function_ehrhart_name, "%s_Ehrhart", main_var);
++
++		if (data->mode == 0) {
++			sprintf(function_pcminmax_name, "%s_PCMin_%d", main_var,
++					data->count);
++		} else {
++			sprintf(function_pcminmax_name, "%s_PCMax_%d", main_var,
++					data->count);
++		}
++	} else {
++		// Non tiling mode
++		sprintf(function_ehrhart_name, "Ehrhart");
++
++		if (data->mode == 0) {
++			sprintf(function_pcminmax_name, "PCMin_%d", data->count);
++		} else {
++			sprintf(function_pcminmax_name, "PCMax_%d", data->count);
++		}
++	}
++
++	fprintf(data->input_header_file, "static inline long int %s(",
++			function_pcminmax_name);
++
++	if (isl_set_dim(set, isl_dim_param) > 0) {
++		for (int i = 0; i < isl_set_dim(set, isl_dim_param) - 1; i++) {
++			fprintf(data->input_header_file, "long int %s, ",
++					isl_set_get_dim_name(set, isl_dim_param, i));
++		}
++
++		fprintf(data->input_header_file, "long int %s",
++				isl_set_get_dim_name(set, isl_dim_param,
++									 isl_set_dim(set, isl_dim_param) - 1));
++	}
++	fprintf(data->input_header_file, ")\n"
++									 "{\n");
++
++	pcminmax_or_data testdata = {isl_qpolynomial_copy(qp),
++								 data->input_header_file};
++
++	isl_set_foreach_basic_set(isl_set_copy(set), printfbs, &testdata);
++
++	if (isl_set_dim(set, isl_dim_param) > 0) {
++		fprintf(data->input_header_file,
++				"\n"
++				"    return %s(",
++				function_ehrhart_name);
++
++		for (int i = 0; i < isl_set_dim(set, isl_dim_param) - 1; i++) {
++			fprintf(data->input_header_file, "%s, ",
++					isl_set_get_dim_name(set, isl_dim_param, i));
++		}
++		fprintf(data->input_header_file, "%s);\n",
++				isl_set_get_dim_name(set, isl_dim_param,
++									 isl_set_dim(set, isl_dim_param) - 1));
++	}
++	fprintf(data->input_header_file, "}\n\n");
+ 
+-    data->count++;
++	data->count++;
+ 
+-    return isl_stat_ok;
++	return isl_stat_ok;
+ }
+ 
+-int isl_pw_qpolynomial_to_c_pcminmax_functions_str(isl_pw_qpolynomial *input_pw_qpolynomial, FILE *input_header_file, unsigned input_tiling_level, unsigned mode)
+-{
+-    pcminmax_function_data data = {mode, input_tiling_level, 0, input_header_file};
++int isl_pw_qpolynomial_to_c_pcminmax_functions_str(
++	isl_pw_qpolynomial *input_pw_qpolynomial, FILE *input_header_file,
++	unsigned input_tiling_level, unsigned mode) {
++	pcminmax_function_data data = {mode, input_tiling_level, 0,
++								   input_header_file};
+ 
+-    isl_pw_qpolynomial_foreach_piece(input_pw_qpolynomial, pw_qpolynomial_piece_pcminmax, &data);
++	isl_pw_qpolynomial_foreach_piece(input_pw_qpolynomial,
++									 pw_qpolynomial_piece_pcminmax, &data);
+ 
+-    return 0;
++	return 0;
+ }
+ 
+-int isl_set_and_trahrhe_expressions_to_c_function_str(isl_set *input_set, char* trahrhe_expressions, FILE *input_header_file, unsigned mode=0)
+-{
+-    struct isl_ctx *printer_ctx = isl_ctx_alloc();
+-
+-    struct isl_printer *p = isl_printer_to_str(printer_ctx);
+-
+-    p = isl_printer_set_output_format(p, ISL_FORMAT_C);
+-
+-    int nb_param = isl_set_dim(input_set, isl_dim_param);
+-    int nb_var = isl_set_dim(input_set, isl_dim_out);
+-
+-    const char *main_var = (char *)malloc(16 * sizeof(char));
+-    char *function_name = (char *)malloc(32 * sizeof(char));
+-    char *ranking_function_name = (char *)malloc(32 * sizeof(char));
+-
+-    // Tiling mode
+-    if(mode == 0)
+-    {
+-        main_var = isl_set_get_dim_name(input_set, isl_dim_out, 0);
+-        sprintf(function_name, "%s_trahrhe_%s", main_var, main_var);
+-        sprintf(ranking_function_name, "%s_Ranking", main_var);
+-    }
+-    else
+-    {
+-        // Non tiling mode, indicate the rank of the var to consider
+-        main_var = isl_set_get_dim_name(input_set, isl_dim_out, mode-1);
+-        sprintf(function_name, "trahrhe_%s", main_var);
+-        sprintf(ranking_function_name, "Ranking");
+-    }
+-
+-    fprintf(input_header_file, "/************************************** %s **************************************/\n"
+-                               "static inline long int %s(long int pc", function_name, function_name);
+-
+-    if(mode>1)
+-    {
+-        for(int i=0; i<mode-1; i++)
+-        {
+-           fprintf(input_header_file, ",long int %s", isl_set_get_dim_name(input_set, isl_dim_out, i));
+-        }
+-    }
+-
+-    if(nb_param>0)
+-    {
+-        for(int i=0; i<nb_param; i++)
+-        {
+-           fprintf(input_header_file, ",long int %s", isl_set_get_dim_name(input_set, isl_dim_param, i));
+-        }
+-    }
+-    fprintf(input_header_file, ")\n"
+-                               "{\n");
+-
+-    if(mode==0)
+-    {
+-        fprintf(input_header_file, "    long int %s", isl_set_get_dim_name(input_set, isl_dim_set, 0));
+-        for(int i=1; i<nb_var; i++)
+-        {
+-           fprintf(input_header_file, ", %s", isl_set_get_dim_name(input_set, isl_dim_set, i));
+-        }
+-        fprintf(input_header_file, ";\n\n");
+-    }
+-    else
+-    {
+-        fprintf(input_header_file, "    long int %s", isl_set_get_dim_name(input_set, isl_dim_set, mode-1));
+-        for(int i=mode; i<nb_var; i++)
+-        {
+-           fprintf(input_header_file, ", %s", isl_set_get_dim_name(input_set, isl_dim_set, i));
+-        }
+-        fprintf(input_header_file, ";\n\n");
+-    }
+-
+-    // get the lenght of the list to iterate through it
+-    int nb_expression = count_chars(trahrhe_expressions, ';');
+-
+-    char* start_expr;
+-    char* start_cond;
+-    char* context = NULL; // For strtok_r
+-    char* token;
+-
+-    token = strtok_r(trahrhe_expressions, ";", &context);
+-    // printf("===> trahrhe_expressions : %s === token %s\n", trahrhe_expressions, token);
+-    
+-    if(!strchr(token, '?'))
+-    {
+-        fprintf(input_header_file,
+-                                "    return %s;\n"
+-                                "}\n", token);
+-        return 0;
+-    }
+-    else
+-    {
+-        // Loop through the polynomials
+-        for (int i = 0; i < nb_expression; i++)
+-        {
+-            // Split the token into expression and condition based on '?'
+-            start_cond = strtok_r(token, "?", &token);
+-            start_expr = strtok_r(NULL, "?", &token);
+-
+-            // Trim spaces
+-            while (*start_expr == ' ') start_expr++;
+-            while (*start_cond == ' ') start_cond++;
+-
+-            if(strlen(start_expr)==1) // test to exclude the "0" case that the parser doesnt handle (may be too general but works fine)
+-            {
+-                fprintf(input_header_file, "    if(%s)\n"
+-                                           "    {\n"
+-                                           "        return %s;\n"
+-                                           "    }\n",
+-                                           start_cond,
+-                                           start_expr);
+-            }
+-            else
+-            {
+-                // Use Maxima2Cifloat parser to convert Maxima syntax to C syntax
+-                int str_size = strlen(start_expr)*4+512;
+-                char buffer[str_size];
+-                FILE *pipe;
+-                char *bash_cmd = (char*)malloc((strlen(start_expr)+256) * sizeof(char));
+-                sprintf(bash_cmd, "echo '%s;' | ./Maxima2Cfloat", start_expr);
+-
+-                pipe = popen(bash_cmd, "r");
+-
+-                fgets(buffer, sizeof(buffer), pipe);
+-
+-                // sprintf(c_str_calculation, "%s", buffer);
+-
+-                fprintf(input_header_file, "    if(%s)\n"
+-                                           "    {\n"
+-                                           "        return %s;\n"
+-                                           "    }\n",
+-                                           start_cond,
+-                                           buffer);
+-
+-                pclose(pipe);
+-            }
+-            
+-            // Get the next token for the loop
+-            token = strtok_r(NULL, ";", &context);
+-        }
+-    }
+-
+-    fprintf(input_header_file, "    fprintf(stderr,\"Error %s: no corresponding domain\\n\");\n"
+-                               "    exit(1);\n"
+-                               "}\n", function_name);
+-    
++int isl_set_and_trahrhe_expressions_to_c_function_str(isl_set *input_set,
++													  char *trahrhe_expressions,
++													  FILE *input_header_file,
++													  unsigned mode = 0) {
++	struct isl_ctx *printer_ctx = isl_ctx_alloc();
++
++	struct isl_printer *p = isl_printer_to_str(printer_ctx);
++
++	p = isl_printer_set_output_format(p, ISL_FORMAT_C);
++
++	int nb_param = isl_set_dim(input_set, isl_dim_param);
++	int nb_var = isl_set_dim(input_set, isl_dim_out);
++
++	const char *main_var = (char *)malloc(STR_VAR_SIZE * sizeof(char));
++	char *function_name = (char *)malloc(STR_VAR_SIZE * sizeof(char));
++	char *ranking_function_name = (char *)malloc(STR_VAR_SIZE * sizeof(char));
++
++	// Tiling mode
++	if (mode == 0) {
++		main_var = isl_set_get_dim_name(input_set, isl_dim_out, 0);
++		sprintf(function_name, "%s_trahrhe_%s", main_var, main_var);
++		sprintf(ranking_function_name, "%s_Ranking", main_var);
++	} else {
++		// Non tiling mode, indicate the rank of the var to consider
++		main_var = isl_set_get_dim_name(input_set, isl_dim_out, mode - 1);
++		sprintf(function_name, "trahrhe_%s", main_var);
++		sprintf(ranking_function_name, "Ranking");
++	}
++
++	fprintf(input_header_file,
++			"/************************************** %s "
++			"**************************************/\n"
++			"static inline long int %s(long int pc",
++			function_name, function_name);
++
++	if (mode > 1) {
++		for (int i = 0; i < mode - 1; i++) {
++			fprintf(input_header_file, ",long int %s",
++					isl_set_get_dim_name(input_set, isl_dim_out, i));
++		}
++	}
++
++	if (nb_param > 0) {
++		for (int i = 0; i < nb_param; i++) {
++			fprintf(input_header_file, ",long int %s",
++					isl_set_get_dim_name(input_set, isl_dim_param, i));
++		}
++	}
++	fprintf(input_header_file, ")\n"
++							   "{\n");
++
++	if (mode == 0) {
++		fprintf(input_header_file, "    long int %s",
++				isl_set_get_dim_name(input_set, isl_dim_set, 0));
++		for (int i = 1; i < nb_var; i++) {
++			fprintf(input_header_file, ", %s",
++					isl_set_get_dim_name(input_set, isl_dim_set, i));
++		}
++		fprintf(input_header_file, ";\n\n");
++	} else {
++		fprintf(input_header_file, "    long int %s",
++				isl_set_get_dim_name(input_set, isl_dim_set, mode - 1));
++		for (int i = mode; i < nb_var; i++) {
++			fprintf(input_header_file, ", %s",
++					isl_set_get_dim_name(input_set, isl_dim_set, i));
++		}
++		fprintf(input_header_file, ";\n\n");
++	}
++
++	// get the lenght of the list to iterate through it
++	int nb_expression = count_chars(trahrhe_expressions, ';');
++
++	char *start_expr;
++	char *start_cond;
++	char *context = NULL; // For strtok_r
++	char *token;
++
++	token = strtok_r(trahrhe_expressions, ";", &context);
++	// printf("===> trahrhe_expressions : %s === token %s\n",
++	// trahrhe_expressions, token);
++
++	if (!strchr(token, '?')) {
++		fprintf(input_header_file,
++				"    return %s;\n"
++				"}\n",
++				token);
++		return 0;
++	} else {
++		// Loop through the polynomials
++		for (int i = 0; i < nb_expression; i++) {
++			// Split the token into expression and condition based on '?'
++			start_cond = strtok_r(token, "?", &token);
++			start_expr = strtok_r(NULL, "?", &token);
++
++			// Trim spaces
++			while (*start_expr == ' ')
++				start_expr++;
++			while (*start_cond == ' ')
++				start_cond++;
++
++			if (strlen(start_expr) ==
++				1) // test to exclude the "0" case that the parser doesnt handle
++				   // (may be too general but works fine)
++			{
++				fprintf(input_header_file,
++						"    if(%s)\n"
++						"    {\n"
++						"        return %s;\n"
++						"    }\n",
++						start_cond, start_expr);
++			} else {
++				// Use Maxima2Cifloat parser to convert Maxima syntax to C
++				// syntax
++				int str_size = strlen(start_expr) * 4 + 512;
++				char buffer[str_size];
++				FILE *pipe;
++				char *bash_cmd = (char *)malloc(
++					(strlen(start_expr) + STR_SIZE) * sizeof(char));
++				sprintf(bash_cmd, "echo '%s;' | ./Maxima2Cfloat", start_expr);
++
++				pipe = popen(bash_cmd, "r");
++
++				fgets(buffer, sizeof(buffer), pipe);
++
++				// sprintf(c_str_calculation, "%s", buffer);
++
++				fprintf(input_header_file,
++						"    if(%s)\n"
++						"    {\n"
++						"        return %s;\n"
++						"    }\n",
++						start_cond, buffer);
++
++				pclose(pipe);
++			}
++
++			// Get the next token for the loop
++			token = strtok_r(NULL, ";", &context);
++		}
++	}
++
++	fprintf(input_header_file,
++			"    fprintf(stderr,\"Error %s: no corresponding domain\\n\");\n"
++			"    exit(1);\n"
++			"}\n",
++			function_name);
+ 
+-    return 0;
++	return 0;
+ }
+ 
+-// Generate the trahrhe_header.h file from the domain, Ehrhart polynomial and ranking polynomial
+-int generate_header(isl_set *input_set, 
+-                    isl_pw_qpolynomial *input_ehrhart, 
+-                    isl_pw_qpolynomial *input_ranking, 
+-                    isl_pw_qpolynomial *input_pcmin, 
+-                    isl_pw_qpolynomial *input_pcmax, 
+-                    char **trahrhe_expressions,
+-                    char* output_file)
+-{
+-    //printf("### Printing header ###\n\n");
+-
+-    int nb_var = isl_set_dim(input_set, isl_dim_out);
+-
+-    // Get the number of cases for the Ehrhart and ranking polynomials
+-    int nb_ehrhart_case = isl_pw_qpolynomial_n_piece(input_ehrhart);
+-    int nb_ranking_case = isl_pw_qpolynomial_n_piece(input_ranking);
+-
+-    FILE *header_file;
+-    if (output_file==NULL) {
+-      output_file = (char*)malloc(sizeof(char) * (strlen("trahrhe_header.h") + 1));
+-      strcpy(output_file, "trahrhe_header.h");
+-    }
+-    header_file = fopen(output_file, "w"); 
+-
+-    if(!header_file)
+-    {
+-        // File not created hence exit 
+-        fprintf(stderr, "Unable to create header file\n");
+-        return -1;
+-    }
+-
+-    fprintf(header_file, 
+-            "#include <stdio.h>\n"
+-            "#include <stdlib.h>\n"
+-            "#include <math.h>\n"
+-            "#include <complex.h>\n\n"
+-            "#ifndef ceild\n"
+-            "#define ceild(n,d)  (((n)<0) ? -((-(n))/(d)) : ((n)+(d)-1)/(d))\n"
+-            "#endif\n"
+-            "#ifndef floord\n"
+-            "#define floord(n,d) (((n)<0) ? -((-(n)+(d)-1)/(d)) : (n)/(d))\n"
+-            "#endif\n"
+-            "#ifndef max\n"
+-            "#define max(x,y)    ((x) > (y)? (x) : (y))\n"
+-            "#endif\n"
+-            "#ifndef min\n"
+-            "#define min(x,y)    ((x) < (y)? (x) : (y))\n"
+-            "#endif\n\n");
+-            
+-    isl_pw_qpolynomial_to_c_function_str(input_ehrhart, input_set, 0, header_file);
+-
+-    isl_pw_qpolynomial_to_c_function_str(isl_pw_qpolynomial_copy(input_ranking), input_set, 1, header_file);
+-
+-    // isl_pw_qpolynomial_to_c_pcminmax_functions_str(input_pcmin, header_file, 1, 0);
+-    // isl_pw_qpolynomial_to_c_pcminmax_functions_str(input_pcmax, header_file, 1, 1);
+-
+-    for(int i=1; i<nb_var+1; i++)
+-    {
+-        if(trahrhe_expressions[i-1]!=NULL)
+-        {
+-            isl_set_and_trahrhe_expressions_to_c_function_str(input_set, trahrhe_expressions[i-1], header_file, i);
+-        }
+-        else
+-        {
+-            isl_set_to_c_dichotomic_function_str(input_set, header_file, i);
+-        }
+-    }
+-
+-    fclose(header_file);
++// Generate the trahrhe_header.h file from the domain, Ehrhart polynomial and
++// ranking polynomial
++int generate_header(isl_set *input_set, isl_pw_qpolynomial *input_ehrhart,
++					isl_pw_qpolynomial *input_ranking,
++					isl_pw_qpolynomial *input_pcmin,
++					isl_pw_qpolynomial *input_pcmax, char **trahrhe_expressions,
++					char *output_file) {
++	// printf("### Printing header ###\n\n");
++
++	int nb_var = isl_set_dim(input_set, isl_dim_out);
++
++	// Get the number of cases for the Ehrhart and ranking polynomials
++	int nb_ehrhart_case = isl_pw_qpolynomial_n_piece(input_ehrhart);
++	int nb_ranking_case = isl_pw_qpolynomial_n_piece(input_ranking);
++
++	FILE *header_file;
++	if (output_file == NULL) {
++		output_file =
++			(char *)malloc(sizeof(char) * (strlen("trahrhe_header.h") + 1));
++		strcpy(output_file, "trahrhe_header.h");
++	}
++	header_file = fopen(output_file, "w");
++
++	if (!header_file) {
++		// File not created hence exit
++		fprintf(stderr, "Unable to create header file\n");
++		return -1;
++	}
++
++	fprintf(header_file,
++			"#include <stdio.h>\n"
++			"#include <stdlib.h>\n"
++			"#include <math.h>\n"
++			"#include <complex.h>\n\n"
++			"#ifndef ceild\n"
++			"#define ceild(n,d)  (((n)<0) ? -((-(n))/(d)) : ((n)+(d)-1)/(d))\n"
++			"#endif\n"
++			"#ifndef floord\n"
++			"#define floord(n,d) (((n)<0) ? -((-(n)+(d)-1)/(d)) : (n)/(d))\n"
++			"#endif\n"
++			"#ifndef max\n"
++			"#define max(x,y)    ((x) > (y)? (x) : (y))\n"
++			"#endif\n"
++			"#ifndef min\n"
++			"#define min(x,y)    ((x) < (y)? (x) : (y))\n"
++			"#endif\n\n");
++
++	isl_pw_qpolynomial_to_c_function_str(input_ehrhart, input_set, 0,
++										 header_file);
++
++	isl_pw_qpolynomial_to_c_function_str(isl_pw_qpolynomial_copy(input_ranking),
++										 input_set, 1, header_file);
++
++	// isl_pw_qpolynomial_to_c_pcminmax_functions_str(input_pcmin, header_file,
++	// 1, 0); isl_pw_qpolynomial_to_c_pcminmax_functions_str(input_pcmax,
++	// header_file, 1, 1);
++
++	for (int i = 1; i < nb_var + 1; i++) {
++		if (trahrhe_expressions[i - 1] != NULL) {
++			isl_set_and_trahrhe_expressions_to_c_function_str(
++				input_set, trahrhe_expressions[i - 1], header_file, i);
++		} else {
++			isl_set_to_c_dichotomic_function_str(input_set, header_file, i);
++		}
++	}
+ 
++	fclose(header_file);
+ 
+-    printf("**** Header file generated: %s ****\n",output_file);
++	printf("**** Header file generated: %s ****\n", output_file);
+ 
+-    return 0;
++	return 0;
+ }
+ 
+-// Generate the trahrhe_tiling_header.h file from the domains, Ehrhart polynomials and ranking polynomials
+-int generate_tiling_header(isl_set *input_set, 
+-                           isl_pw_qpolynomial *input_ehrhart, 
+-                           isl_pw_qpolynomial *input_ranking, 
+-                           isl_pw_qpolynomial *input_pcmin, 
+-                           isl_pw_qpolynomial *input_pcmax, 
+-                           isl_set **input_tiling_set, 
+-                           isl_pw_qpolynomial **input_tiling_ehrhart, 
+-                           isl_pw_qpolynomial **input_tiling_ranking,
+-                           isl_pw_qpolynomial **input_tiling_pcmin, 
+-                           isl_pw_qpolynomial **input_tiling_pcmax, 
+-                           int input_tiling_level,
+-                           char **trahrhe_expressions,
+-                           char* output_file)
+-{
+-    //printf("### Printing tiling header ###\n\n");
+-
+-    // Get the number of cases for the Ehrhart and ranking polynomials
+-    int nb_ehrhart_case = isl_pw_qpolynomial_n_piece(input_ehrhart);
+-    int nb_ranking_case = isl_pw_qpolynomial_n_piece(input_ranking);
+-
+-    FILE *header_file;
+-    //header_file = fopen("trahrhe_tiling_header.h", "w"); 
+-    if (output_file==NULL) {
+-      output_file = (char*)malloc(sizeof(char) * (strlen("trahrhe_tiling_header.h") + 1));
+-      strcpy(output_file, "trahrhe_tiling_header.h");
+-    }
+-    header_file = fopen(output_file, "w"); 
+-
+-    if(!header_file)
+-    {
+-        // File not created hence exit 
+-        fprintf(stderr, "Unable to create header file\n");
+-        return -1;
+-    }
+-
+-    fprintf(header_file, 
+-            "#include <stdio.h>\n"
+-            "#include <stdlib.h>\n"
+-            "#include <math.h>\n"
+-            "#include <complex.h>\n\n"
+-            "#ifndef ceild\n"
+-            "#define ceild(n,d)  (((n)<0) ? -((-(n))/(d)) : ((n)+(d)-1)/(d))\n"
+-            "#endif\n"
+-            "#ifndef floord\n"
+-            "#define floord(n,d) (((n)<0) ? -((-(n)+(d)-1)/(d)) : (n)/(d))\n"
+-            "#endif\n"
+-            "#ifndef max\n"
+-            "#define max(x,y)    ((x) > (y)? (x) : (y))\n"
+-            "#endif\n"
+-            "#ifndef min\n"
+-            "#define min(x,y)    ((x) < (y)? (x) : (y))\n"
+-            "#endif\n\n");
+-
+-    isl_pw_qpolynomial_to_c_function_str(input_ehrhart, input_set, 2, header_file);
+-
+-    isl_pw_qpolynomial_to_c_function_str(input_ranking, input_set, 3, header_file);
+-
+-    // isl_pw_qpolynomial_to_c_pcminmax_functions_str(input_pcmin, header_file, 0, 0);
+-    // isl_pw_qpolynomial_to_c_pcminmax_functions_str(input_pcmax, header_file, 0, 1);
+-
+-    if(trahrhe_expressions[0]!=NULL)
+-    {
+-        isl_set_and_trahrhe_expressions_to_c_function_str(input_set, trahrhe_expressions[0], header_file, 0);
+-    }
+-    else
+-    {
+-        isl_set_to_c_dichotomic_function_str(input_set, header_file, 0);
+-    }
+-    
+-    for(int i = 0; i < input_tiling_level-1; i++)
+-    {
+-        isl_pw_qpolynomial_to_c_function_str(input_tiling_ehrhart[i], input_tiling_set[i], 2, header_file);
+-
+-        isl_pw_qpolynomial_to_c_function_str(input_tiling_ranking[i], input_tiling_set[i], 3, header_file);
+-
+-        // isl_pw_qpolynomial_to_c_pcminmax_functions_str(input_tiling_pcmin[i], header_file, 0, 0);
+-        // isl_pw_qpolynomial_to_c_pcminmax_functions_str(input_tiling_pcmax[i], header_file, 0, 1);
+-
+-        if(trahrhe_expressions[i+1]!=NULL)
+-        {
+-            isl_set_and_trahrhe_expressions_to_c_function_str(input_tiling_set[i], trahrhe_expressions[i+1], header_file, 0);
+-        }
+-        else
+-        {
+-            isl_set_to_c_dichotomic_function_str(input_tiling_set[i], header_file, 0);
+-        }
+-    }
++// Generate the trahrhe_tiling_header.h file from the domains, Ehrhart
++// polynomials and ranking polynomials
++int generate_tiling_header(
++	isl_set *input_set, isl_pw_qpolynomial *input_ehrhart,
++	isl_pw_qpolynomial *input_ranking, isl_pw_qpolynomial *input_pcmin,
++	isl_pw_qpolynomial *input_pcmax, isl_set **input_tiling_set,
++	isl_pw_qpolynomial **input_tiling_ehrhart,
++	isl_pw_qpolynomial **input_tiling_ranking,
++	isl_pw_qpolynomial **input_tiling_pcmin,
++	isl_pw_qpolynomial **input_tiling_pcmax, int input_tiling_level,
++	char **trahrhe_expressions, char *output_file) {
++	// printf("### Printing tiling header ###\n\n");
++
++	// Get the number of cases for the Ehrhart and ranking polynomials
++	int nb_ehrhart_case = isl_pw_qpolynomial_n_piece(input_ehrhart);
++	int nb_ranking_case = isl_pw_qpolynomial_n_piece(input_ranking);
++
++	FILE *header_file;
++	// header_file = fopen("trahrhe_tiling_header.h", "w");
++	if (output_file == NULL) {
++		output_file = (char *)malloc(sizeof(char) *
++									 (strlen("trahrhe_tiling_header.h") + 1));
++		strcpy(output_file, "trahrhe_tiling_header.h");
++	}
++	header_file = fopen(output_file, "w");
++
++	if (!header_file) {
++		// File not created hence exit
++		fprintf(stderr, "Unable to create header file\n");
++		return -1;
++	}
++
++	fprintf(header_file,
++			"#include <stdio.h>\n"
++			"#include <stdlib.h>\n"
++			"#include <math.h>\n"
++			"#include <complex.h>\n\n"
++			"#ifndef ceild\n"
++			"#define ceild(n,d)  (((n)<0) ? -((-(n))/(d)) : ((n)+(d)-1)/(d))\n"
++			"#endif\n"
++			"#ifndef floord\n"
++			"#define floord(n,d) (((n)<0) ? -((-(n)+(d)-1)/(d)) : (n)/(d))\n"
++			"#endif\n"
++			"#ifndef max\n"
++			"#define max(x,y)    ((x) > (y)? (x) : (y))\n"
++			"#endif\n"
++			"#ifndef min\n"
++			"#define min(x,y)    ((x) < (y)? (x) : (y))\n"
++			"#endif\n\n");
++
++	isl_pw_qpolynomial_to_c_function_str(input_ehrhart, input_set, 2,
++										 header_file);
++
++	isl_pw_qpolynomial_to_c_function_str(input_ranking, input_set, 3,
++										 header_file);
++
++	// isl_pw_qpolynomial_to_c_pcminmax_functions_str(input_pcmin, header_file,
++	// 0, 0); isl_pw_qpolynomial_to_c_pcminmax_functions_str(input_pcmax,
++	// header_file, 0, 1);
++
++	if (trahrhe_expressions[0] != NULL) {
++		isl_set_and_trahrhe_expressions_to_c_function_str(
++			input_set, trahrhe_expressions[0], header_file, 0);
++	} else {
++		isl_set_to_c_dichotomic_function_str(input_set, header_file, 0);
++	}
++
++	for (int i = 0; i < input_tiling_level - 1; i++) {
++		isl_pw_qpolynomial_to_c_function_str(
++			input_tiling_ehrhart[i], input_tiling_set[i], 2, header_file);
++
++		isl_pw_qpolynomial_to_c_function_str(
++			input_tiling_ranking[i], input_tiling_set[i], 3, header_file);
++
++		// isl_pw_qpolynomial_to_c_pcminmax_functions_str(input_tiling_pcmin[i],
++		// header_file, 0, 0);
++		// isl_pw_qpolynomial_to_c_pcminmax_functions_str(input_tiling_pcmax[i],
++		// header_file, 0, 1);
++
++		if (trahrhe_expressions[i + 1] != NULL) {
++			isl_set_and_trahrhe_expressions_to_c_function_str(
++				input_tiling_set[i], trahrhe_expressions[i + 1], header_file,
++				0);
++		} else {
++			isl_set_to_c_dichotomic_function_str(input_tiling_set[i],
++												 header_file, 0);
++		}
++	}
+ 
+-    fclose(header_file);
++	fclose(header_file);
+ 
+-    printf("**** Tiling header file generated: %s ****\n",output_file);
++	printf("**** Tiling header file generated: %s ****\n", output_file);
+ 
+-    return 0;
++	return 0;
+ }
+ 
+-// Proper print to display every isl_pw_qpolynomial case, polynomial_type = 1 for ranking and 2 for Ehrhart
+-void print_pw_qpolynomial(isl_pw_qpolynomial *input_pw_qpolynomial, int polynomial_type)
+-{
+-    int nb_poly = isl_pw_qpolynomial_n_piece(input_pw_qpolynomial);
+-
+-    const char *str_polynomial_type;
+-
+-    if(polynomial_type==1)
+-    {
+-        str_polynomial_type = "Ehrhart";
+-    }
+-    else
+-    {
+-        str_polynomial_type = "Ranking";
+-    }
+-
+-    // Copy the input string to a modifiable buffer
+-    char* str_input_pw_qpolynomial = isl_pw_qpolynomial_to_str(input_pw_qpolynomial);
+-    char* start_expr;
+-    char* start_cond;
+-    char* context = NULL; // For strtok_r
+-    char* token;
+-    
+-    // Remove the enclosing brackets and split by semicolon first
+-    str_input_pw_qpolynomial = strchr(str_input_pw_qpolynomial, '{') + 1;
+-    char* end_brace = strrchr(str_input_pw_qpolynomial, '}');
+-    *end_brace = '\0';  // Terminate string before the last closing brace
+-
+-    token = strtok_r(str_input_pw_qpolynomial, ";", &context);
+-    
+-    printf("==== %s Polynomials ====\n"
+-           "-----------------------------\n",
+-           str_polynomial_type);
+-
+-    if(!strchr(token, ':'))
+-    {
+-        printf("Case no. 1\n"
+-       "----------\n"
+-       "Validity domain :\n"
+-       "    Whole domain\n"
+-       "%s Expression :\n"
+-       "    %s\n\n",
+-        str_polynomial_type,
+-        token);
+-    }
+-    else
+-    {
+-        // Loop through the Ehrhart polynomials
+-        for (int i = 0; i < nb_poly; i++)
+-        {
+-            
+-                // Split the token into expression and condition based on ':'
+-                start_expr = strtok_r(token, ":", &token);
+-                start_cond = strtok_r(NULL, ":", &token);
+-
+-                // Trim spaces
+-                while (*start_expr == ' ') start_expr++;
+-                while (*start_cond == ' ') start_cond++;
+-
+-                printf("Case no. %d\n"
+-                       "----------\n"
+-                       "Validity domain :\n"
+-                       "    %s\n"
+-                       "%s Expression :\n"
+-                       "    %s\n\n",
+-                        i,
+-                        start_cond,
+-                        str_polynomial_type,
+-                        start_expr);
+-
+-                // Get the next token for the loop
+-                token = strtok_r(NULL, ";", &context);            
+-        }
+-    }
++// Proper print to display every isl_pw_qpolynomial case, polynomial_type = 1
++// for ranking and 2 for Ehrhart
++void print_pw_qpolynomial(isl_pw_qpolynomial *input_pw_qpolynomial,
++						  int polynomial_type) {
++	int nb_poly = isl_pw_qpolynomial_n_piece(input_pw_qpolynomial);
++
++	const char *str_polynomial_type;
++
++	if (polynomial_type == 1) {
++		str_polynomial_type = "Ehrhart";
++	} else {
++		str_polynomial_type = "Ranking";
++	}
++
++	// Copy the input string to a modifiable buffer
++	char *str_input_pw_qpolynomial =
++		isl_pw_qpolynomial_to_str(input_pw_qpolynomial);
++	char *start_expr;
++	char *start_cond;
++	char *context = NULL; // For strtok_r
++	char *token;
++
++	// Remove the enclosing brackets and split by semicolon first
++	str_input_pw_qpolynomial = strchr(str_input_pw_qpolynomial, '{') + 1;
++	char *end_brace = strrchr(str_input_pw_qpolynomial, '}');
++	*end_brace = '\0'; // Terminate string before the last closing brace
++
++	token = strtok_r(str_input_pw_qpolynomial, ";", &context);
++
++	printf("==== %s Polynomials ====\n"
++		   "-----------------------------\n",
++		   str_polynomial_type);
++
++	if (!strchr(token, ':')) {
++		printf("Case no. 1\n"
++			   "----------\n"
++			   "Validity domain :\n"
++			   "    Whole domain\n"
++			   "%s Expression :\n"
++			   "    %s\n\n",
++			   str_polynomial_type, token);
++	} else {
++		// Loop through the Ehrhart polynomials
++		for (int i = 0; i < nb_poly; i++) {
++
++			// Split the token into expression and condition based on ':'
++			start_expr = strtok_r(token, ":", &token);
++			start_cond = strtok_r(NULL, ":", &token);
++
++			// Trim spaces
++			while (*start_expr == ' ')
++				start_expr++;
++			while (*start_cond == ' ')
++				start_cond++;
++
++			printf("Case no. %d\n"
++				   "----------\n"
++				   "Validity domain :\n"
++				   "    %s\n"
++				   "%s Expression :\n"
++				   "    %s\n\n",
++				   i, start_cond, str_polynomial_type, start_expr);
++
++			// Get the next token for the loop
++			token = strtok_r(NULL, ";", &context);
++		}
++	}
+ }
+ 
+ // Proper print to display the Trahrhe expressions
+-void print_trahrhe_expressions(char **trahrhe_expressions, isl_set *set, int nb_var)
+-{
+-    for(int i=0; i<nb_var; i++)
+-    {
+-        printf("==== %s Trahrhe expressions ====\n"
+-               "-------------------------------\n", isl_set_get_dim_name(set, isl_dim_set, i));
+-
+-        if(trahrhe_expressions[i]!=NULL)
+-        {
+-            char* local_copy = (char*)malloc((strlen(trahrhe_expressions[i])+16) * sizeof(char));
+-            strcpy(local_copy, trahrhe_expressions[i]);
+-
+-            int nb_expression = count_chars(local_copy, ';');
+-
+-            char* start_expr;
+-            char* start_cond;
+-            char* context = NULL; // For strtok_r
+-            char* token;
+-
+-            token = strtok_r(local_copy, ";", &context);
+-            // printf("===> local_copy : %s === token %s\n", local_copy, token);
+-            
+-            if(!strchr(token, '?'))
+-            {
+-                printf("Case no. %d\n"
+-                       "----------\n"
+-                       "Trahrhe Expression :\n"
+-                       "    %s\n\n",
+-                        i,
+-                        token);
+-            }
+-            else
+-            {
+-                // Loop through the polynomials
+-                for (int i = 0; i < nb_expression; i++)
+-                {
+-                    // Split the token into expression and condition based on '?'
+-                    start_cond = strtok_r(token, "?", &token);
+-                    start_expr = strtok_r(NULL, "?", &token);
+-
+-                    // Trim spaces
+-                    while (*start_expr == ' ') start_expr++;
+-                    while (*start_cond == ' ') start_cond++;
+-
+-
+-                    printf("Case no. %d\n"
+-                           "----------\n"
+-                           "Validity domain :\n"
+-                           "    %s\n"
+-                           "Trahrhe Expression :\n"
+-                           "    %s\n\n",
+-                           i,
+-                           start_cond,
+-                           start_expr);
+-                    
+-                    // Get the next token for the loop
+-                    token = strtok_r(NULL, ";", &context);
+-                }
+-            }
+-        }
+-    }
++void print_trahrhe_expressions(char **trahrhe_expressions, isl_set *set,
++							   int nb_var) {
++	for (int i = 0; i < nb_var; i++) {
++		printf("==== %s Trahrhe expressions ====\n"
++			   "-------------------------------\n",
++			   isl_set_get_dim_name(set, isl_dim_set, i));
++
++		if (trahrhe_expressions[i] != NULL) {
++			char *local_copy = (char *)malloc(
++				(strlen(trahrhe_expressions[i]) + STR_VAR_SIZE) * sizeof(char));
++			strcpy(local_copy, trahrhe_expressions[i]);
++
++			int nb_expression = count_chars(local_copy, ';');
++
++			char *start_expr;
++			char *start_cond;
++			char *context = NULL; // For strtok_r
++			char *token;
++
++			token = strtok_r(local_copy, ";", &context);
++			// printf("===> local_copy : %s === token %s\n", local_copy, token);
++
++			if (!strchr(token, '?')) {
++				printf("Case no. %d\n"
++					   "----------\n"
++					   "Trahrhe Expression :\n"
++					   "    %s\n\n",
++					   i, token);
++			} else {
++				// Loop through the polynomials
++				for (int i = 0; i < nb_expression; i++) {
++					// Split the token into expression and condition based on
++					// '?'
++					start_cond = strtok_r(token, "?", &token);
++					start_expr = strtok_r(NULL, "?", &token);
++
++					// Trim spaces
++					while (*start_expr == ' ')
++						start_expr++;
++					while (*start_cond == ' ')
++						start_cond++;
++
++					printf("Case no. %d\n"
++						   "----------\n"
++						   "Validity domain :\n"
++						   "    %s\n"
++						   "Trahrhe Expression :\n"
++						   "    %s\n\n",
++						   i, start_cond, start_expr);
++
++					// Get the next token for the loop
++					token = strtok_r(NULL, ";", &context);
++				}
++			}
++		}
++	}
+ }
+ // int main(int argc, char **argv) // int argc, char **argv
+ // {
+@@ -1222,15 +1231,20 @@
+ //     struct isl_set *my_set = isl_set_read_from_str(test_ctx, input_str);
+ //     struct isl_set *temp_set = isl_set_read_from_str(test_ctx, input_str);
+ 
+-//     struct isl_set *my_transformed_set = transform_domain_for_ranking_polynomials(my_set);
++//     struct isl_set *my_transformed_set =
++//     transform_domain_for_ranking_polynomials(my_set);
+ 
+-//     struct isl_pw_qpolynomial *ehrhart_polynomials = card(isl_set_to_set(temp_set));
++//     struct isl_pw_qpolynomial *ehrhart_polynomials =
++//     card(isl_set_to_set(temp_set));
+ 
+-//     struct isl_pw_qpolynomial *ranking_polynomials = card(my_transformed_set);
++//     struct isl_pw_qpolynomial *ranking_polynomials =
++//     card(my_transformed_set);
+ 
+-//     printf("----Ehrhart polynomials----> %s\n\n", isl_pw_qpolynomial_to_str(ehrhart_polynomials));
++//     printf("----Ehrhart polynomials----> %s\n\n",
++//     isl_pw_qpolynomial_to_str(ehrhart_polynomials));
+ 
+-//     printf("----Ranking polynomials----> %s\n\n", isl_pw_qpolynomial_to_str(ranking_polynomials));
++//     printf("----Ranking polynomials----> %s\n\n",
++//     isl_pw_qpolynomial_to_str(ranking_polynomials));
+ 
+ //     print_pw_qpolynomial(ranking_polynomials, 2);
+ 

@@ -10,13 +10,22 @@ std::unique_ptr<pesto::pass::IPass>
 ClastParamTilingPB::build(PassManagerBuilder &builder, const json &j) {
 	using pesto::pass::ClastParamTilingPass;
 
+	(void)builder;
+
 	std::unique_ptr<ClastParamTilingPass> pass =
 		std::make_unique<ClastParamTilingPass>();
 	if (j.contains("gen-trahrhe")) {
 		pass->gen_trahrhe = j["gen-trahrhe"];
 	}
 	if (j.contains("trahrhe-mask")) {
+		std::cerr
+			<< "Warning: trahrhe-mask is deprecated. Use trahrhe-use-dichtomy"
+			   "attribute instead."
+			<< std::endl;
 		pass->trahrhe_mask = j["trahrhe-mask"];
+	}
+	if (j.contains("trahrhe-use-dichtomy")) {
+		pass->trahrhe_use_dichotomy = j["trahrhe-use-dichtomy"];
 	}
 	if (j.contains("bound-compute-method")) {
 		std::string method = j["bound-compute-method"];
@@ -51,10 +60,14 @@ ClastParamTilingPB::build(PassManagerBuilder &builder, const json &j) {
 	}
 
 	if (j.contains("pluto")) {
-		PlutoPB pluto_pb = PlutoPB();
-		std::unique_ptr<pesto::pass::IPass> plutoPass =
-			pluto_pb.build(builder, j["pluto"]);
-		pass->setPlutoPass(std::move(plutoPass));
+		std::cerr
+			<< "Warning: pluto pass is deprecated. You should call a pluto "
+			   "pass before the param-tiling pass instead."
+			<< std::endl;
+	}
+
+	if (j.contains("tile-size-hint")) {
+		pass->tileSizeHint = j["tile-size-hint"];
 	}
 
 	// TODO: trahrhe parameters

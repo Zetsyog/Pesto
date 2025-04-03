@@ -22,7 +22,7 @@ usage() {
 }
 
 cleanup() {
-    rm -f .pesto_prefix .exec-once .vardecls .kernel
+    rm -f .pesto* .vardecls .kernel .exec-once
 }
 
 OPTS=$(getopt -o o:ihv --long output:,indent,config:,readscop,version,help -- "$@")
@@ -83,6 +83,9 @@ if [ $# -ne 1 ]; then
     usage
 fi
 
+# prevent uncleanups files from previous runs to interfere
+cleanup
+
 input_file=$1
 full_filename=$(basename "$input_file")
 filename=${full_filename##*/}
@@ -102,6 +105,8 @@ if [[ -d "$output_file" ]]; then
     echo "[pesto-cli] ERROR: Output is a directory" >&2
     exit 1
 fi
+
+output_dir=$(dirname "$output_file")
 
 # We work on a copy of the input file
 # Because we do in-place work
@@ -212,7 +217,7 @@ process_file() {
     # if there is a .exec-once file, each line contains a command to be executed once
     if [[ -f ".exec-once" ]]; then
         echo "[pesto-cli] Executing external commands " >&2
-        sed -i "s|^trahrhe_wrapper|${trahrhe_bin}|g" ".exec-once"
+        sed -i "s|^gen_trahrhe |${trahrhe_bin} -o ${output_dir}/|g" ".exec-once"
 
         while read -r line; do
             eval "$line"
@@ -259,5 +264,4 @@ echo "[pesto-cli] Done working on $output_file" >&2
 mv "$working_file" "$output_file"
 
 # cleanup
-# TODO
-rm -f .pesto_prefix
+cleanup

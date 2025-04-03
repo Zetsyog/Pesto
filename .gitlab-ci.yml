@@ -1,0 +1,60 @@
+stages:
+  - build
+  - test
+
+build:docker-ci:
+  stage: build
+  when: manual
+  image: docker:stable
+  tags:
+    - ci.inria.fr
+    - large
+  rules:
+    - changes:
+        - docker/ci.dockerfile
+      when: always
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      when: never
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
+  script:
+    - docker build . -t "$CI_REGISTRY_IMAGE/pesto-ci" -f docker/ci.dockerfile
+    - docker push "$CI_REGISTRY_IMAGE/pesto-ci"
+
+build:pesto:
+  stage: build
+  image: $CI_REGISTRY_IMAGE/pesto-ci
+  tags:
+    - ci.inria.fr
+    - large
+  script:
+    - mkdir build
+    - cd build
+    - cmake .. -DPESTO_BUILD_JOBS=4 && cmake --build . -j
+.test:
+  stage: test
+  variables:
+    GIT_STRATEGY: fetch
+  tags:
+    - ci.inria.fr
+  image: $CI_REGISTRY_IMAGE/pesto-ci
+
+test:polybench:
+  extends: .test
+  tags:
+    - large
+  script:
+    - mkdir build
+    - cd build
+    - cmake .. -DPESTO_BUILD_JOBS=4 && cmake --build . -j
+    - cmake --build . --target test-polybench
+
+test:polybench-legacy:
+  extends: .test
+  tags:
+    - large
+  script:
+    - mkdir build
+    - cd build
+    - cmake .. -DPESTO_BUILD_JOBS=4 -DPESTO_TRAHRHE_VERSION=4.2 && cmake --build . -j
+    - cmake --build . --target test-polybench
