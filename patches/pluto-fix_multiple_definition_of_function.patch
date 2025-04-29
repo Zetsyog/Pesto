@@ -1,0 +1,97 @@
+diff --git a/lib/constraints.c b/lib/constraints.c
+index 248a8aa..05a2434 100644
+--- a/lib/constraints.c
++++ b/lib/constraints.c
+@@ -400,7 +400,7 @@ void pluto_constraints_simplify(PlutoConstraints *const cst) {
+     if (j < cst->ncols) {
+       _gcd = PLABS(cst->val[i][j]);
+       for (; j < cst->ncols; j++) {
+-        _gcd = gcd(PLABS(cst->val[i][j]), _gcd);
++        _gcd = pluto_gcd(PLABS(cst->val[i][j]), _gcd);
+       }
+ 
+       /* Normalize by gcd */
+@@ -1585,7 +1585,7 @@ void pluto_constraints_normalize_row(PlutoConstraints *cst, int pos) {
+     for (j = 1; j < cst->ncols; j++) {
+       if (cst->val[i][j] == 0)
+         break;
+-      rowgcd = gcd(rowgcd, labs(cst->val[i][j]));
++      rowgcd = pluto_gcd(rowgcd, labs(cst->val[i][j]));
+     }
+     if (i == cst->nrows) {
+       if (rowgcd >= 2) {
+diff --git a/lib/framework.cpp b/lib/framework.cpp
+index 1784f1b..1bf608c 100644
+--- a/lib/framework.cpp
++++ b/lib/framework.cpp
+@@ -785,7 +785,7 @@ PlutoConstraints **get_stmt_lin_ind_constraints(Stmt *stmt,
+     for (i = 1; i < ortho->nrows; i++) {
+       if (ortho->val[i][j] == 0)
+         break;
+-      colgcd = gcd(colgcd, abs(ortho->val[i][j]));
++      colgcd = pluto_gcd(colgcd, abs(ortho->val[i][j]));
+     }
+     if (i == ortho->nrows) {
+       if (colgcd > 1) {
+diff --git a/lib/iss.c b/lib/iss.c
+index f6d1c7c..fbce008 100644
+--- a/lib/iss.c
++++ b/lib/iss.c
+@@ -76,7 +76,7 @@ PlutoConstraints **get_lin_ind_constraints(PlutoMatrix *mat, int *orthonum) {
+     for (i = 1; i < ortho->nrows; i++) {
+       if (ortho->val[i][j] == 0)
+         break;
+-      colgcd = gcd(colgcd, labs(ortho->val[i][j]));
++      colgcd = pluto_gcd(colgcd, labs(ortho->val[i][j]));
+     }
+     if (i == ortho->nrows) {
+       if (colgcd > 1) {
+diff --git a/lib/math_support.c b/lib/math_support.c
+index bb23abd..a03fc5a 100644
+--- a/lib/math_support.c
++++ b/lib/math_support.c
+@@ -337,7 +337,7 @@ void pluto_matrix_normalize_row(PlutoMatrix *mat, int pos) {
+     for (j = 1; j < mat->ncols; j++) {
+       if (mat->val[i][j] == 0)
+         break;
+-      rowgcd = gcd(rowgcd, llabs(mat->val[i][j]));
++      rowgcd = pluto_gcd(rowgcd, llabs(mat->val[i][j]));
+     }
+     if (i == mat->nrows) {
+       if (rowgcd > 1) {
+@@ -391,11 +391,11 @@ void gaussian_eliminate(PlutoMatrix *mat, int start, int num_elim) {
+ int64_t lcm(int64_t a, int64_t b) {
+   if (a * b == 0)
+     return 0;
+-  return (a * b) / gcd(a, b);
++  return (a * b) / pluto_gcd(a, b);
+ }
+ 
+ /* Assuming both args are not zero */
+-int64_t gcd(int64_t a, int64_t b) {
++int64_t pluto_gcd(int64_t a, int64_t b) {
+   a = llabs(a);
+   b = llabs(b);
+ 
+@@ -406,7 +406,7 @@ int64_t gcd(int64_t a, int64_t b) {
+   if (a == b)
+     return a;
+ 
+-  return ((a > b) ? gcd(a % b, b) : gcd(a, b % a));
++  return ((a > b) ? pluto_gcd(a % b, b) : pluto_gcd(a, b % a));
+ }
+ 
+ int64_t *min_lexical(int64_t *a, int64_t *b, int64_t num) {
+diff --git a/lib/math_support.h b/lib/math_support.h
+index aae15e3..e4ff92b 100644
+--- a/lib/math_support.h
++++ b/lib/math_support.h
+@@ -59,7 +59,7 @@ void pluto_matrix_add(PlutoMatrix *mat1, const PlutoMatrix *mat2);
+ void gaussian_eliminate(PlutoMatrix *mat, int start, int end);
+ 
+ int64_t lcm(int64_t a, int64_t b);
+-int64_t gcd(int64_t a, int64_t b);
++int64_t pluto_gcd(int64_t a, int64_t b);
+ int64_t *min_lexical(int64_t *a, int64_t *b, int64_t num);
+ 
+ char *concat(const char *prefix, const char *suffix);

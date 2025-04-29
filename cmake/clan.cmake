@@ -26,7 +26,7 @@ ExternalProject_Add(
 	PREFIX ${CLAN_BIN}
 	BUILD_IN_SOURCE true
 	CONFIGURE_COMMAND ./autogen.sh && ./configure --prefix=${CLAN_BIN} --with-osl=system
-					  --with-osl-prefix=${PLUTO_BIN}
+					  --with-osl-prefix=${PLUTO_PREFIX}
 	PATCH_COMMAND ""
 	INSTALL_COMMAND make install
 	UPDATE_DISCONNECTED true

@@ -1,5 +1,4 @@
 #include <fstream>
-#include <functional>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -9,10 +8,10 @@
 
 #include <isl/val.h>
 
+#include <trahrhe/trahrhe.h>
+
 #include <pesto/Pesto.hpp>
-
 #include <pesto/clast/clast_support.h>
-
 #include <pesto/isl_support.h>
 
 using pesto::pass::metadata::ClastHolder;
@@ -82,52 +81,70 @@ void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
 	}
 
 	auto trahrheDomains = tilingUtil->getTrahrheDomains();
-	int domainCount = 0;
 	for (auto &pair : trahrheDomains) {
+		// print trahrhe domain
 		log(std::cerr) << "Trahrhe domain = " << pair.second << std::endl;
-		if (this->gen_trahrhe) {
+	}
 
-			// format is trahrhe <output_file> -d "<domain>" -e -t
-			// <tiling_depth> -m "mask"
-			std::vector<std::string> cmd;
-			cmd.push_back("gen_trahrhe");
-			cmd.push_back("trahrhe_header.n" + std::to_string(scop.getId()) +
-						  ".g" + std::to_string(domainCount) + ".h");
-			cmd.push_back("-d");
-			cmd.push_back("\"" + pair.second + "\"");
-			cmd.push_back("-e");
-			cmd.push_back("-t");
-			cmd.push_back(std::to_string(pair.first));
-			if (!this->trahrhe_use_dichotomy || this->trahrhe_mask == "r") {
-				cmd.push_back("--no-dichotomy");
-			}
-			if (this->trahrhe_mask != "") {
-				cmd.push_back("-m");
-				cmd.push_back(this->trahrhe_mask);
-			}
+	if (this->gen_trahrhe) {
+		int domainCount = 0;
 
-			std::ofstream outfile;
-			outfile.open(".exec-once", std::ios::app);
-			outfile << std::accumulate(
-				cmd.begin(), cmd.end(), std::string(),
-				[](const std::string &a, const std::string &b) -> std::string {
-					if (a.empty()) {
-						return b;
+		for (auto &pair : trahrheDomains) {
+			std::string filename = "trahrhe_header.n" +
+								   std::to_string(scop.getId()) + ".g" +
+								   std::to_string(domainCount) + ".h";
+
+			trahrhe_context_t *trahrhe_ctx = trahrhe_context_alloc();
+			trahrhe_context_use_dichotomy(trahrhe_ctx,
+										  this->trahrhe_use_dichotomy);
+			trahrhe_context_set_verbosity(trahrhe_ctx, TRAHRHE_VERBOSITY_INFO);
+			trahrhe_context_parse_input_domain(trahrhe_ctx,
+											   (char *)pair.second.c_str());
+			trahrhe_context_set_tile_level(trahrhe_ctx, pair.first);
+
+			size_t trahrhe_len = 0;
+			char **trahrhe_expr = trahrhe_get_inverted_polynomials_expr(
+				trahrhe_ctx, &trahrhe_len);
+			if (trahrhe_len == 0) {
+				log(std::cerr) << "Error: "
+							   << "Could not compute trahrhe expr" << std::endl;
+				continue;
+			}
+			FILE *fp = fopen(filename.c_str(), "w");
+			if (fp == NULL) {
+				log(std::cerr)
+					<< "Error: "
+					<< "Could not open file " << filename << std::endl;
+				if (trahrhe_expr != NULL) {
+					for (size_t i = 0; i < trahrhe_len; i++) {
+						if (trahrhe_expr[i] != NULL) {
+							free(trahrhe_expr[i]);
+						}
 					}
-					if (b.empty()) {
-						return a;
+					free(trahrhe_expr);
+				}
+				continue;
+			}
+			trahrhe_generate_header(trahrhe_ctx, fp, trahrhe_len, trahrhe_expr);
+			fclose(fp);
+			log(std::cerr) << "Generated trahrhe header file: " << filename
+						   << std::endl;
+
+			// TODO: function to generate the header file name
+			std::string macro = "#include \"" + filename + "\"";
+			macroData->list.push_back(macro);
+			domainCount++;
+
+			if (trahrhe_expr != NULL) {
+				for (size_t i = 0; i < trahrhe_len; i++) {
+					if (trahrhe_expr[i] != NULL) {
+						free(trahrhe_expr[i]);
 					}
-					return a + " " + b;
-				});
-			outfile << std::endl;
-			outfile.close();
+				}
+				free(trahrhe_expr);
+			}
+			trahrhe_context_free(trahrhe_ctx);
 		}
-		// TODO: function to generate the header file name
-		std::string macro = "#include \"trahrhe_header.n" +
-							std::to_string(scop.getId()) + ".g" +
-							std::to_string(domainCount) + ".h\"";
-		macroData->list.push_back(macro);
-		domainCount++;
 	}
 }
 

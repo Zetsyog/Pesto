@@ -1,0 +1,23 @@
+--- trahrhe/makefile	2025-01-27 17:53:14.000000000 +0100
++++ trahrhe/makefile	2025-04-25 18:42:07.818557163 +0200
+@@ -1,8 +1,8 @@
+-SHELL:=/bin/bash
+-install_dir=/usr/local/bin
++install_dir=./
++CC=g++
+ 
+ all: 
+-	g++ -o trahrhe trahrhe.c trahrhe_generate_header.c trahrhe_math.c -I/usr/local/include -L/usr/local/lib -lbarvinok -lisl -lgmp -lpolylibgmp -lntl -lpthread -lglpk -fsanitize=undefined
++	$(CC) -o trahrhe trahrhe.c trahrhe_generate_header.c trahrhe_math.c -I/usr/local/include -L/usr/local/lib -lbarvinok -lisl -lgmp -lpolylibgmp -lntl -lpthread -fsanitize=undefined
+ 	make -C Dom2CondDir
+ 	make -C Maxima2CintDir
+ 	make -C Maxima2CfloatDir
+@@ -11,7 +11,7 @@
+ 	sed -i "s/\.\/Dom2Cond/Dom2Cond/g" trahrhe_generate_header.c
+ 	sed -i "s/\.\/Maxima2Cfloat/Maxima2Cfloat/g" trahrhe_generate_header.c
+ 	sed -i "s/\.\/Maxima2Cint/Maxima2Cint/g" trahrhe_generate_header.c
+-	g++ -o trahrhe trahrhe.c trahrhe_generate_header.c trahrhe_math.c -I/usr/local/include -L/usr/local/lib -lbarvinok -lisl -lgmp -lpolylibgmp -lntl -lpthread -lglpk -fsanitize=undefined
++	$(CC) -o trahrhe trahrhe.c trahrhe_generate_header.c trahrhe_math.c -I/usr/local/include -L/usr/local/lib -lbarvinok -lisl -lgmp -lpolylibgmp -lntl -lpthread -fsanitize=undefined
+ 	sudo cp trahrhe $(install_dir)/.
+ 	sudo cp Dom2Cond $(install_dir)/.
+ 	sudo cp Maxima2Cfloat $(install_dir)/.

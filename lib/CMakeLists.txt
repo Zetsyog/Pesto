@@ -37,6 +37,8 @@ set(PESTO_SOURCES
 
 add_library(pesto STATIC ${PESTO_SOURCES})
 
-target_include_directories(pesto PUBLIC ${CMAKE_SOURCE_DIR}/include)
+target_include_directories(pesto PUBLIC ${CMAKE_SOURCE_DIR}/include ${TRAHRHE_INCLUDE_DIRS})
 target_include_directories(pesto PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(pesto PUBLIC pluto cloog nlohmann_json muparser)
+target_link_libraries(pesto PUBLIC pluto cloog nlohmann_json muparser ${TRAHRHE_LIBRARIES})
+
+message(STATUS "Trahrhe libraries: ${TRAHRHE_LIBRARIES}")

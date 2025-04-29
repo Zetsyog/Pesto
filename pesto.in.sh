@@ -2,11 +2,10 @@
 
 extract_scop_bin="@EXTRACT_SCOP_BIN@"
 replace_scop_bin="@REPLACE_SCOP_BIN@"
-pesto_bin="@PESTO_TOOL_BIN@"
-trahrhe_bin="@TRAHRHE_WRAPPER_BIN@"
+pesto_bin="valgrind --leak-check=full @PESTO_TOOL_BIN@"
 
 # TODO: custom compiler support
-CC=gcc
+CPP=@CMAKE_C_COMPILER@
 pesto_gen_prefix=".pesto.gen"
 
 usage() {
@@ -197,7 +196,7 @@ process_file() {
         sed -i '/^#include/d' "${file}"
 
         # run preprocessor on file write it to output file
-        ${CC} -E -P "$file" >>"$body_file"
+        ${CPP} -E -P "$file" >>"$body_file"
         if [ $? -ne 0 ]; then
             echo "[pesto-cli] ERROR: Preprocessor failed" >&2
             cleanup
@@ -212,17 +211,6 @@ process_file() {
     if [[ -f ".vardecls" ]]; then
         cat .vardecls "$body_file" >.tmp && mv .tmp "$body_file"
         rm -f .vardecls
-    fi
-
-    # if there is a .exec-once file, each line contains a command to be executed once
-    if [[ -f ".exec-once" ]]; then
-        echo "[pesto-cli] Executing external commands " >&2
-        sed -i "s|^gen_trahrhe |${trahrhe_bin} -o ${output_dir}/|g" ".exec-once"
-
-        while read -r line; do
-            eval "$line"
-        done <.exec-once
-        rm -f .exec-once
     fi
 
     echo "[pesto-cli] DEBUG: replacing scop in $infile with $body_file" >&2

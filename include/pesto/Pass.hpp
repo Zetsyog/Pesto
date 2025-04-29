@@ -2,12 +2,13 @@
 #define PESTO_POLYHEDRAL_PASS_H
 
 #include <iostream>
-#include <pesto/OslScop.hpp>
-#include <pesto/Program.hpp>
 #include <string>
 #include <vector>
 
 #include <pluto/pluto.h>
+
+#include <pesto/OslScop.hpp>
+#include <pesto/Program.hpp>
 
 namespace pesto {
 

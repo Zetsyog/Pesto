@@ -10,6 +10,10 @@
 
 #include <isl/set.h>
 
+#include <osl/osl.h>
+
+#include <cloog/cloog.h>
+
 #include <cloog/clast.h>
 
 namespace pesto {
@@ -104,6 +108,7 @@ class ParamTilingUtility {
   private:
 	/* polyhedral stuff */
 	osl_scop_p scop; /* scop that will be tiled */
+	isl_ctx *ctx;	 /* isl context */
 
 	/* clast stuff */
 	struct clast_root *root;

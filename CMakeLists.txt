@@ -1,11 +1,23 @@
 cmake_minimum_required(VERSION 3.22)
 project(pestoProject)
 
+function(dump_cmake_variables)
+	get_cmake_property(_variableNames VARIABLES)
+	list(SORT _variableNames)
+	foreach(_variableName ${_variableNames})
+		if((NOT DEFINED ARGV0) OR _variableName MATCHES ${ARGV0})
+			message(STATUS "${_variableName}=${${_variableName}}")
+		endif()
+	endforeach()
+endfunction()
+
 # Pesto version
 set(PESTO_VERSION_MAJOR 0)
 set(PESTO_VERSION_MINOR 1)
 set(PESTO_VERSION_PATCH 0-dev)
 set(PESTO_VERSION ${PESTO_VERSION_MAJOR}.${PESTO_VERSION_MINOR}.${PESTO_VERSION_PATCH})
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 # Number of parallel builds to run (default: 1)
 set(PESTO_BUILD_JOBS
@@ -19,6 +31,11 @@ message(STATUS "Pesto will be compiled using up to ${PESTO_BUILD_JOBS} job(s)")
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Release)
 endif()
+
+# Set the C standard
+set(CMAKE_C_STANDARD 23)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra")
 
 # Set the C++ standard
 set(CMAKE_CXX_STANDARD 17)
@@ -56,6 +73,9 @@ include(cmake/muparser.cmake)
 
 # gtest
 include(cmake/gtest.cmake)
+
+# barvinok
+include(cmake/barvinok.cmake)
 
 # trahrhe
 include(cmake/trahrhe.cmake)

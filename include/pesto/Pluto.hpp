@@ -1,9 +1,13 @@
 #ifndef PESTO_PLUTO_WRAPPER_H
 #define PESTO_PLUTO_WRAPPER_H
 
-#include <memory>
+#include <initializer_list>
 
 #include <pluto/pluto.h>
+
+#include <osl/osl.h>
+
+#include <pesto/OslScop.hpp>
 
 namespace pesto {
 

@@ -10,7 +10,7 @@ add_executable(pestobin ${PESTOBIN_SOURCES})
 add_dependencies(pestobin pesto clan)
 
 # libpesto dependency
-target_link_libraries(pestobin pesto clan)
+target_link_libraries(pestobin pesto clan ${TRAHRHE_LIBRARIES} ${BARVINOK_LIBRARIES})
 
 # Add include directories
 target_include_directories(pestobin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

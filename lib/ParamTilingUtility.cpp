@@ -1,3 +1,4 @@
+#include "pesto/ParamTiling.hpp"
 #include <algorithm>
 
 #include <pesto/Pesto.hpp>
@@ -10,11 +11,15 @@
 #include <pesto/clast/clast_support.h>
 #include <pesto/isl_support.h>
 
+#include <trahrhe/trahrhe.h>
+
 #define STR_BUF_SIZE 512
 
 pesto::ParamTilingUtility::ParamTilingUtility()
 	: scop(nullptr), root(nullptr), insertedStmts(0), tilesizeTarget(32),
-	  error(false), boundComputeMethod(trahrhe_compute_fill_last) {}
+	  error(false), boundComputeMethod(trahrhe_compute_fill_last) {
+	this->ctx = isl_ctx_alloc();
+}
 
 pesto::ParamTilingUtility::~ParamTilingUtility() {
 	for (auto &group : this->stmtGroups) {
@@ -23,6 +28,7 @@ pesto::ParamTilingUtility::~ParamTilingUtility() {
 			trahrhe_codegen_free(&data->codegen_data.second);
 		}
 	}
+	isl_ctx_free(this->ctx);
 }
 
 // TODO: return status
@@ -831,8 +837,6 @@ void pesto::ParamTilingUtility::updateOmpPragma(struct StmtGroup &group) {
 
 void pesto::ParamTilingUtility::computeTrahrheDomain(struct StmtGroup &group) {
 
-	isl_ctx *ctx = isl_ctx_alloc();
-
 	isl_set *domain =
 		isl_set_copy(isl_set_from_cloog_domain(group.parent_for->domain));
 
@@ -883,8 +887,6 @@ void pesto::ParamTilingUtility::computeTrahrheDomain(struct StmtGroup &group) {
 
 	isl_set_free(out);
 	isl_set_free(domain);
-
-	isl_ctx_free(ctx);
 }
 
 std::vector<std::pair<int, std::string>>
