@@ -22,6 +22,8 @@ void PlutoWrapper::run(osl_scop_p scop) {
 	PlutoProg *pluto_prog = osl_scop_to_pluto_prog(scop, context);
 	pluto_schedule_prog(pluto_prog);
 	pluto_populate_scop(scop, pluto_prog, context);
+
+	pluto_prog_free(pluto_prog);
 }
 
 void PlutoWrapper::run(OslScop &oslScop) {
