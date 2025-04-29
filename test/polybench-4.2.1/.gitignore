@@ -8,6 +8,7 @@ header.*.h
 trahrhe_header.*.h
 schedule.h
 trahrhe_schedule.*.h
+*.trahrhe.*.h
 
 # datamining
 datamining/correlation/correlation

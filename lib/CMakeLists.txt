@@ -36,6 +36,7 @@ set(PESTO_SOURCES
 )
 
 add_library(pesto STATIC ${PESTO_SOURCES})
+add_dependencies(pesto trahrhe-src barvinok-src)
 
 target_include_directories(pesto PUBLIC ${CMAKE_SOURCE_DIR}/include ${TRAHRHE_INCLUDE_DIRS})
 target_include_directories(pesto PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
