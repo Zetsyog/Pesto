@@ -1,5 +1,5 @@
-CC=gcc
-CFLAGS=-march=native -O3 -fopenmp
+CC?=gcc
+CFLAGS?=-march=native -O3 -fopenmp
 LDLIBS=-lm -DPOLYBENCH_TIME
 
 PESTO?=pesto
@@ -18,6 +18,7 @@ CLEANFILES=\
 	$(SRC).pesto.c \
 	header.*.h \
 	trahrhe_header.*.h \
+	$(SRC).trahrhe.* \
 	*.cloog
 
 

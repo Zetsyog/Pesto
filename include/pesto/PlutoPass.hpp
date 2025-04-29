@@ -1,8 +1,6 @@
 #ifndef PESTO_PASS_PLUTO_H
 #define PESTO_PASS_PLUTO_H
 
-#include <string>
-
 #include <pesto/OslScop.hpp>
 #include <pesto/Pass.hpp>
 #include <pesto/Pluto.hpp>

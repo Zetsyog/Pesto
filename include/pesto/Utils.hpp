@@ -59,6 +59,13 @@ class MetadataContainer {
 		return get<T>();
 	}
 
+	/**
+	 * Return whether this container already contains the metadata or not
+	 */
+	template <typename T> bool has() {
+		return this->get<T>().lock() != nullptr;
+	}
+
   private:
 	std::unordered_map<std::type_index, std::shared_ptr<std::any>> metadata_;
 };

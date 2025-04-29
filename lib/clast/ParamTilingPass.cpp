@@ -1,4 +1,5 @@
-#include <fstream>
+#include "pesto/clast/ParamTilingPass.hpp"
+#include "pesto/OslScop.hpp"
 #include <iostream>
 #include <memory>
 #include <string>
@@ -23,7 +24,7 @@ pesto::pass::ClastParamTilingPass::ClastParamTilingPass()
 	  trahrhe_use_dichotomy(true),
 	  boundComputeMethod(trahrhe_compute_fill_last),
 	  tileSizeHint(PESTO_PARAM_TILING_DEFAULT_TILE_SIZE_HINT),
-	  is_stencil(false), tiling_types() {
+	  is_stencil(false), tiling_types(), outputFile(".") {
 	using namespace pesto::pass;
 
 	this->gen_clast_pass = std::make_unique<GenClastPass>();
@@ -89,10 +90,19 @@ void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
 	if (this->gen_trahrhe) {
 		int domainCount = 0;
 
+		std::filesystem::path outputDir = ".";
+		std::string filename = "header.";
+		if (!this->outputFile.stem().string().empty()) {
+			filename = this->outputFile.stem().string() + ".";
+		}
+		if (this->outputFile.has_parent_path()) {
+			outputDir = this->outputFile.parent_path();
+		}
+
 		for (auto &pair : trahrheDomains) {
-			std::string filename = "trahrhe_header.n" +
-								   std::to_string(scop.getId()) + ".g" +
-								   std::to_string(domainCount) + ".h";
+			std::string header_filename = filename + "trahrhe.n" +
+										  std::to_string(scop.getId()) + ".g" +
+										  std::to_string(domainCount) + ".h";
 
 			trahrhe_context_t *trahrhe_ctx = trahrhe_context_alloc();
 			trahrhe_context_use_dichotomy(trahrhe_ctx,
@@ -110,11 +120,13 @@ void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
 							   << "Could not compute trahrhe expr" << std::endl;
 				continue;
 			}
-			FILE *fp = fopen(filename.c_str(), "w");
+			std::string header_path = (outputDir / header_filename).string();
+			log(std::cerr) << "trahrhe header = " << header_path << std::endl;
+			FILE *fp = fopen(header_path.c_str(), "w");
 			if (fp == NULL) {
 				log(std::cerr)
 					<< "Error: "
-					<< "Could not open file " << filename << std::endl;
+					<< "Could not open file " << header_filename << std::endl;
 				if (trahrhe_expr != NULL) {
 					for (size_t i = 0; i < trahrhe_len; i++) {
 						if (trahrhe_expr[i] != NULL) {
@@ -127,11 +139,11 @@ void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
 			}
 			trahrhe_generate_header(trahrhe_ctx, fp, trahrhe_len, trahrhe_expr);
 			fclose(fp);
-			log(std::cerr) << "Generated trahrhe header file: " << filename
-						   << std::endl;
+			log(std::cerr) << "Generated trahrhe header file: "
+						   << header_filename << std::endl;
 
 			// TODO: function to generate the header file name
-			std::string macro = "#include \"" + filename + "\"";
+			std::string macro = "#include \"" + header_filename + "\"";
 			macroData->list.push_back(macro);
 			domainCount++;
 
@@ -161,4 +173,10 @@ pesto::pass::ClastParamTilingPass::getTilingType(size_t depth) {
 		return this->tiling_types[depth];
 	}
 	return this->tiling_types[this->tiling_types.size() - 1];
+}
+
+void pesto::pass::ClastParamTilingPass::hookBegin(pesto::Program &prog) {
+	if (!prog.getOutputFile().string().empty()) {
+		this->outputFile = prog.getOutputFile();
+	}
 }

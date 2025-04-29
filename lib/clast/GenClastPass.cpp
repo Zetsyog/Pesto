@@ -1,3 +1,5 @@
+#include "pesto/clast/GenClastPass.hpp"
+#include <iostream>
 #include <pesto/Pesto.hpp>
 
 #include <pesto/osl_support.h>
@@ -12,9 +14,16 @@ GenClastPass::~GenClastPass() {}
 
 void GenClastPass::applyScop(OslScop &nest) {
 	using metadata::ClastHolder;
+	using metadata::VarDeclMetadata;
 
-	nest.metadata.set<ClastHolder>();
-	auto data = nest.metadata.get<ClastHolder>().lock();
+	auto data = nest.metadata.getOrCreate<ClastHolder>().lock();
+	// TODO: add an option to force clast generation? (and erase old clast)
+	if (data->cloogState != nullptr || data->cloogOptions != nullptr ||
+		data->cloogProgram != nullptr || data->root != nullptr) {
+		log(std::cerr) << "Clast already generated for nest " << nest.getId()
+					   << ". Skipping." << std::endl;
+		return;
+	}
 
 	osl_scop_p scop = nest.c_scop();
 
@@ -66,6 +75,22 @@ void GenClastPass::applyScop(OslScop &nest) {
 
 	data->root = cloog_clast_create(program, data->cloogOptions);
 	clast_annotate_loops(scop, data->root);
+
+	// update vardecl metadata
+	auto varDecls = nest.metadata.getOrCreate<VarDeclMetadata>().lock();
+
+	// Add iterators to var decls
+	for (int i = 0; i < program->names->nb_scattering; i += 1) {
+		varDecls->addVar(program->names->scattering[i]);
+	}
+
+	osl_scatnames_p scatnames = (osl_scatnames_p)osl_generic_lookup(
+		nest.c_scop()->extension, OSL_URI_SCATNAMES);
+	if (scatnames != nullptr) {
+		for (size_t i = 0; i < osl_strings_size(scatnames->names); i++) {
+			varDecls->addVar(scatnames->names->string[i]);
+		}
+	}
 }
 
 metadata::ClastHolder::ClastHolder()

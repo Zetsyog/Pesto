@@ -1,6 +1,7 @@
 #ifndef PESTO_OPTIONS_H
 #define PESTO_OPTIONS_H
 
+#include <filesystem>
 #include <memory>
 #include <optional>
 #include <string>
@@ -13,14 +14,15 @@ class Options {
 
 	Options();
 
-	std::string getGenPrefix();
-	std::string getInputPath();
+	std::filesystem::path getInputPath();
+	std::filesystem::path getOutputPath();
+
 	std::optional<std::string> getConfigPath();
 	int getReadScop();
 
   private:
-	std::string genPrefix;
-	std::string inputPath;
+	std::filesystem::path input;
+	std::filesystem::path output;
 	std::optional<std::string> configPath;
 	int readScop;
 };

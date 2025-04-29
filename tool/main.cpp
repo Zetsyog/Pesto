@@ -1,3 +1,4 @@
+#include <filesystem>
 #include <iostream>
 
 #include <stdio.h>
@@ -11,6 +12,7 @@
 #include <pesto/Pesto.hpp>
 
 #include "Options.hpp"
+#include <pesto/OslScop.hpp>
 
 int main(int argc, char **argv) {
 	auto options = pesto::Options::build(argc, argv);
@@ -73,7 +75,11 @@ int main(int argc, char **argv) {
 	// pesto magic starts here
 	// create pesto program
 	std::unique_ptr<pesto::Program> program =
-		pesto::Program::Builder().addScop(scop).build();
+		pesto::Program::Builder()
+			.addScop(scop)
+			.setInputFile(options->getInputPath())
+			.setOutputFile(options->getOutputPath())
+			.build();
 	// scop has been copied by builder, we can free memory
 	osl_scop_free(scop);
 
@@ -104,8 +110,7 @@ int main(int argc, char **argv) {
 		passManager->addPass(std::make_unique<pass::GenClastPass>());
 		passManager->addPass(std::make_unique<pass::ClastParamTilingPass>());
 		// TODO: should codegen be a pass? Or whole different component ?
-		passManager->addPass(
-			std::make_unique<pass::CloogCodegenPass>(options->getGenPrefix()));
+		passManager->addPass(std::make_unique<pass::CloogCodegenPass>());
 	}
 
 	// run the passes

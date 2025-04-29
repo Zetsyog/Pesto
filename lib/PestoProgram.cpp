@@ -1,4 +1,7 @@
+#include "pesto/Program.hpp"
+#include <memory>
 #include <pesto/Pesto.hpp>
+#include <utility>
 
 using namespace pesto;
 
@@ -23,19 +26,23 @@ void Program::clearScopNests() {
  */
 std::vector<OslScop *> Program::getScopNests() { return this->scops; }
 
-Program::Builder::Builder() : nextScopId(0) {}
+std::filesystem::path Program::getInputFile() { return this->inputFile; }
+
+std::filesystem::path Program::getOutputFile() { return this->outputFile; }
+
+Program::Builder::Builder() : nextScopId(0) {
+	this->prog = std::make_unique<Program>();
+}
 
 /**p
  * Build the Program object
  * @return A unique pointer to the Program object
  */
 std::unique_ptr<pesto::Program> Program::Builder::build() {
-	auto program = std::make_unique<pesto::Program>();
-	for (auto scop : this->scops) {
-		program->addScopNest(scop);
-	}
-	this->scops.clear();
-	return program;
+	auto builtProgram = std::move(this->prog);
+	this->prog = std::make_unique<Program>();
+	nextScopId = 0;
+	return builtProgram;
 }
 
 /**
@@ -45,7 +52,16 @@ std::unique_ptr<pesto::Program> Program::Builder::build() {
  */
 Program::Builder &Program::Builder::addScop(osl_scop_p scop) {
 	OslScop *nest = new OslScop(nextScopId++, scop);
-	this->scops.push_back(nest);
+	this->prog->addScopNest(nest);
+	return *this;
+}
 
+Program::Builder &Program::Builder::setInputFile(std::filesystem::path path) {
+	this->prog->inputFile = path;
+	return *this;
+}
+
+Program::Builder &Program::Builder::setOutputFile(std::filesystem::path path) {
+	this->prog->outputFile = path;
 	return *this;
 }

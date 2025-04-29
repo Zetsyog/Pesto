@@ -83,6 +83,7 @@
           shellHook = ''
             export PESTO="$PWD/build/pesto"
             export LD_LIBRARY_PATH="${llvm.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
+            export CC=${llvm.clang}/bin/clang
           '';
         };
       }

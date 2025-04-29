@@ -2,29 +2,21 @@
 
 extract_scop_bin="@EXTRACT_SCOP_BIN@"
 replace_scop_bin="@REPLACE_SCOP_BIN@"
-pesto_bin="valgrind --leak-check=full @PESTO_TOOL_BIN@"
+pesto_bin="@PESTO_TOOL_BIN@"
 
 # TODO: custom compiler support
 CPP=@CMAKE_C_COMPILER@
-pesto_gen_prefix=".pesto.gen"
 
 usage() {
-    echo "Usage: pesto [options] <input_file>" >&2
-    echo "Options:" >&2
-    printf "%-30s%s\n" "  -o, --output <file>" "Path of output file" >&2
-    printf "%-30s%s\n" "  --config <file>" "Path of JSON config file" >&2
-    printf "%-30s%s\n" "  --readscop" "Input file is using Openscop format" >&2
-    printf "%-30s%s\n" "  -i, --indent" "Format generated code" >&2
-    printf "%-30s%s\n" "  -h, --help" "Print this help message" >&2
-    printf "%-30s%s\n" "  -v, --version" "Print the current version of the software" >&2
+    $pesto_bin -h
     exit 1
 }
 
 cleanup() {
-    rm -f .pesto* .vardecls .kernel .exec-once
+    rm -f .pesto* .kernel .exec-once
 }
 
-OPTS=$(getopt -o o:ihv --long output:,indent,config:,readscop,version,help -- "$@")
+OPTS=$(getopt -o "c:o:ihv" --long "config:,output:,readscop,indent,help,version" -- "$@")
 if [ $? != 0 ]; then
     echo "[pesto-cli] Failed to parse options" >&2
     exit 1
@@ -33,10 +25,10 @@ fi
 # Set the parsed options
 eval set -- "$OPTS"
 
-# Parse command line arguments
+# Parse options
+forward_opts=()
 output_file=""
 indent=0
-forward_opts=()
 while true; do
     case "$1" in
     -o | --output)
@@ -45,19 +37,19 @@ while true; do
         ;;
     -i | --indent)
         indent=1
+        forward_opts+=("$1")
         shift
+        ;;
+    -c | --config)
+        forward_opts+=("$1" "$2")
+        shift 2
+        ;;
+    -v | --version)
+        $pesto_bin -v
+        exit 0
         ;;
     -h | --help)
         usage
-        exit 0
-        ;;
-    -v | --version)
-        echo "Pesto CLI O.1"
-        exit 0
-        ;;
-    --config)
-        forward_opts+=("$1" "$2")
-        shift 2
         ;;
     --readscop)
         forward_opts+=("$1")
@@ -73,8 +65,6 @@ while true; do
         ;;
     esac
 done
-
-echo "[pesto-cli] Forwarding options:" "${forward_opts[@]}" >&2
 
 # Check if only one input is provided
 if [ $# -ne 1 ]; then
@@ -105,11 +95,94 @@ if [[ -d "$output_file" ]]; then
     exit 1
 fi
 
-output_dir=$(dirname "$output_file")
+# Function to process the input file and extract pragma sections
+process_file() {
+    local infile="$1"
+    local scop_file
+    local body_file
+    local tmp_dir
+    local basename
+
+    echo "[pesto-cli] Processing file $infile" >&2
+
+    tmp_dir=$(mktemp -d)
+    basename=$(basename "$infile")
+
+    # scop_file is a temporary file that contains only the input code delimited by the pragmas
+    scop_file=$tmp_dir/$basename.input
+
+    echo "[pesto-cli] Extracting scop to $scop_file" >&2
+
+    echo "#pragma scop" >"$scop_file"
+    ${extract_scop_bin} "$infile" >>"$scop_file"
+    echo "#pragma endscop" >>"$scop_file"
+
+    pesto_outfile=$tmp_dir/$full_filename
+
+    # run pesto tool on the extracted scop
+    pesto_cmd="${pesto_bin} $scop_file ${forward_opts[*]} -o $pesto_outfile"
+
+    # DEBUG
+    echo "[Debug] Running $pesto_cmd"
+    if ! $pesto_cmd; then
+        echo "[pesto-cli] ERROR: pesto-tool failed" >&2
+        echo "$pesto_cmd" >&2
+        cleanup
+        exit 1
+    fi
+
+    # body_file is a temporary file that contains the generated code
+    body_file=${tmp_dir}/$basename.body
+    echo "" >"${body_file}"
+
+    echo "[pesto-cli] DEBUG: processing $pesto_outfile" >&2
+
+    # extract include directives
+    grep "^#include" "$pesto_outfile" >>"${include_file}"
+
+    # remove in place all include directives
+    sed -i '/^#include/d' "$pesto_outfile"
+
+    # run preprocessor on file write it to output file
+    cpp_cmd="${CPP} -E -P $pesto_outfile"
+    echo "$cpp_cmd"
+    if ! $cpp_cmd >>"$body_file"; then
+        echo "[pesto-cli] ERROR: Preprocessor failed" >&2
+        cleanup
+        exit 1
+    fi
+
+    # handle headers files if some were generated
+    header_files="$tmp_dir/*.h"
+    for file in $header_files; do
+        if [ -f "$file" ]; then
+            echo "[pesto-cli] Copying header file $file to $(dirname "$infile")" >&2
+        else
+            echo "[pesto-cli] WARNING: Header file $file does not exist" >&2
+            continue
+        fi
+        cp "$file" "$(dirname "$infile")"
+    done
+
+    echo "[pesto-cli] DEBUG: replacing scop in $infile with $body_file" >&2
+    cat "$include_file" >".kernel"
+    ${replace_scop_bin} "$infile" "$body_file" >>".kernel"
+    mv ".kernel" "$infile"
+
+}
+
+# Function to check if file contains #pragma scop
+contains_pragma() {
+    grep -q "#pragma scop" "$1"
+}
+
+echo "[pesto-cli] Starting pesto" >&2
+
+working_dir=$(mktemp -d)
 
 # We work on a copy of the input file
 # Because we do in-place work
-working_file=$(mktemp)
+working_file=$working_dir/$full_filename
 # Copy input file to temp file to start processing
 # input file must not be modified
 cp "$input_file" "$working_file"
@@ -117,9 +190,13 @@ cp "$input_file" "$working_file"
 echo "[pesto-cli] Working on file $working_file" >&2
 
 # file to store include directives
-include_file=$(mktemp)
+include_file=$working_dir/.includes
 
-echo "$pesto_gen_prefix" >".pesto_prefix"
+echo "[pesto-cli] Working dir: $working_dir" >&2
+echo "[pesto-cli] Input file: $input_file" >&2
+echo "[pesto-cli] Filename : $filename" >&2
+echo "[pesto-cli] Output file: $output_file" >&2
+echo "[pesto-cli] Include file: $include_file" >&2
 
 # Clear the include file
 echo "" >"$include_file"
@@ -144,95 +221,6 @@ if ! grep -q "#define ceild(n,d)" "$include_file"; then
     } >>"$include_file"
 fi
 
-# Function to process the input file and extract pragma sections
-process_file() {
-    local infile="$1"
-    local scop_file
-    local body_file
-
-    echo "[pesto-cli] Processing file $infile" >&2
-
-    # scop_file is a temporary file that contains only the input code delimited by the pragmas
-    scop_file=$(mktemp)
-
-    echo "[pesto-cli] Extracting scop to $scop_file" >&2
-
-    echo "#pragma scop" >"$scop_file"
-    ${extract_scop_bin} "$infile" >>"$scop_file"
-    echo "#pragma endscop" >>"$scop_file"
-
-    rm -f ${pesto_gen_prefix}.*
-    # DEBUG
-    echo "@COMMAND" >&2
-    echo "${pesto_bin} $scop_file" "${forward_opts[@]}" >&2
-    # run pesto tool on the extracted scop
-    # shellcheck disable=SC2068
-    ${pesto_bin} "$scop_file" ${forward_opts[@]}
-    if [ $? -ne 0 ]; then
-        echo "[pesto-cli] ERROR: pesto-tool failed" >&2
-        cleanup
-        exit 1
-    fi
-
-    generated_files="${pesto_gen_prefix}.*"
-
-    # body_file is a temporary file that contains the generated code
-    body_file=$(mktemp)
-    echo "" >"${body_file}"
-
-    # for each generated file
-    for file in $generated_files; do
-        if [[ ! -f "$file" ]]; then
-            echo "[pesto-cli] ERROR: generated file $file not found" >&2
-            cleanup
-            exit 1
-        fi
-        echo "[pesto-cli] DEBUG: processing $file" >&2
-
-        # extract include directives
-        grep "^#include" "${file}" >>"${include_file}"
-
-        # remove in place all include directives
-        sed -i '/^#include/d' "${file}"
-
-        # run preprocessor on file write it to output file
-        ${CPP} -E -P "$file" >>"$body_file"
-        if [ $? -ne 0 ]; then
-            echo "[pesto-cli] ERROR: Preprocessor failed" >&2
-            cleanup
-            exit 1
-        fi
-
-        # rm -f "$file"
-    done
-
-    # if there is a .vardecls file, append it to the body file
-    # this file should contain variable declarations
-    if [[ -f ".vardecls" ]]; then
-        cat .vardecls "$body_file" >.tmp && mv .tmp "$body_file"
-        rm -f .vardecls
-    fi
-
-    echo "[pesto-cli] DEBUG: replacing scop in $infile with $body_file" >&2
-    cat "$include_file" >".kernel"
-    ${replace_scop_bin} "$infile" "$body_file" >>".kernel"
-    mv ".kernel" "$infile"
-
-    # cleanup generated files
-    rm -f ${pesto_gen_prefix}.*
-}
-
-# Function to check if file contains #pragma scop
-contains_pragma() {
-    grep -q "#pragma scop" "$1"
-}
-
-echo "[pesto-cli] Starting pesto" >&2
-echo "[pesto-cli] Input file: $input_file" >&2
-echo "[pesto-cli] Filename : $filename" >&2
-echo "[pesto-cli] Output file: $output_file" >&2
-echo "[pesto-cli] Include file: $include_file" >&2
-
 # Loop until there are no more pragmas to process
 while contains_pragma "$working_file"; do
     # TODO: handle openscop input format
@@ -243,13 +231,27 @@ if [[ $indent -ne 0 ]]; then
     if which clang-format &>/dev/null; then
         clang-format --style="{BasedOnStyle: LLVM, ColumnLimit: 120}" -i "${working_file}"
     else
-        echo "[pesto-cli] Indent flag is set but clang-format is not found, skipping indentation" >&2
+        echo "[pesto-cli] Indent flag is given but clang-format is not found. Skipping." >&2
     fi
 fi
 
 # Move the final processed file to the specified output file
 echo "[pesto-cli] Done working on $output_file" >&2
 mv "$working_file" "$output_file"
+
+# handle header files
+header_files="$working_dir/*.h"
+for file in $header_files; do
+    if [ -f "$file" ]; then
+        echo "[pesto-cli] Copying header file $file to $(dirname "$infile")" >&2
+    else
+        echo "[pesto-cli] WARNING: Header file $file does not exist" >&2
+        continue
+    fi
+    cp "$file" "$(dirname "$output_file")"
+done
+
+rm -rf "$working_dir"
 
 # cleanup
 cleanup

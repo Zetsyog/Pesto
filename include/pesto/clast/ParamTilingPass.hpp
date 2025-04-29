@@ -1,9 +1,12 @@
 #ifndef PESTO_PARAM_TILING_PASS_H
 #define PESTO_PARAM_TILING_PASS_H
 
+#include <filesystem>
+
 #include <pesto/ParamTiling.hpp>
 #include <pesto/Pass.hpp>
 #include <pesto/PlutoPass.hpp>
+#include <pesto/Program.hpp>
 #include <pesto/clast/GenClastPass.hpp>
 #include <pesto/trahrhe.h>
 
@@ -43,6 +46,7 @@ class ClastParamTilingPass : public IPass {
 	virtual ~ClastParamTilingPass();
 
 	virtual void applyScop(pesto::OslScop &nest) override;
+	virtual void hookBegin(pesto::Program &prog) override;
 
 	/**
 	 * @brief given a depth, return the tiling type
@@ -60,8 +64,8 @@ class ClastParamTilingPass : public IPass {
   private:
 	bool is_stencil;
 	std::unique_ptr<GenClastPass> gen_clast_pass;
-
 	std::vector<pesto::ParamTilingType> tiling_types;
+	std::filesystem::path outputFile;
 };
 
 } // namespace pass

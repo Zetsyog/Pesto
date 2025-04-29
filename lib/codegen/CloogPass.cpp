@@ -1,52 +1,56 @@
+#include <fstream>
 #include <iostream>
 
+#include <pesto/CodegenPasses.hpp>
 #include <pesto/Pesto.hpp>
-
+#include <pesto/clast/GenClastPass.hpp>
 #include <pesto/clast/clast_support.h>
 
 using namespace pesto::pass;
 
-CloogCodegenPass::CloogCodegenPass(std::string prefix)
-	: IPass("pass-gen-cloog"), path_prefix(prefix) {}
+CloogCodegenPass::CloogCodegenPass() : IPass("pass-gen-cloog"), output("") {}
 
 CloogCodegenPass::~CloogCodegenPass() {}
 
 void CloogCodegenPass::hookBegin(Program &prog) {
-	// suppress unused variable warning
-	(void)prog;
-
-	log(std::cerr) << "Starting Cloog codegen using prefix '" << path_prefix
-				   << "'" << std::endl;
-}
-
-void CloogCodegenPass::hookEnd(Program &prog) {
-	using metadata::MacroMetadata;
 	using metadata::VarDeclMetadata;
 
-	// suppress unused variable warning
-	(void)prog;
+	this->output = prog.getOutputFile();
 
-	// generate var declarations
-	VarDeclMetadata varDecls;
-	varDecls.addVar("lbp");
-	varDecls.addVar("ubp");
-	varDecls.addVar("lbv");
-	varDecls.addVar("ubv");
-	for (auto &nest : prog.getScopNests()) {
-		auto varDeclsData = nest->metadata.get<VarDeclMetadata>().lock();
-		if (varDeclsData) {
-			std::vector<std::string> vars = varDeclsData->getVars();
-			for (auto &var : vars) {
-				varDecls.addVar(var);
-			}
+	log(std::cerr) << "Starting Cloog codegen. Writing in '" << output.string()
+				   << "'" << std::endl;
+
+	GenClastPass genClast = GenClastPass();
+	genClast.apply(prog);
+
+	// Check that all scops has a ClastHolder metadata
+	for (auto scop : prog.getScopNests()) {
+		if (!scop->metadata.has<metadata::ClastHolder>()) {
+			log(std::cerr) << "Could not generate Cloog AST for nest "
+						   << scop->getId() << std::endl;
+
+			return;
 		}
 	}
-	FILE *vardecl_fd = fopen(".vardecls", "w");
-	for (auto &var : varDecls.getVars()) {
-		fprintf(vardecl_fd, "%s ", varDecls.type.c_str());
-		fprintf(vardecl_fd, "%s;\n", var.c_str());
+
+	// Generate variable declarations
+	VarDeclMetadata varDecls = this->mergeVarDecls(prog);
+
+	log(std::cerr) << "Writing var decls to " << this->output << std::endl;
+	std::ofstream outFile;
+	outFile.open(this->output);
+	if (!outFile.is_open()) {
+		log(std::cerr) << "Failed to open file: " << this->output.string()
+					   << std::endl;
+		return;
 	}
-	fclose(vardecl_fd);
+	outFile << "/* Variable declarations */" << std::endl;
+	// TODO: group variable declaration
+	for (auto &varId : varDecls.getVars()) {
+		outFile << varDecls.type << " " << varId << ";" << std::endl;
+	}
+
+	outFile.close();
 }
 
 void generateStmtMacro(FILE *fd, pesto::OslScop &nest) {
@@ -91,55 +95,27 @@ void CloogCodegenPass::applyScop(OslScop &nest) {
 	auto clastData = nest.metadata.get<ClastHolder>().lock();
 	auto varDeclsData = nest.metadata.getOrCreate<VarDeclMetadata>().lock();
 
-	std::string path =
-		this->path_prefix + "." + std::to_string(nest.getId()) + ".c";
+	std::string path = this->output.string();
 
-	// TODO: allow user to customize cloog options
-	if (clastData) {
-		log(std::cerr) << "Using existing CLooG AST" << std::endl;
-		root = clastData->root;
-		state = clastData->cloogState;
-		options = clastData->cloogOptions;
-		program = clastData->cloogProgram;
-	} else {
-		osl_scop_p scop = nest.c_scop();
-
-		state = cloog_state_malloc();
-		options = cloog_options_malloc(state);
-
-		CloogInput *input = cloog_input_from_osl_scop(state, scop);
-		program = cloog_program_alloc(input->context, input->ud, options);
-		free(input);
-
-		options->f = -1;
-		options->l = program->nb_scattdims;
-
-		program = cloog_program_generate(program, options);
-		// input is freed by cloog_clast_create_from_input
-		root = cloog_clast_create(program, options);
-		clast_annotate_loops(scop, root);
-	}
-
-	if (root == nullptr || state == nullptr || options == nullptr) {
-		log(std::cerr) << "Failed to generate CLooG AST" << std::endl;
+	if (!clastData) {
+		log(std::cerr) << "An error occured, ClastData was not generated...";
 		return;
 	}
 
-	// Add iterators to var decls
-	for (int i = 0; i < program->names->nb_scattering; i += 1) {
-		varDeclsData->addVar(program->names->scattering[i]);
-	}
+	// TODO: allow user to customize cloog options
+	root = clastData->root;
+	state = clastData->cloogState;
+	options = clastData->cloogOptions;
+	program = clastData->cloogProgram;
 
-	osl_scatnames_p scatnames = (osl_scatnames_p)osl_generic_lookup(
-		nest.c_scop()->extension, OSL_URI_SCATNAMES);
-	if (scatnames) {
-		for (size_t i = 0; i < osl_strings_size(scatnames->names); i++) {
-			varDeclsData->addVar(scatnames->names->string[i]);
-		}
+	if (root == nullptr || state == nullptr || options == nullptr ||
+		program == nullptr) {
+		log(std::cerr) << "Error during Cloog AST generation" << std::endl;
+		return;
 	}
 
 	log(std::cerr) << "Writing code to " << path << std::endl;
-	FILE *file = fopen(path.c_str(), "w");
+	FILE *file = fopen(path.c_str(), "a");
 	// generate stmt macros
 	generateStmtMacro(file, nest);
 
@@ -155,11 +131,31 @@ void CloogCodegenPass::applyScop(OslScop &nest) {
 	// then print cloog ast
 	clast_pprint(file, root, 0, options);
 	fclose(file);
+}
 
-	if (!clastData) {
-		cloog_clast_free(root);
-		cloog_program_free(program);
-		cloog_options_free(options);
-		cloog_state_free(state);
+pesto::pass::metadata::VarDeclMetadata
+CloogCodegenPass::mergeVarDecls(Program &prog) {
+	using pesto::pass::metadata::ClastHolder;
+	using pesto::pass::metadata::VarDeclMetadata;
+
+	VarDeclMetadata data;
+	// Cloog specific (var used for parallel or vectorized for)
+	data.addVar("lbp");
+	data.addVar("ubp");
+	data.addVar("lbv");
+	data.addVar("ubv");
+
+	// merge existing var decls of all scops
+	for (auto &scop : prog.getScopNests()) {
+		// add existing var decls
+		auto varDeclsData = scop->metadata.get<VarDeclMetadata>().lock();
+		if (varDeclsData) {
+			std::vector<std::string> vars = varDeclsData->getVars();
+			for (auto &var : vars) {
+				data.addVar(var);
+			}
+		}
 	}
+
+	return data;
 }
