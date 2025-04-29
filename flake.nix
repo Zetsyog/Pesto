@@ -13,72 +13,76 @@
       system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        barvinok = pkgs.stdenv.mkDerivation rec {
-          pname = "barvinok";
-          version = "0.41.8";
+        llvm = pkgs.llvmPackages_18;
+
+        ntl = llvm.stdenv.mkDerivation rec {
+          pname = "ntl";
+          version = "11.5.1";
           src = pkgs.fetchurl {
-            url = "https://barvinok.sourceforge.io/barvinok-${version}.tar.gz";
-            sha256 = "sha256-zED+7lqILqn7ruaWswPzd+nEayMhgxMDSAvtGtuOyjo=";
+            url = "https://www.shoup.net/ntl/ntl-${version}.tar.gz";
+            sha256 = "sha256-IQ0GwxMGy8bq9oFEU8Vsd22djo3zbXTrMG9qUj0caoo=";
           };
           buildInputs = [
-            pkgs.stdenv.cc.cc.lib
             pkgs.gmp
-            pkgs.gcc
-            pkgs.ntl
-            pkgs.libtool
-            pkgs.automake
-            pkgs.autoconf
-            pkgs.bison
-            pkgs.flex
           ];
-          nativeBuildInputs = [ pkgs.pkgconf ];
+          nativeBuildInputs = [
+            pkgs.perl # needed for ./configure
+          ];
+          sourceRoot = "${pname}-${version}/src";
+
+          enableParallelBuilding = true;
+
+          dontAddPrefix = true; # DEF_PREFIX instead
+          configurePlatforms = [ ];
           configurePhase = ''
-            ./configure --prefix=$out
+            ./configure PREFIX=$out NATIVE=off NTL_GMP_LIP=on CXX=${llvm.stdenv.cc.targetPrefix}c++
           '';
-          buildPhase = ''
-            make -j
-          '';
-          installPhase = ''
-            make install
-          '';
+
+          doCheck = false;
         };
+
       in
       {
-        devShells.default = pkgs.mkShell {
-          packages =
-            with pkgs;
-            [
-              git
-              gcc
+        devShells.default = pkgs.mkShell.override { stdenv = llvm.stdenv; } {
+          packages = with pkgs; [
+            git
 
-              libyaml
-              gmp
-              cmake
-              autoconf
-              automake
-              pkgconf
-              libtool
-              bison
-              flex
-              # trahrhe
-              ntl
-              maxima
-              libmpc
-              #misc
-              gdb
-              valgrind
+            llvm.clang-tools
+            llvm.stdenv
+            llvm.clang
+            llvm.libcxx
+            llvm.bintools
+            llvm.clang-manpages
+            llvm.openmp
 
-              shfmt
-              bc
-              cmake-format
-              likwid
+            lldb
+            valgrind
 
-              gitlab-ci-local
-            ]
-            ++ [ barvinok ];
+            libyaml
+            gmp
+            cmake
+            autoconf
+            automake
+            pkgconf
+            libtool
+            bison
+            flex
+
+            # trahrhe
+            ntl
+            maxima
+            libmpc
+
+            shfmt
+            bc
+            cmake-format
+            likwid
+
+            gitlab-ci-local
+          ];
           shellHook = ''
             export PESTO="$PWD/build/pesto"
-            export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
+            export LD_LIBRARY_PATH="${llvm.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
           '';
         };
       }
