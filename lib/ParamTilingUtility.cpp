@@ -143,6 +143,7 @@ void pesto::ParamTilingUtility::computeStmtGroups() {
 		// append group to the list of groups
 		this->stmtGroups.push_back(std::move(group));
 	}
+	free(stmt);
 }
 
 void pesto::ParamTilingUtility::tileGroup(StmtGroup &group) {
