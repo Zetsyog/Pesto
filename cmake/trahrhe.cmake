@@ -15,6 +15,7 @@ message(STATUS "Using latest trahrhe from git")
 ExternalProject_Add(
 	trahrhe-src
 	GIT_REPOSITORY ${TRAHRHE_GIT_URL}
+	UPDATE_DISCONNECTED ON
 	GIT_TAG dev
 	CMAKE_CACHE_ARGS
 		"-DBARVINOK_PATH:PATH=${BARVINOK_INSTALL_DIR}" #
