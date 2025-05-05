@@ -174,6 +174,10 @@ class ParamTilingUtility {
 	__isl_give isl_set *removeTilingDimensions(__isl_take isl_set *set,
 											   struct StmtGroup &group);
 
+	__isl_give isl_set *
+	moveNonTiledDimensionsToParameters(__isl_take isl_set *set,
+									   struct StmtGroup &group);
+
 	void declareVariable(std::string varName);
 
 	void declareGroupVariables(struct StmtGroup &group);

@@ -3,6 +3,7 @@
 
 #include <pesto/Pesto.hpp>
 
+#include <isl/aff.h>
 #include <isl/ctx.h>
 #include <isl/set.h>
 
@@ -150,11 +151,7 @@ void pesto::ParamTilingUtility::tileGroup(StmtGroup &group) {
 	isl_set *group_domain =
 		isl_set_copy(isl_set_from_cloog_domain(group.parent_for->domain));
 
-	std::cerr << "group domain: " << std::endl;
-	isl_set_dump(group_domain);
-
 	int tiling_dim_count = isl_set_count_tiling_dimensions(group_domain);
-	std::cerr << "tiled dimensions found: " << tiling_dim_count << std::endl;
 
 	// if there are no tiled dimensions we can skip this group
 	if (tiling_dim_count == 0) {
@@ -180,9 +177,6 @@ void pesto::ParamTilingUtility::tileGroup(StmtGroup &group) {
 		struct clast_for *outter_for = data->outter_for;
 		struct clast_for *inner_for = data->inner_for;
 		int tiling_depth = data->tiling_depth;
-
-		// TODO: remove
-		std::cerr << "Processing " << outter_for->iterator << std::endl;
 
 		this->computeCodegenData(group, outter_for, inner_for, tiling_depth);
 
@@ -374,33 +368,6 @@ void pesto::ParamTilingUtility::computeCodegenData(struct StmtGroup &group,
 	header_data.iterator_name = strdup(outter_for->iterator);
 	body_data.iterator_name = strdup(outter_for->iterator);
 
-	header_data.npar = this->cloogProgram->names->nb_parameters;
-	body_data.npar = this->cloogProgram->names->nb_parameters;
-	for (int i = 0; i < tiling_depth; i++) {
-		header_data.npar += 2;
-		body_data.npar += 2;
-	}
-
-	header_data.params = (char **)malloc(header_data.npar * sizeof(char *));
-	body_data.params = (char **)malloc(body_data.npar * sizeof(char *));
-	for (int i = 0; i < this->cloogProgram->names->nb_parameters; i++) {
-		header_data.params[i] =
-			strdup(this->cloogProgram->names->parameters[i]);
-		body_data.params[i] = strdup(this->cloogProgram->names->parameters[i]);
-	}
-	for (int i = 0; i < tiling_depth; i++) {
-		auto pair = group.tilingData[i]->codegen_data;
-		header_data.params[2 * i + this->cloogProgram->names->nb_parameters] =
-			strdup(pair.first.lb_name);
-		header_data
-			.params[2 * i + 1 + this->cloogProgram->names->nb_parameters] =
-			strdup(pair.first.ub_name);
-		body_data.params[2 * i + this->cloogProgram->names->nb_parameters] =
-			strdup(pair.second.lb_name);
-		body_data.params[2 * i + 1 + this->cloogProgram->names->nb_parameters] =
-			strdup(pair.second.ub_name);
-	}
-
 	header_data.nest_id = this->id;
 	body_data.nest_id = this->id;
 
@@ -463,21 +430,65 @@ void pesto::ParamTilingUtility::computeCodegenData(struct StmtGroup &group,
 			isl_set_set_dim_name(inner_domain, isl_dim_set, i,
 								 this->cloogProgram->names->scattering[i]);
 	}
-	isl_set_dump(inner_domain);
+	inner_domain =
+		this->moveNonTiledDimensionsToParameters(inner_domain, group);
 	inner_domain =
 		this->extractIslInnerTiledDomain(group, inner_domain, tiling_depth + 1);
+	// We need to update cloog names with new parameters
+	for (int bound = 0; bound < 2; ++bound) {
+		CloogNames *names = bound == 0 ? lb_names : ub_names;
+		if (names->nb_parameters == isl_set_dim(inner_domain, isl_dim_param)) {
+			continue;
+		}
+		for (isl_size i = 0; i < names->nb_parameters; i += 1) {
+			if (names->parameters[i] != NULL) {
+				free(names->parameters[i]);
+			}
+		}
+		names->nb_parameters = isl_set_dim(inner_domain, isl_dim_param);
+		names->parameters = (char **)realloc(
+			names->parameters, names->nb_parameters * sizeof(char *));
+		for (isl_size i = 0; i < names->nb_parameters; i += 1) {
+			names->parameters[i] =
+				strdup(isl_set_get_dim_name(inner_domain, isl_dim_param, i));
+		}
+	}
+
+	std::cerr << "[param-tiling] Inner domain after extraction: " << std::endl;
+	isl_set_dump(inner_domain);
+
+	isl_size npar = isl_set_dim(inner_domain, isl_dim_param);
+	header_data.npar = npar;
+	body_data.npar = npar;
+	for (int i = 0; i < tiling_depth; i++) {
+		header_data.npar += 2;
+		body_data.npar += 2;
+	}
+	header_data.params = (char **)malloc(header_data.npar * sizeof(char *));
+	body_data.params = (char **)malloc(body_data.npar * sizeof(char *));
+
+	for (isl_size i = 0; i < npar; i++) {
+		header_data.params[i] =
+			strdup(isl_set_get_dim_name(inner_domain, isl_dim_param, i));
+		body_data.params[i] =
+			strdup(isl_set_get_dim_name(inner_domain, isl_dim_param, i));
+	}
+	for (int i = 0; i < tiling_depth; i++) {
+		auto pair = group.tilingData[i]->codegen_data;
+		header_data.params[2 * i + npar] = strdup(pair.first.lb_name);
+		header_data.params[2 * i + 1 + npar] = strdup(pair.first.ub_name);
+		body_data.params[2 * i + npar] = strdup(pair.second.lb_name);
+		body_data.params[2 * i + 1 + npar] = strdup(pair.second.ub_name);
+	}
 
 	// for (std::size_t i = 0; i < group.tilingData.size(); i += 1) {
 	// 	auto &data = group.tilingData[i];
 	// 	char *name = (char *)malloc(32 * sizeof(char));
 	// 	snprintf(name, 32, "g%d_lb%s", group.id, data->inner_for->iterator);
 
-	// 	inner_domain = isl_set_set_dim_name(inner_domain, isl_dim_set, i, name);
-	// 	free(name);
+	// 	inner_domain = isl_set_set_dim_name(inner_domain, isl_dim_set, i,
+	// name); 	free(name);
 	// }
-
-	fprintf(stderr, "inner_domain:\n");
-	isl_set_dump(inner_domain);
 
 	for (int bound = 0; bound < 2; bound += 1) {
 		struct clast_expr *expr =
@@ -490,10 +501,12 @@ void pesto::ParamTilingUtility::computeCodegenData(struct StmtGroup &group,
 			fclose(fd);
 
 			free_clast_expr(expr);
+		} else {
+			std::cerr << "[param-tiling] Warning: cannot compute bound "
+						 "expression"
+					  << std::endl;
 		}
 	}
-	fprintf(stderr, "lb_expr: %s\n", lb_expr);
-	fprintf(stderr, "ub_expr: %s\n", ub_expr);
 	header_data.lb_expr = strdup(lb_expr);
 	header_data.ub_expr = strdup(ub_expr);
 	body_data.lb_expr = strdup(lb_expr);
@@ -852,6 +865,12 @@ void pesto::ParamTilingUtility::computeTrahrheDomain(struct StmtGroup &group) {
 									  this->cloogProgram->names->scattering[i]);
 	}
 	isl_set_dump(domain);
+	std::cerr << std::endl;
+
+	domain = this->moveNonTiledDimensionsToParameters(domain, group);
+
+	isl_set_dump(domain);
+	std::cerr << std::endl;
 
 	// apply the map to original domain
 	isl_set *out = this->extractIslInnerTiledDomain(group, isl_set_copy(domain),
@@ -866,6 +885,9 @@ void pesto::ParamTilingUtility::computeTrahrheDomain(struct StmtGroup &group) {
 		out = isl_set_set_dim_name(out, isl_dim_set, i, buffer);
 		free(buffer);
 	}
+
+	isl_set_dump(out);
+	std::cerr << std::endl;
 
 	int ntiled_dim = 0;
 	for (std::size_t i = 0; i < group.tilingData.size(); i += 1) {
@@ -907,17 +929,13 @@ __isl_give isl_set *pesto::ParamTilingUtility::extractIslInnerTiledDomain(
 	// that will transform the current dimensions to keep only the tiled
 	// dimensions in the order of the tiling iterators
 	isl_space *space = isl_set_get_space(domain);
-	isl_map *trans = isl_map_universe(isl_space_copy(space));
-	isl_space_free(space);
+	isl_map *trans = isl_map_universe(space);
 
 	// we move all dimensions to input dimensions
 	trans = isl_map_move_dims(trans, isl_dim_in, 0, isl_dim_set, 0,
 							  isl_map_dim(trans, isl_dim_set));
 	// we have as much output dimensions as tiled dimensions
-	// TODO: move untiled dimensions as parameters
 	trans = isl_map_add_dims(trans, isl_dim_out, ndim);
-
-	char *buffer = (char *)malloc(STR_BUF_SIZE * sizeof(char));
 
 	// for each tiled dimensionss
 	for (std::size_t i = 0; i < ndim; i += 1) {
@@ -935,13 +953,9 @@ __isl_give isl_set *pesto::ParamTilingUtility::extractIslInnerTiledDomain(
 		cst = isl_constraint_set_coefficient_si(cst, isl_dim_out, i, 1);
 		trans = isl_map_add_constraint(trans, cst);
 	}
-	free(buffer);
 
 	// apply the map to original domain
-	isl_set *out = isl_set_apply(isl_set_copy(domain), isl_map_copy(trans));
-
-	isl_set_free(domain);
-	isl_map_free(trans);
+	isl_set *out = isl_set_apply(domain, trans);
 
 	return out;
 }
@@ -953,4 +967,45 @@ void pesto::ParamTilingUtility::setBoundComputingMethod(
 
 void pesto::ParamTilingUtility::setTileSizeTarget(int size) {
 	this->tilesizeTarget = size;
+}
+
+__isl_give isl_set *
+pesto::ParamTilingUtility::moveNonTiledDimensionsToParameters(
+	__isl_take isl_set *set, struct StmtGroup &group) {
+
+	isl_set *domain = isl_set_copy(set);
+	isl_set_free(set);
+
+	isl_size ndim = isl_set_dim(set, isl_dim_set);
+	// TODO: move untiled dimensions as parameters
+	for (isl_size i = 0; i < ndim; i++) {
+		// ignore scalar dim
+		if (isl_set_is_dim_scalar(domain, i)) {
+			continue;
+		}
+		bool is_tiled = false;
+		// search if this dimension is tiled
+		for (std::size_t j = 0; j < group.tilingData.size(); j += 1) {
+			auto &data = group.tilingData[j];
+			int in_idx = isl_set_find_dim_by_name(domain, isl_dim_set,
+												  data->inner_for->iterator);
+			int out_idx = isl_set_find_dim_by_name(domain, isl_dim_set,
+												   data->outter_for->iterator);
+			if (i == in_idx || i == out_idx) {
+				is_tiled = true;
+				break;
+			}
+		}
+		if (is_tiled) {
+			continue;
+		}
+		std::cerr << "dim " << isl_set_get_dim_name(domain, isl_dim_set, i)
+				  << "(" << i << ") will be moved to param " << std::endl;
+		isl_size npar = isl_set_dim(domain, isl_dim_param);
+		domain =
+			isl_set_move_dims(domain, isl_dim_param, npar, isl_dim_set, i, 1);
+		i -= 1;
+		ndim = isl_set_dim(domain, isl_dim_set);
+	}
+	return domain;
 }
