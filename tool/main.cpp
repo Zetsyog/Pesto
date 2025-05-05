@@ -115,7 +115,7 @@ int main(int argc, char **argv) {
 
 	// run the passes
 	std::cerr << "[pesto-tool] Running optimizations passes" << std::endl;
-	passManager->runPasses(*program.get());
+	passManager->run(*program.get());
 
 	std::cerr << "[pesto-tool] Done" << std::endl;
 	return 0;

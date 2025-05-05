@@ -2,11 +2,13 @@
 #define PESTO_OPENSCOP_OPTIMIZER_H
 
 #include <memory>
+#include <vector>
+
 #include <osl/osl.h>
+
 #include <pesto/OslScop.hpp>
 #include <pesto/Pass.hpp>
 #include <pesto/Program.hpp>
-#include <vector>
 
 namespace pesto {
 
@@ -28,9 +30,8 @@ class PassManager {
 	/**
 	 * Run optimization passes
 	 * Multiple passes can be run
-	 * TODO: wip
 	 */
-	void runPasses(Program &prog);
+	void run(Program &prog);
 
 	void addPass(std::unique_ptr<pesto::pass::IPass> pass);
 
