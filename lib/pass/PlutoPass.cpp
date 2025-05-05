@@ -1,5 +1,4 @@
 #include <iostream>
-#include <string.h>
 
 #include <isl/id.h>
 #include <isl/map.h>
@@ -16,7 +15,7 @@
 #include <pluto/pluto_internal.h>
 #include <pluto/program.h>
 
-#include "pesto/Pesto.hpp"
+#include <pesto/Pesto.hpp>
 #include <pesto/isl_support.h>
 
 #define PLUTO_DEBUG 0
