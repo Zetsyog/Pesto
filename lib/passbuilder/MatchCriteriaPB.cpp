@@ -8,8 +8,7 @@ MatchCriteriaPB::MatchCriteriaPB() {}
 
 MatchCriteriaPB::~MatchCriteriaPB() {}
 
-std::unique_ptr<pesto::pass::IPass>
-MatchCriteriaPB::build(PassManagerBuilder &builder, const json &j) {
+std::unique_ptr<pesto::pass::IPass> MatchCriteriaPB::build(PassManagerBuilder &builder, const json &j) {
 	auto pass = std::make_unique<MatchCriteriaPass>();
 
 	if (!j.contains("criteria")) {

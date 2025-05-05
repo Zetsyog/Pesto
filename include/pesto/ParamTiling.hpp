@@ -6,8 +6,6 @@
 #include <utility>
 #include <vector>
 
-#include <pesto/trahrhe.h>
-
 #include <isl/set.h>
 
 #include <osl/osl.h>
@@ -16,6 +14,8 @@
 
 #include <cloog/clast.h>
 
+#include <pesto/codegen/ParamTiling.hpp>
+#include <pesto/trahrhe.h>
 namespace pesto {
 
 enum class ParamTilingType { RECTANGULAR, ALGEBRAIC, SCHEDULED };
@@ -30,8 +30,7 @@ struct TilingData {
 	struct clast_for *inner_for;
 	int tiling_depth;
 	// TODO: only one codegen_data should be needed
-	std::pair<struct trahrhe_codegen_data, struct trahrhe_codegen_data>
-		codegen_data;
+	std::pair<struct trahrhe_codegen_data, struct trahrhe_codegen_data> codegen_data;
 };
 
 struct StmtGroup {
@@ -129,13 +128,11 @@ class ParamTilingUtility {
 	std::string errorMessage;
 
 	/* str utilities */
-	std::vector<std::shared_ptr<std::string>>
-		names; /* those string should survive till code gen */
+	std::vector<std::shared_ptr<std::string>> names; /* those string should survive till code gen */
 
 	/* code gen */
 	int id;
-	std::vector<std::pair<int, std::string>>
-		statements; /* list of statements id and their content */
+	std::vector<std::pair<int, std::string>> statements; /* list of statements id and their content */
 	std::vector<std::string> varList;
 
 	trahrhe_bound_compute_method boundComputeMethod;
@@ -150,34 +147,27 @@ class ParamTilingUtility {
 
 	void sanityCheck();
 
-	void computeCodegenData(struct StmtGroup &group,
-							struct clast_for *outter_for,
-							struct clast_for *inner_for, int tiling_depth);
+	void computeCodegenData(struct StmtGroup &group, struct clast_for *outter_for, struct clast_for *inner_for,
+							int tiling_depth);
 
 	int islFirstTilingDimIdx(struct StmtGroup &group);
 
-	void insertStatements(struct StmtGroup &group, struct clast_for *outter_for,
-						  struct clast_for *inner_for, int tiling_depth);
+	void insertStatements(struct StmtGroup &group, struct clast_for *outter_for, struct clast_for *inner_for,
+						  int tiling_depth);
 
-	void replaceInnerForBounds(struct StmtGroup &group,
-							   struct clast_for *outter_for,
-							   struct clast_for *inner_for, int tiling_depth);
+	void replaceInnerForBounds(struct StmtGroup &group, struct clast_for *outter_for, struct clast_for *inner_for,
+							   int tiling_depth);
 
-	void replaceOutterForBounds(struct StmtGroup &group,
-								struct clast_for *outter_for,
-								struct clast_for *inner_for, int tiling_depth);
+	void replaceOutterForBounds(struct StmtGroup &group, struct clast_for *outter_for, struct clast_for *inner_for,
+								int tiling_depth);
 
 	void generateStatements(struct StmtGroup &group);
 
-	__isl_give isl_set *dropTilingConstraints(__isl_take isl_set *set,
-											  struct StmtGroup &group);
+	__isl_give isl_set *dropTilingConstraints(__isl_take isl_set *set, struct StmtGroup &group);
 
-	__isl_give isl_set *removeTilingDimensions(__isl_take isl_set *set,
-											   struct StmtGroup &group);
+	__isl_give isl_set *removeTilingDimensions(__isl_take isl_set *set, struct StmtGroup &group);
 
-	__isl_give isl_set *
-	moveNonTiledDimensionsToParameters(__isl_take isl_set *set,
-									   struct StmtGroup &group);
+	__isl_give isl_set *moveNonTiledDimensionsToParameters(__isl_take isl_set *set, struct StmtGroup &group);
 
 	void declareVariable(std::string varName);
 
@@ -187,8 +177,7 @@ class ParamTilingUtility {
 
 	void updateOmpPragma(struct StmtGroup &group);
 
-	__isl_give isl_set *extractIslInnerTiledDomain(struct StmtGroup &group,
-												   __isl_take isl_set *domain,
+	__isl_give isl_set *extractIslInnerTiledDomain(struct StmtGroup &group, __isl_take isl_set *domain,
 												   std::size_t ndim);
 };
 

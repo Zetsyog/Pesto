@@ -17,8 +17,8 @@
 
 #include <pesto/isl_support.h>
 
-void osl_scop_to_isl(osl_scop_p scop, isl_ctx *ctx, isl_union_map **schedules,
-					 isl_union_map **reads, isl_union_map **writes) {
+void osl_scop_to_isl(osl_scop_p scop, isl_ctx *ctx, isl_union_map **schedules, isl_union_map **reads,
+					 isl_union_map **writes) {
 	if (scop == NULL) {
 		return;
 	}
@@ -34,8 +34,7 @@ void osl_scop_to_isl(osl_scop_p scop, isl_ctx *ctx, isl_union_map **schedules,
 	osl_strings_p names = (osl_strings_p)scop->parameters->data;
 
 	int i = 0;
-	for (osl_statement_p stmt = scop->statement; stmt != NULL;
-		 stmt = stmt->next, i += 1) {
+	for (osl_statement_p stmt = scop->statement; stmt != NULL; stmt = stmt->next, i += 1) {
 
 		char stmt_name[100] = {0};
 		sprintf(stmt_name, "S_%d", i);
@@ -53,8 +52,7 @@ void osl_scop_to_isl(osl_scop_p scop, isl_ctx *ctx, isl_union_map **schedules,
 		}
 		_schedules = isl_union_map_add_map(_schedules, map);
 
-		for (osl_relation_list_p node = stmt->access; node != NULL;
-			 node = node->next) {
+		for (osl_relation_list_p node = stmt->access; node != NULL; node = node->next) {
 			osl_relation_p rel = node->elt;
 			if (rel->type == OSL_TYPE_READ) {
 				map = isl_map_from_osl_relation(rel, ctx);
@@ -72,8 +70,7 @@ void osl_scop_to_isl(osl_scop_p scop, isl_ctx *ctx, isl_union_map **schedules,
 	*reads = _reads;
 	*writes = _writes;
 }
-__isl_give isl_set *isl_set_from_osl_relation(osl_relation_p relation,
-											  isl_ctx *ctx) {
+__isl_give isl_set *isl_set_from_osl_relation(osl_relation_p relation, isl_ctx *ctx) {
 	char *str = osl_relation_spprint_polylib(relation, NULL);
 	isl_set *set = isl_set_read_from_str(ctx, str);
 	free(str);
@@ -81,16 +78,14 @@ __isl_give isl_set *isl_set_from_osl_relation(osl_relation_p relation,
 	return set;
 }
 
-__isl_give isl_map *isl_map_from_osl_relation(osl_relation_p relation,
-											  isl_ctx *ctx) {
+__isl_give isl_map *isl_map_from_osl_relation(osl_relation_p relation, isl_ctx *ctx) {
 	char *str = osl_relation_spprint_polylib(relation, NULL);
 	isl_map *map = isl_map_read_from_str(ctx, str);
 	free(str);
 	return map;
 }
 
-__isl_give isl_constraint *
-isl_basic_set_dim_lb_cst(__isl_keep isl_basic_set *bset, int pos) {
+__isl_give isl_constraint *isl_basic_set_dim_lb_cst(__isl_keep isl_basic_set *bset, int pos) {
 	// retrieve constraint list
 	isl_constraint_list *cst_list = isl_basic_set_get_constraint_list(bset);
 	isl_size list_len = isl_constraint_list_size(cst_list);
@@ -109,8 +104,7 @@ isl_basic_set_dim_lb_cst(__isl_keep isl_basic_set *bset, int pos) {
 	return result;
 }
 
-__isl_give isl_constraint *
-isl_basic_set_dim_ub_cst(__isl_keep isl_basic_set *bset, int pos) {
+__isl_give isl_constraint *isl_basic_set_dim_ub_cst(__isl_keep isl_basic_set *bset, int pos) {
 	// retrieve constraint list
 	isl_constraint_list *cst_list = isl_basic_set_get_constraint_list(bset);
 	isl_size list_len = isl_constraint_list_size(cst_list);
@@ -129,15 +123,12 @@ isl_basic_set_dim_ub_cst(__isl_keep isl_basic_set *bset, int pos) {
 	return result;
 }
 
-__isl_give isl_basic_set *
-isl_basic_set_minmax_union(__isl_take isl_basic_set *bset1,
-						   __isl_take isl_basic_set *bset2) {
+__isl_give isl_basic_set *isl_basic_set_minmax_union(__isl_take isl_basic_set *bset1, __isl_take isl_basic_set *bset2) {
 	isl_size ndim1 = isl_basic_set_n_dim(bset1);
 	isl_size ndim2 = isl_basic_set_n_dim(bset2);
 
 	assert(ndim1 == ndim2);
-	isl_basic_set *result =
-		isl_basic_set_universe(isl_basic_set_get_space(bset1));
+	isl_basic_set *result = isl_basic_set_universe(isl_basic_set_get_space(bset1));
 
 	for (isl_size i = 0; i < ndim1; i++) {
 		isl_constraint *lb1 = isl_basic_set_dim_lb_cst(bset1, i);
@@ -151,13 +142,11 @@ isl_basic_set_minmax_union(__isl_take isl_basic_set *bset1,
 		} else if (lb1 == NULL) {
 			// no lower bound in bset1
 			// add lower bound of bset2
-			result =
-				isl_basic_set_add_constraint(result, isl_constraint_copy(lb2));
+			result = isl_basic_set_add_constraint(result, isl_constraint_copy(lb2));
 		} else if (lb2 == NULL) {
 			// no lower bound in bset2
 			// add lower bound of bset1
-			result =
-				isl_basic_set_add_constraint(result, isl_constraint_copy(lb1));
+			result = isl_basic_set_add_constraint(result, isl_constraint_copy(lb1));
 		} else {
 			isl_pw_aff *aff1 = isl_pw_aff_from_aff(isl_constraint_get_aff(lb1));
 			isl_pw_aff *aff2 = isl_pw_aff_from_aff(isl_constraint_get_aff(lb2));
@@ -169,11 +158,9 @@ isl_basic_set_minmax_union(__isl_take isl_basic_set *bset1,
 
 			if (cmp < 0) {
 				// lb1 < lb2
-				result = isl_basic_set_add_constraint(result,
-													  isl_constraint_copy(lb2));
+				result = isl_basic_set_add_constraint(result, isl_constraint_copy(lb2));
 			} else {
-				result = isl_basic_set_add_constraint(result,
-													  isl_constraint_copy(lb1));
+				result = isl_basic_set_add_constraint(result, isl_constraint_copy(lb1));
 			}
 		}
 
@@ -183,13 +170,11 @@ isl_basic_set_minmax_union(__isl_take isl_basic_set *bset1,
 		} else if (ub1 == NULL) {
 			// no upper bound in bset1
 			// add upper bound of bset2
-			result =
-				isl_basic_set_add_constraint(result, isl_constraint_copy(ub2));
+			result = isl_basic_set_add_constraint(result, isl_constraint_copy(ub2));
 		} else if (ub2 == NULL) {
 			// no upper bound in bset2
 			// add upper bound of bset1
-			result =
-				isl_basic_set_add_constraint(result, isl_constraint_copy(ub1));
+			result = isl_basic_set_add_constraint(result, isl_constraint_copy(ub1));
 		} else {
 			isl_pw_aff *aff1 = isl_pw_aff_from_aff(isl_constraint_get_aff(ub1));
 			isl_pw_aff *aff2 = isl_pw_aff_from_aff(isl_constraint_get_aff(ub2));
@@ -200,11 +185,9 @@ isl_basic_set_minmax_union(__isl_take isl_basic_set *bset1,
 			isl_pw_aff_free(aff2);
 			if (cmp < 0) {
 				// ub1 < ub2
-				result = isl_basic_set_add_constraint(result,
-													  isl_constraint_copy(ub2));
+				result = isl_basic_set_add_constraint(result, isl_constraint_copy(ub2));
 			} else {
-				result = isl_basic_set_add_constraint(result,
-													  isl_constraint_copy(ub1));
+				result = isl_basic_set_add_constraint(result, isl_constraint_copy(ub1));
 			}
 		}
 
@@ -228,15 +211,13 @@ __isl_give isl_set *isl_set_from_osl_stmt(isl_ctx *ctx, osl_statement_p stmt) {
 	return domain;
 }
 
-__isl_give isl_basic_set *isl_basic_set_from_osl_scop(isl_ctx *ctx,
-													  osl_scop_p scop) {
+__isl_give isl_basic_set *isl_basic_set_from_osl_scop(isl_ctx *ctx, osl_scop_p scop) {
 	osl_scop_p tmp_scop = osl_scop_remove_unions(scop);
 	osl_scop_normalize_scattering(tmp_scop);
 
 	isl_basic_set *result_bset = NULL;
 
-	for (osl_statement_p stmt = scop->statement; stmt != NULL;
-		 stmt = stmt->next) {
+	for (osl_statement_p stmt = scop->statement; stmt != NULL; stmt = stmt->next) {
 		isl_set *domain = isl_set_from_osl_stmt(ctx, stmt);
 		isl_basic_set_list *bset_list = isl_set_get_basic_set_list(domain);
 		isl_size n_bset = isl_basic_set_list_n_basic_set(bset_list);
@@ -265,22 +246,17 @@ __isl_give isl_basic_set *isl_basic_set_from_osl_scop(isl_ctx *ctx,
 	osl_strings_p names = (osl_strings_p)tmp_scop->parameters->data;
 
 	for (int i = 0; i < npar; i++) {
-		result_bset = isl_basic_set_set_dim_name(result_bset, isl_dim_param, i,
-												 names->string[i]);
+		result_bset = isl_basic_set_set_dim_name(result_bset, isl_dim_param, i, names->string[i]);
 	}
 
 	osl_scop_free(tmp_scop);
 	return result_bset;
 }
 
-__isl_give isl_set *
-isl_set_set_param_names_from_osl_scop(__isl_take isl_set *set,
-									  osl_scop_p scop) {
+__isl_give isl_set *isl_set_set_param_names_from_osl_scop(__isl_take isl_set *set, osl_scop_p scop) {
 	// set param names
 	for (int i = 0; i < osl_scop_get_nb_parameters(scop); i += 1) {
-		set = isl_set_set_dim_name(
-			set, isl_dim_param, i,
-			((osl_strings_p)scop->parameters->data)->string[i]);
+		set = isl_set_set_dim_name(set, isl_dim_param, i, ((osl_strings_p)scop->parameters->data)->string[i]);
 	}
 
 	return set;
@@ -314,11 +290,9 @@ isl_bool isl_basic_set_is_tiling_dim(__isl_keep isl_basic_set *bset, int pos) {
 	for (isl_size i = 0; i < list_len; i += 1) {
 		isl_constraint *cst = isl_constraint_list_get_at(cst_list, i);
 
-		isl_val *val =
-			isl_constraint_get_coefficient_val(cst, isl_dim_set, pos);
+		isl_val *val = isl_constraint_get_coefficient_val(cst, isl_dim_set, pos);
 		// val is non-zero and not 1 or -1
-		if (isl_val_is_zero(val) == isl_bool_false &&
-			isl_val_is_negone(val) == isl_bool_false &&
+		if (isl_val_is_zero(val) == isl_bool_false && isl_val_is_negone(val) == isl_bool_false &&
 			isl_val_is_one(val) == isl_bool_false) {
 			// we need to ensure that we have at least two constraints with the
 			// same coefficient in absolute value for the given dimension
@@ -375,8 +349,7 @@ __isl_give isl_set *isl_set_drop_tiling_constraints(__isl_take isl_set *set) {
 			for (int j = 0; j < basic_set_count; j += 1) {
 				isl_basic_set *bset = isl_basic_set_list_get_at(bset_list, j);
 				if (isl_basic_set_is_tiling_dim(bset, i)) {
-					set = isl_set_drop_constraints_involving_dims(
-						set, isl_dim_set, i, 1);
+					set = isl_set_drop_constraints_involving_dims(set, isl_dim_set, i, 1);
 					j = basic_set_count;
 					i = ndim;
 				}
@@ -404,18 +377,14 @@ isl_bool isl_set_is_dim_scalar(__isl_keep isl_set *set, int dim) {
 				continue;
 			}
 			// if constraint does not involve the given dimension, skip
-			if (isl_constraint_involves_dims(cst, isl_dim_set, dim, 1) ==
-				isl_bool_false) {
+			if (isl_constraint_involves_dims(cst, isl_dim_set, dim, 1) == isl_bool_false) {
 				isl_constraint_free(cst);
 				continue;
 			}
 			// if constraint involve any other dimension, return false
-			if (isl_constraint_involves_dims(cst, isl_dim_set, 0, dim) ==
-					isl_bool_true ||
-				isl_constraint_involves_dims(
-					cst, isl_dim_set, dim + 1,
-					isl_basic_set_dim(bset, isl_dim_set) - dim - 1) ==
-					isl_bool_true) {
+			if (isl_constraint_involves_dims(cst, isl_dim_set, 0, dim) == isl_bool_true ||
+				isl_constraint_involves_dims(cst, isl_dim_set, dim + 1,
+											 isl_basic_set_dim(bset, isl_dim_set) - dim - 1) == isl_bool_true) {
 				isl_constraint_free(cst);
 				continue;
 			}

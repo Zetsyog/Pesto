@@ -2,18 +2,17 @@
 
 using namespace pesto::builder;
 
-#define PESTO_BIND_PLUTO_OPT(json_key, json_val, pluto_opt, name)              \
-	if (json_key == #name) {                                                   \
-		pluto_opt.name = json_val;                                             \
-		continue;                                                              \
+#define PESTO_BIND_PLUTO_OPT(json_key, json_val, pluto_opt, name)                                                      \
+	if (json_key == #name) {                                                                                           \
+		pluto_opt.name = json_val;                                                                                     \
+		continue;                                                                                                      \
 	}
 
 PlutoPB::PlutoPB() {}
 
 PlutoPB::~PlutoPB() {}
 
-std::unique_ptr<pesto::pass::IPass> PlutoPB::build(PassManagerBuilder &builder,
-												   const json &j) {
+std::unique_ptr<pesto::pass::IPass> PlutoPB::build(PassManagerBuilder &builder, const json &j) {
 	(void)builder;
 
 	// TODO Parse the JSON object and build the pass
@@ -37,10 +36,8 @@ std::unique_ptr<pesto::pass::IPass> PlutoPB::build(PassManagerBuilder &builder,
 		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), diamondtile);
 		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), per_cc_obj);
 		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), dynschedule);
-		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(),
-							 dynschedule_graph_old);
-		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(),
-							 dyn_trans_deps_tasks);
+		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), dynschedule_graph_old);
+		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), dyn_trans_deps_tasks);
 		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), fulldiamondtile);
 		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), parallel);
 		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), innerpar);
@@ -84,9 +81,7 @@ std::unique_ptr<pesto::pass::IPass> PlutoPB::build(PassManagerBuilder &builder,
 		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), flic);
 		if (key == "fuse") {
 			if (!val.is_string()) {
-				std::cerr
-					<< "Warning: option 'fuse' should be a string. Skipping."
-					<< std::endl;
+				std::cerr << "Warning: option 'fuse' should be a string. Skipping." << std::endl;
 				continue;
 			} else {
 				std::string fuse = options["fuse"];
@@ -101,9 +96,7 @@ std::unique_ptr<pesto::pass::IPass> PlutoPB::build(PassManagerBuilder &builder,
 				} else if (fuse == "hybrid") {
 					pass->getOptions().fuse = kHybridFuse;
 				} else {
-					std::cerr
-						<< "Warning: unknown value for 'fuse' option: " << fuse
-						<< std::endl;
+					std::cerr << "Warning: unknown value for 'fuse' option: " << fuse << std::endl;
 				}
 			}
 			continue;
@@ -112,8 +105,7 @@ std::unique_ptr<pesto::pass::IPass> PlutoPB::build(PassManagerBuilder &builder,
 			std::vector<int> tile_sizes;
 			val.get_to(tile_sizes);
 			pass->getOptions().tile_sizes_len = tile_sizes.size();
-			pass->getOptions().tile_sizes =
-				(int *)malloc(tile_sizes.size() * sizeof(int));
+			pass->getOptions().tile_sizes = (int *)malloc(tile_sizes.size() * sizeof(int));
 			for (int i = 0; i < pass->getOptions().tile_sizes_len; i++) {
 				pass->getOptions().tile_sizes[i] = tile_sizes[i];
 			}
@@ -127,12 +119,10 @@ std::unique_ptr<pesto::pass::IPass> PlutoPB::build(PassManagerBuilder &builder,
 			continue;
 		}
 
-		if (key == "cloogf" || key == "cloogl" || key == "cloogsh" ||
-			key == "cloogbacktrack") {
-			std::cerr
-				<< "Warning: cloog options are not handled by "
-				   "PlutoPassBuilder as Pluto does not directly generate code"
-				<< std::endl;
+		if (key == "cloogf" || key == "cloogl" || key == "cloogsh" || key == "cloogbacktrack") {
+			std::cerr << "Warning: cloog options are not handled by "
+						 "PlutoPassBuilder as Pluto does not directly generate code"
+					  << std::endl;
 			continue;
 		}
 		if (key == "silent") {
@@ -157,8 +147,7 @@ std::unique_ptr<pesto::pass::IPass> PlutoPB::build(PassManagerBuilder &builder,
 					  << std::endl;
 			continue;
 		}
-		std::cerr << "Warning: unknown pluto option '" << key << "'"
-				  << std::endl;
+		std::cerr << "Warning: unknown pluto option '" << key << "'" << std::endl;
 	}
 
 	return pass;

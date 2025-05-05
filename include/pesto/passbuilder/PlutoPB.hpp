@@ -15,8 +15,7 @@ class PlutoPB : public IPassBuilder {
 	PlutoPB();
 	virtual ~PlutoPB();
 
-	virtual std::unique_ptr<pesto::pass::IPass>
-	build(PassManagerBuilder &builder, const json &j);
+	virtual std::unique_ptr<pesto::pass::IPass> build(PassManagerBuilder &builder, const json &j);
 };
 
 } // namespace builder

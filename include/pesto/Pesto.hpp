@@ -29,9 +29,11 @@
 #include <pesto/passbuilder/PlutoPB.hpp>
 #include <pesto/passbuilder/SplitNestPB.hpp>
 
-#include <pesto/trahrhe.h>
+#include <pesto/codegen/ParamTiling.hpp>
 
 #include <pesto/ParamTiling.hpp>
+#include <pesto/trahrhe.h>
+
 #include <pesto/Pluto.hpp>
 
 #include <pesto/macros.h>

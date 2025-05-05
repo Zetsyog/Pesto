@@ -4,14 +4,10 @@
 #include <pesto/trahrhe.h>
 
 /* codegen functions */
-void trahrhe_codegen_header_stmt_algebraic(FILE *fp,
-										   struct trahrhe_codegen_data *data);
-void trahrhe_codegen_body_stmt_algebraic(FILE *fp,
-										 struct trahrhe_codegen_data *data);
-void trahrhe_codegen_header_stmt_rectangular(FILE *fp,
-											 struct trahrhe_codegen_data *data);
-void trahrhe_codegen_body_stmt_rectangular(FILE *fp,
-										   struct trahrhe_codegen_data *data);
+void trahrhe_codegen_header_stmt_algebraic(FILE *fp, struct trahrhe_codegen_data *data);
+void trahrhe_codegen_body_stmt_algebraic(FILE *fp, struct trahrhe_codegen_data *data);
+void trahrhe_codegen_header_stmt_rectangular(FILE *fp, struct trahrhe_codegen_data *data);
+void trahrhe_codegen_body_stmt_rectangular(FILE *fp, struct trahrhe_codegen_data *data);
 
 void trahrhe_codegen_header_stmt(FILE *fp, struct trahrhe_codegen_data *data) {
 	switch (data->tiling_type) {
@@ -52,8 +48,7 @@ void trahrhe_codegen_stmt(FILE *fp, struct trahrhe_codegen_data *data) {
 	}
 }
 
-void trahrhe_codegen_header_stmt_algebraic(FILE *fp,
-										   struct trahrhe_codegen_data *data) {
+void trahrhe_codegen_header_stmt_algebraic(FILE *fp, struct trahrhe_codegen_data *data) {
 	/*    Tiling upper bound computation     aub0t = DIV0 - 1;   */
 	TRAHRHE_GEN_OUTTER_UB(fprintf, fp, data);
 	fprintf(fp, " = ");
@@ -92,8 +87,7 @@ void trahrhe_codegen_header_stmt_algebraic(FILE *fp,
 	}
 }
 
-void trahrhe_codegen_body_stmt_algebraic(FILE *fp,
-										 struct trahrhe_codegen_data *data) {
+void trahrhe_codegen_body_stmt_algebraic(FILE *fp, struct trahrhe_codegen_data *data) {
 	// lower bound
 	if (data->bound_compute_method == trahrhe_compute_fill_last) {
 		TRAHRHE_GEN_INNER_LB(fprintf, fp, data);
@@ -183,8 +177,7 @@ void trahrhe_codegen_body_stmt_algebraic(FILE *fp,
 	}
 }
 
-void trahrhe_codegen_header_stmt_rectangular(
-	FILE *fp, struct trahrhe_codegen_data *data) {
+void trahrhe_codegen_header_stmt_rectangular(FILE *fp, struct trahrhe_codegen_data *data) {
 	// TODO
 	TRAHRHE_GEN_OUTTER_UB(fprintf, fp, data);
 	fprintf(fp, " = ceild(");
@@ -196,8 +189,7 @@ void trahrhe_codegen_header_stmt_rectangular(
 	TRAHRHE_GEN_DIV(fprintf, fp, data);
 	fprintf(fp, ");\n"); // new line
 }
-void trahrhe_codegen_body_stmt_rectangular(FILE *fp,
-										   struct trahrhe_codegen_data *data) {
+void trahrhe_codegen_body_stmt_rectangular(FILE *fp, struct trahrhe_codegen_data *data) {
 	TRAHRHE_GEN_INNER_LB(fprintf, fp, data);
 	fprintf(fp, "= ");
 	TRAHRHE_GEN_DIV(fprintf, fp, data);
@@ -249,8 +241,7 @@ void trahrhe_codegen_free(struct trahrhe_codegen_data *data) {
 	}
 }
 
-void trahrhe_codegen_header_stmt_schedule(FILE *fp,
-										  struct trahrhe_codegen_data *current,
+void trahrhe_codegen_header_stmt_schedule(FILE *fp, struct trahrhe_codegen_data *current,
 										  struct trahrhe_codegen_data *pair) {
 	// we generate code for the inner loop
 	if (current->depth > pair->depth) {
@@ -261,29 +252,23 @@ void trahrhe_codegen_header_stmt_schedule(FILE *fp,
 	if (current->depth < pair->depth) {
 		// TODO: compute schedule
 		fprintf(fp, "SCHEDULE_ALLOC(tiles, schedule);\\\n");
-		fprintf(fp,
-				"SCHEDULE_COMPUTE(tiles, schedule, _PB_TSTEPS, _PB_N);\\\n");
+		fprintf(fp, "SCHEDULE_COMPUTE(tiles, schedule, _PB_TSTEPS, _PB_N);\\\n");
 		TRAHRHE_GEN_OUTTER_UB(fprintf, fp, current);
 		fprintf(fp, " = schedule.len - 1; \n");
 	}
 }
 
-void trahrhe_codegen_body_stmt_schedule(FILE *fp,
-										struct trahrhe_codegen_data *current,
+void trahrhe_codegen_body_stmt_schedule(FILE *fp, struct trahrhe_codegen_data *current,
 										struct trahrhe_codegen_data *pair) {
 	// we generate code for the inner loop
 	if (current->depth > pair->depth) {
 		TRAHRHE_GEN_INNER_LB(fprintf, fp, pair);
-		fprintf(fp, " = schedule.fronts[%s].tiles[%s]->lb0; \\\n",
-				pair->iterator_name, current->iterator_name);
+		fprintf(fp, " = schedule.fronts[%s].tiles[%s]->lb0; \\\n", pair->iterator_name, current->iterator_name);
 		TRAHRHE_GEN_INNER_UB(fprintf, fp, pair);
-		fprintf(fp, " = schedule.fronts[%s].tiles[%s]->ub0; \\\n",
-				pair->iterator_name, current->iterator_name);
+		fprintf(fp, " = schedule.fronts[%s].tiles[%s]->ub0; \\\n", pair->iterator_name, current->iterator_name);
 		TRAHRHE_GEN_INNER_LB(fprintf, fp, current);
-		fprintf(fp, " = schedule.fronts[%s].tiles[%s]->lb1; \\\n",
-				pair->iterator_name, current->iterator_name);
+		fprintf(fp, " = schedule.fronts[%s].tiles[%s]->lb1; \\\n", pair->iterator_name, current->iterator_name);
 		TRAHRHE_GEN_INNER_UB(fprintf, fp, current);
-		fprintf(fp, " = schedule.fronts[%s].tiles[%s]->ub1; \\\n",
-				pair->iterator_name, current->iterator_name);
+		fprintf(fp, " = schedule.fronts[%s].tiles[%s]->ub1; \\\n", pair->iterator_name, current->iterator_name);
 	}
 }

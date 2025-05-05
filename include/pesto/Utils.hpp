@@ -31,8 +31,7 @@ class MetadataContainer {
 		if (it != metadata_.end()) {
 			throw std::runtime_error("Metadata already set");
 		}
-		std::shared_ptr<T> value =
-			std::make_shared<T>(std::forward<Args>(args)...);
+		std::shared_ptr<T> value = std::make_shared<T>(std::forward<Args>(args)...);
 		metadata_[key] = std::make_shared<std::any>(value);
 	}
 
@@ -51,8 +50,7 @@ class MetadataContainer {
 	/**
 	 * Get a metadata value for a given key, or create it if it does not exist
 	 */
-	template <typename T, typename... Args>
-	std::weak_ptr<T> getOrCreate(Args &&...args) {
+	template <typename T, typename... Args> std::weak_ptr<T> getOrCreate(Args &&...args) {
 		if (!this->get<T>().lock()) {
 			this->set<T>(std::forward<Args>(args)...);
 		}
@@ -62,9 +60,7 @@ class MetadataContainer {
 	/**
 	 * Return whether this container already contains the metadata or not
 	 */
-	template <typename T> bool has() {
-		return this->get<T>().lock() != nullptr;
-	}
+	template <typename T> bool has() { return this->get<T>().lock() != nullptr; }
 
   private:
 	std::unordered_map<std::type_index, std::shared_ptr<std::any>> metadata_;

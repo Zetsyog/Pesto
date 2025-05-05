@@ -10,42 +10,29 @@ PassManagerBuilder::PassManagerBuilder() {}
 PassManagerBuilder::~PassManagerBuilder() {}
 
 std::unique_ptr<PassManagerBuilder> PassManagerBuilder::createDefault() {
-	std::unique_ptr<PassManagerBuilder> pm =
-		std::make_unique<PassManagerBuilder>();
+	std::unique_ptr<PassManagerBuilder> pm = std::make_unique<PassManagerBuilder>();
 
 	// Register the pass builders
-	pm->registerPassBuilder(PESTO_UUID_PASS_CLAST_GEN,
-							std::make_unique<GenClastPB>());
-	pm->registerPassBuilder(PESTO_UUID_PASS_GEN_CLOOG,
-							std::make_unique<CloogCodegenPB>());
-	pm->registerPassBuilder(PESTO_UUID_PASS_PLUTO_GENERIC,
-							std::make_unique<PlutoPB>());
-	pm->registerPassBuilder(PESTO_UUID_PASS_SPLIT_NESTED_LOOPS,
-							std::make_unique<SplitNestPB>());
-	pm->registerPassBuilder(PESTO_UUID_PASS_PARAM_TILING,
-							std::make_unique<ClastParamTilingPB>());
-	pm->registerPassBuilder(PESTO_UUID_PASS_PARAM_CONTEXT,
-							std::make_unique<ParamContextPB>());
-	pm->registerPassBuilder(PESTO_UUID_PASS_MATCH_CRITERIA,
-							std::make_unique<MatchCriteriaPB>());
-	pm->registerPassBuilder(PESTO_UUID_PASS_CLAST_CUSTOM_VEC_PRAGMA,
-							std::make_unique<ClastCustomVecPragmaPB>());
+	pm->registerPassBuilder(PESTO_UUID_PASS_CLAST_GEN, std::make_unique<GenClastPB>());
+	pm->registerPassBuilder(PESTO_UUID_PASS_GEN_CLOOG, std::make_unique<CloogCodegenPB>());
+	pm->registerPassBuilder(PESTO_UUID_PASS_PLUTO_GENERIC, std::make_unique<PlutoPB>());
+	pm->registerPassBuilder(PESTO_UUID_PASS_SPLIT_NESTED_LOOPS, std::make_unique<SplitNestPB>());
+	pm->registerPassBuilder(PESTO_UUID_PASS_PARAM_TILING, std::make_unique<ClastParamTilingPB>());
+	pm->registerPassBuilder(PESTO_UUID_PASS_PARAM_CONTEXT, std::make_unique<ParamContextPB>());
+	pm->registerPassBuilder(PESTO_UUID_PASS_MATCH_CRITERIA, std::make_unique<MatchCriteriaPB>());
+	pm->registerPassBuilder(PESTO_UUID_PASS_CLAST_CUSTOM_VEC_PRAGMA, std::make_unique<ClastCustomVecPragmaPB>());
 
 	return pm;
 }
 
-void PassManagerBuilder::registerPassBuilder(std::string uuid,
-											 std::unique_ptr<IPassBuilder> pb) {
+void PassManagerBuilder::registerPassBuilder(std::string uuid, std::unique_ptr<IPassBuilder> pb) {
 	// Register the pass builder
 	builders[uuid] = std::move(pb);
 }
 
-std::unique_ptr<pesto::PassManager>
-PassManagerBuilder::build(std::string path) {
-	std::cerr << "[pesto-pmbuilder] Building pass manager from " << path
-			  << std::endl;
-	std::cerr << "[pesto-pmbuilder] " << builders.size()
-			  << " builders registered" << std::endl;
+std::unique_ptr<pesto::PassManager> PassManagerBuilder::build(std::string path) {
+	std::cerr << "[pesto-pmbuilder] Building pass manager from " << path << std::endl;
+	std::cerr << "[pesto-pmbuilder] " << builders.size() << " builders registered" << std::endl;
 
 	// Parse the JSON file and build the pass manager
 	std::ifstream file(path);
@@ -87,8 +74,7 @@ bool PassManagerBuilder::hasPassBuilder(std::string uuid) {
 	return builders.find(uuid) != builders.end();
 }
 
-std::unique_ptr<pesto::pass::IPass>
-PassManagerBuilder::buildPass(const json &j) {
+std::unique_ptr<pesto::pass::IPass> PassManagerBuilder::buildPass(const json &j) {
 	// Build a pass from a JSON object
 	if (j.contains("uuid") == false) {
 		std::cerr << "Error: can't parse pass. JSON object does not contain a "
@@ -98,8 +84,7 @@ PassManagerBuilder::buildPass(const json &j) {
 	}
 	std::string uuid = j["uuid"];
 	if (this->hasPassBuilder(uuid) == false) {
-		std::cerr << "Error: could not find pass builder with uuid " << uuid
-				  << std::endl;
+		std::cerr << "Error: could not find pass builder with uuid " << uuid << std::endl;
 		throw std::runtime_error("Parsing error: unknown pass uuid");
 	}
 

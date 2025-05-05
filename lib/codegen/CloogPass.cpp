@@ -17,8 +17,7 @@ void CloogCodegenPass::hookBegin(Program &prog) {
 
 	this->output = prog.getOutputFile();
 
-	log(std::cerr) << "Starting Cloog codegen. Writing in '" << output.string()
-				   << "'" << std::endl;
+	log(std::cerr) << "Starting Cloog codegen. Writing in '" << output.string() << "'" << std::endl;
 
 	GenClastPass genClast = GenClastPass();
 	genClast.apply(prog);
@@ -26,8 +25,7 @@ void CloogCodegenPass::hookBegin(Program &prog) {
 	// Check that all scops has a ClastHolder metadata
 	for (auto scop : prog.getScopNests()) {
 		if (!scop->metadata.has<metadata::ClastHolder>()) {
-			log(std::cerr) << "Could not generate Cloog AST for nest "
-						   << scop->getId() << std::endl;
+			log(std::cerr) << "Could not generate Cloog AST for nest " << scop->getId() << std::endl;
 
 			return;
 		}
@@ -40,8 +38,7 @@ void CloogCodegenPass::hookBegin(Program &prog) {
 	std::ofstream outFile;
 	outFile.open(this->output);
 	if (!outFile.is_open()) {
-		log(std::cerr) << "Failed to open file: " << this->output.string()
-					   << std::endl;
+		log(std::cerr) << "Failed to open file: " << this->output.string() << std::endl;
 		return;
 	}
 	outFile << "/* Variable declarations */" << std::endl;
@@ -60,8 +57,7 @@ void generateStmtMacro(FILE *fd, pesto::OslScop &nest) {
 
 	int idx = 0;
 	while (statement != NULL) {
-		osl_body_p body =
-			(osl_body_p)osl_generic_lookup(statement->extension, OSL_URI_BODY);
+		osl_body_p body = (osl_body_p)osl_generic_lookup(statement->extension, OSL_URI_BODY);
 		if (body == NULL) {
 			continue;
 		}
@@ -108,8 +104,7 @@ void CloogCodegenPass::applyScop(OslScop &nest) {
 	options = clastData->cloogOptions;
 	program = clastData->cloogProgram;
 
-	if (root == nullptr || state == nullptr || options == nullptr ||
-		program == nullptr) {
+	if (root == nullptr || state == nullptr || options == nullptr || program == nullptr) {
 		log(std::cerr) << "Error during Cloog AST generation" << std::endl;
 		return;
 	}
@@ -133,8 +128,7 @@ void CloogCodegenPass::applyScop(OslScop &nest) {
 	fclose(file);
 }
 
-pesto::pass::metadata::VarDeclMetadata
-CloogCodegenPass::mergeVarDecls(Program &prog) {
+pesto::pass::metadata::VarDeclMetadata CloogCodegenPass::mergeVarDecls(Program &prog) {
 	using pesto::pass::metadata::ClastHolder;
 	using pesto::pass::metadata::VarDeclMetadata;
 

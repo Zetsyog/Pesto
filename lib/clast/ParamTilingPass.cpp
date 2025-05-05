@@ -20,11 +20,15 @@ using pesto::pass::metadata::MacroMetadata;
 using pesto::pass::metadata::VarDeclMetadata;
 
 pesto::pass::ClastParamTilingPass::ClastParamTilingPass()
-	: IPass("pass-param-tiling"), gen_trahrhe(false), trahrhe_mask(""),
-	  trahrhe_use_dichotomy(true),
-	  boundComputeMethod(trahrhe_compute_fill_last),
-	  tileSizeHint(PESTO_PARAM_TILING_DEFAULT_TILE_SIZE_HINT),
-	  is_stencil(false), tiling_types(), outputFile(".") {
+	: IPass("pass-param-tiling")
+	, gen_trahrhe(false)
+	, trahrhe_mask("")
+	, trahrhe_use_dichotomy(true)
+	, boundComputeMethod(trahrhe_compute_fill_last)
+	, tileSizeHint(PESTO_PARAM_TILING_DEFAULT_TILE_SIZE_HINT)
+	, is_stencil(false)
+	, tiling_types()
+	, outputFile(".") {
 	using namespace pesto::pass;
 
 	this->gen_clast_pass = std::make_unique<GenClastPass>();
@@ -62,8 +66,7 @@ void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
 
 	tilingUtil->apply();
 	if (tilingUtil->hasError()) {
-		log(std::cerr) << "Error while tiling: "
-					   << tilingUtil->getErrorMessage() << std::endl;
+		log(std::cerr) << "Error while tiling: " << tilingUtil->getErrorMessage() << std::endl;
 	}
 
 	for (auto &name : tilingUtil->getNames()) {
@@ -72,8 +75,7 @@ void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
 
 	auto macroData = scop.metadata.getOrCreate<MacroMetadata>().lock();
 	for (auto &pair : tilingUtil->getStatements()) {
-		macroData->list.push_back("#define S" + std::to_string(pair.first) +
-								  "() " + pair.second);
+		macroData->list.push_back("#define S" + std::to_string(pair.first) + "() " + pair.second);
 	}
 
 	auto varDeclData = scop.metadata.getOrCreate<VarDeclMetadata>().lock();
@@ -100,21 +102,17 @@ void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
 		}
 
 		for (auto &pair : trahrheDomains) {
-			std::string header_filename = filename + "trahrhe.n" +
-										  std::to_string(scop.getId()) + ".g" +
-										  std::to_string(domainCount) + ".h";
+			std::string header_filename =
+				filename + "trahrhe.n" + std::to_string(scop.getId()) + ".g" + std::to_string(domainCount) + ".h";
 
 			trahrhe_context_t *trahrhe_ctx = trahrhe_context_alloc();
-			trahrhe_context_use_dichotomy(trahrhe_ctx,
-										  this->trahrhe_use_dichotomy);
+			trahrhe_context_use_dichotomy(trahrhe_ctx, this->trahrhe_use_dichotomy);
 			trahrhe_context_set_verbosity(trahrhe_ctx, TRAHRHE_VERBOSITY_INFO);
-			trahrhe_context_parse_input_domain(trahrhe_ctx,
-											   (char *)pair.second.c_str());
+			trahrhe_context_parse_input_domain(trahrhe_ctx, (char *)pair.second.c_str());
 			trahrhe_context_set_tile_level(trahrhe_ctx, pair.first);
 
 			size_t trahrhe_len = 0;
-			char **trahrhe_expr = trahrhe_get_inverted_polynomials_expr(
-				trahrhe_ctx, &trahrhe_len);
+			char **trahrhe_expr = trahrhe_get_inverted_polynomials_expr(trahrhe_ctx, &trahrhe_len);
 			if (trahrhe_len == 0) {
 				log(std::cerr) << "Error: "
 							   << "Could not compute trahrhe expr" << std::endl;
@@ -124,9 +122,8 @@ void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
 			log(std::cerr) << "trahrhe header = " << header_path << std::endl;
 			FILE *fp = fopen(header_path.c_str(), "w");
 			if (fp == NULL) {
-				log(std::cerr)
-					<< "Error: "
-					<< "Could not open file " << header_filename << std::endl;
+				log(std::cerr) << "Error: "
+							   << "Could not open file " << header_filename << std::endl;
 				if (trahrhe_expr != NULL) {
 					for (size_t i = 0; i < trahrhe_len; i++) {
 						if (trahrhe_expr[i] != NULL) {
@@ -139,8 +136,7 @@ void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
 			}
 			trahrhe_generate_header(trahrhe_ctx, fp, trahrhe_len, trahrhe_expr);
 			fclose(fp);
-			log(std::cerr) << "Generated trahrhe header file: "
-						   << header_filename << std::endl;
+			log(std::cerr) << "Generated trahrhe header file: " << header_filename << std::endl;
 
 			// TODO: function to generate the header file name
 			std::string macro = "#include \"" + header_filename + "\"";
@@ -160,12 +156,9 @@ void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
 	}
 }
 
-void pesto::pass::ClastParamTilingPass::pushTilingType(ParamTilingType type) {
-	this->tiling_types.push_back(type);
-}
+void pesto::pass::ClastParamTilingPass::pushTilingType(ParamTilingType type) { this->tiling_types.push_back(type); }
 
-pesto::ParamTilingType
-pesto::pass::ClastParamTilingPass::getTilingType(size_t depth) {
+pesto::ParamTilingType pesto::pass::ClastParamTilingPass::getTilingType(size_t depth) {
 	if (this->tiling_types.size() == 0) {
 		return ParamTilingType::ALGEBRAIC;
 	}

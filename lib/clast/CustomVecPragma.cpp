@@ -6,13 +6,11 @@
 
 using pesto::pass::CustomVecPragma;
 
-CustomVecPragma::CustomVecPragma()
-	: pesto::pass::IPass("clast-vec-pragma"), pragma("#pragma ivdep") {}
+CustomVecPragma::CustomVecPragma() : pesto::pass::IPass("clast-vec-pragma"), pragma("#pragma ivdep") {}
 
 CustomVecPragma::~CustomVecPragma() {}
 
-void FindVecLoopRecursive(std::function<void(clast_for *)> callback,
-						  clast_stmt *stmt) {
+void FindVecLoopRecursive(std::function<void(clast_for *)> callback, clast_stmt *stmt) {
 	if (stmt == nullptr) {
 		return;
 	}

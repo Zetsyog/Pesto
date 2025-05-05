@@ -23,13 +23,9 @@ MatchCriteriaPass::MatchCriteriaPass() : pesto::pass::IPass("if-pass") {
 
 MatchCriteriaPass::~MatchCriteriaPass() {}
 
-void MatchCriteriaPass::addThenPass(std::unique_ptr<IPass> pass) {
-	this->thenPasses.push_back(std::move(pass));
-}
+void MatchCriteriaPass::addThenPass(std::unique_ptr<IPass> pass) { this->thenPasses.push_back(std::move(pass)); }
 
-void MatchCriteriaPass::addElsePass(std::unique_ptr<IPass> pass) {
-	this->elsePasses.push_back(std::move(pass));
-}
+void MatchCriteriaPass::addElsePass(std::unique_ptr<IPass> pass) { this->elsePasses.push_back(std::move(pass)); }
 
 void MatchCriteriaPass::setCriteria(std::string criteria) {
 	this->criteria = criteria;
@@ -52,9 +48,7 @@ void MatchCriteriaPass::applyScop(OslScop &nest) {
 	// count max number of iterator
 	osl_statement_p stmt = nest.c_scop()->statement;
 	for (; stmt != NULL; stmt = stmt->next) {
-		max_it = stmt->domain->nb_output_dims > max_it
-					 ? stmt->domain->nb_output_dims
-					 : max_it;
+		max_it = stmt->domain->nb_output_dims > max_it ? stmt->domain->nb_output_dims : max_it;
 	}
 	this->variables["scop_max_it"] = max_it;
 
@@ -68,14 +62,12 @@ void MatchCriteriaPass::applyScop(OslScop &nest) {
 	}
 
 	if (result) {
-		log(std::cerr) << "Criteria matched for scop " << nest.getId()
-					   << ". Applying then passes" << std::endl;
+		log(std::cerr) << "Criteria matched for scop " << nest.getId() << ". Applying then passes" << std::endl;
 		for (auto &pass : this->thenPasses) {
 			pass->applyScop(nest);
 		}
 	} else {
-		log(std::cerr) << "Criteria not matched for scop " << nest.getId()
-					   << ". Applying else passes" << std::endl;
+		log(std::cerr) << "Criteria not matched for scop " << nest.getId() << ". Applying else passes" << std::endl;
 		for (auto &pass : this->elsePasses) {
 			pass->applyScop(nest);
 		}

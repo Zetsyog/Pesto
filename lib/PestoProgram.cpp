@@ -30,9 +30,7 @@ std::filesystem::path Program::getInputFile() { return this->inputFile; }
 
 std::filesystem::path Program::getOutputFile() { return this->outputFile; }
 
-Program::Builder::Builder() : nextScopId(0) {
-	this->prog = std::make_unique<Program>();
-}
+Program::Builder::Builder() : nextScopId(0) { this->prog = std::make_unique<Program>(); }
 
 /**p
  * Build the Program object

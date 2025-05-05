@@ -45,9 +45,7 @@ void PlutoPass::applyScop(OslScop &nest) {
 	this->pluto.run(nest);
 }
 
-PlutoAutoTransformPass::PlutoAutoTransformPass() : PlutoPass() {
-	this->name = "pass-pluto-auto-transform";
-}
+PlutoAutoTransformPass::PlutoAutoTransformPass() : PlutoPass() { this->name = "pass-pluto-auto-transform"; }
 
 PlutoTilingPass::PlutoTilingPass() : PlutoPass() {
 	// pluto opt

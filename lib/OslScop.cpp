@@ -2,9 +2,7 @@
 
 using namespace pesto;
 
-OslScop::OslScop(int id, osl_scop_p scop) : id(id) {
-	this->scop = osl_scop_clone(scop);
-}
+OslScop::OslScop(int id, osl_scop_p scop) : id(id) { this->scop = osl_scop_clone(scop); }
 
 osl_scop_p OslScop::c_scop() { return this->scop; }
 

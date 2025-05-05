@@ -145,6 +145,10 @@ add_subdirectory(test EXCLUDE_FROM_ALL)
 # ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} COMMENT
 # "Generating API documentation with Doxygen" VERBATIM ) endif()
 
+# ##################################################################################################
+# Installation
+# ##################################################################################################
+
 # Install targets
 install(
 	TARGETS pesto pestobin

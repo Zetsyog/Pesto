@@ -6,8 +6,7 @@ SplitNestPB::SplitNestPB() {}
 
 SplitNestPB::~SplitNestPB() {}
 
-std::unique_ptr<pesto::pass::IPass>
-SplitNestPB::build(PassManagerBuilder &builder, const json &j) {
+std::unique_ptr<pesto::pass::IPass> SplitNestPB::build(PassManagerBuilder &builder, const json &j) {
 	(void)builder;
 	(void)j;
 	return std::make_unique<pesto::pass::SplitNestedLoopsPass>();

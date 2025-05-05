@@ -36,8 +36,7 @@ int osl_scop_count_loop_nests(osl_scop_p scop);
  * @param statement
  * @return osl_vector_p
  */
-osl_vector_p
-osl_statement_get_scattering_first_dim_vector(osl_statement_p statement);
+osl_vector_p osl_statement_get_scattering_first_dim_vector(osl_statement_p statement);
 
 /**
  * @brief split the nests of the scop

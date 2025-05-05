@@ -9,36 +9,28 @@ extern "C" {
 
 /* codegen macros */
 // outter loop upper bound
-#define TRAHRHE_GEN_OUTTER_UB(fn, target, data)                                \
-	fn(target, "g%d_ub%s", (data)->group_id, (data)->iterator_name)
+#define TRAHRHE_GEN_OUTTER_UB(fn, target, data) fn(target, "g%d_ub%s", (data)->group_id, (data)->iterator_name)
 
 // DIVi
 #define TRAHRHE_GEN_DIV(fn, target, data) fn(target, "DIV%u", (data)->depth)
 
 // TARGET_VOL_Li
-#define TRAHRHE_GEN_TARGET_VOL(fn, target, data)                               \
-	fn(target, "g%d_TARGET_VOL_L%d", (data)->group_id, (data)->depth)
+#define TRAHRHE_GEN_TARGET_VOL(fn, target, data) fn(target, "g%d_TARGET_VOL_L%d", (data)->group_id, (data)->depth)
 
-#define TRAHRHE_GEN_PCMAX(fn, target, data)                                    \
-	fn(target, "g%d_%s_pcmax", (data)->group_id, (data)->inner_it_name)
+#define TRAHRHE_GEN_PCMAX(fn, target, data) fn(target, "g%d_%s_pcmax", (data)->group_id, (data)->inner_it_name)
 
-#define TRAHRHE_GEN_ERHART_FN(fn, target, data)                                \
-	fn(target, "n%d_g%d_%s_Ehrhart", (data)->nest_id, (data)->group_id,        \
-	   (data)->inner_it_name)
+#define TRAHRHE_GEN_ERHART_FN(fn, target, data)                                                                        \
+	fn(target, "n%d_g%d_%s_Ehrhart", (data)->nest_id, (data)->group_id, (data)->inner_it_name)
 
-#define TRAHRHE_GEN_TRAHRHE_FN(fn, target, data)                               \
-	fn(target, "n%d_g%d_%s_trahrhe_n%d_g%d_%s", (data)->nest_id,               \
-	   (data)->group_id, (data)->inner_it_name, (data)->nest_id,               \
-	   (data)->group_id, (data)->inner_it_name)
+#define TRAHRHE_GEN_TRAHRHE_FN(fn, target, data)                                                                       \
+	fn(target, "n%d_g%d_%s_trahrhe_n%d_g%d_%s", (data)->nest_id, (data)->group_id, (data)->inner_it_name,              \
+	   (data)->nest_id, (data)->group_id, (data)->inner_it_name)
 
-#define TRAHRHE_GEN_INNER_LB(fn, target, data)                                 \
-	fn(target, "g%d_lb%s", (data)->group_id, (data)->inner_it_name)
-#define TRAHRHE_GEN_INNER_UB(fn, target, data)                                 \
-	fn(target, "g%d_ub%s", (data)->group_id, (data)->inner_it_name)
+#define TRAHRHE_GEN_INNER_LB(fn, target, data) fn(target, "g%d_lb%s", (data)->group_id, (data)->inner_it_name)
+#define TRAHRHE_GEN_INNER_UB(fn, target, data) fn(target, "g%d_ub%s", (data)->group_id, (data)->inner_it_name)
 
-#define TRAHRHE_GEN_TRAHRHE_ITERATOR(fn, target, data)                         \
-	fn(target, "n%d_g%d_%s", (data)->nest_id, (data)->group_id,                \
-	   (data)->inner_it_name)
+#define TRAHRHE_GEN_TRAHRHE_ITERATOR(fn, target, data)                                                                 \
+	fn(target, "n%d_g%d_%s", (data)->nest_id, (data)->group_id, (data)->inner_it_name)
 
 enum trahrhe_stmt_type { trahrhe_stmt_head, trahrhe_stmt_body };
 
@@ -73,12 +65,9 @@ struct trahrhe_codegen_data {
 
 void trahrhe_codegen_stmt(FILE *fp, struct trahrhe_codegen_data *data);
 
-void trahrhe_codegen_header_stmt_schedule(FILE *fp,
-										  struct trahrhe_codegen_data *data,
+void trahrhe_codegen_header_stmt_schedule(FILE *fp, struct trahrhe_codegen_data *data,
 										  struct trahrhe_codegen_data *pair);
-void trahrhe_codegen_body_stmt_schedule(FILE *fp,
-										struct trahrhe_codegen_data *data,
-										struct trahrhe_codegen_data *pair);
+void trahrhe_codegen_body_stmt_schedule(FILE *fp, struct trahrhe_codegen_data *data, struct trahrhe_codegen_data *pair);
 
 void trahrhe_codegen_free(struct trahrhe_codegen_data *data);
 

@@ -31,8 +31,7 @@ class IPassBuilder {
 	 * @param j the json object containing the pass configuration
 	 * @return A pointer to the newly created pass
 	 */
-	virtual std::unique_ptr<pesto::pass::IPass>
-	build(PassManagerBuilder &builder, const json &j) = 0;
+	virtual std::unique_ptr<pesto::pass::IPass> build(PassManagerBuilder &builder, const json &j) = 0;
 };
 /**
  * A pass manager builder
@@ -68,8 +67,7 @@ class PassManagerBuilder {
 	 * @brief register a pass builder
 	 * @param pb a pointer to the pass builder
 	 */
-	void registerPassBuilder(std::string uuid,
-							 std::unique_ptr<IPassBuilder> pb);
+	void registerPassBuilder(std::string uuid, std::unique_ptr<IPassBuilder> pb);
 
 	/**
 	 * @brief Creates a new pass manager from json context

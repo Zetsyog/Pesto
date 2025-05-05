@@ -1,5 +1,7 @@
 BasedOnStyle: LLVM
-ColumnLimit: 80
+ColumnLimit: 120
 UseTab: Always
 TabWidth: 4
 IndentWidth: 4
+BreakConstructorInitializers: BeforeComma
+ConstructorInitializerAllOnOneLineOrOnePerLine: true

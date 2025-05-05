@@ -7,16 +7,14 @@
 #include <pesto/clast/clast_support.h>
 #include <pesto/isl_support.h>
 
-struct clast_stmt *clast_get_stmt_before(struct clast_stmt *root,
-										 struct clast_stmt *stmt) {
+struct clast_stmt *clast_get_stmt_before(struct clast_stmt *root, struct clast_stmt *stmt) {
 	for (; root; root = root->next) {
 		struct clast_stmt *syntax_next = clast_get_next(root);
 		if (root->next == stmt || syntax_next == stmt) {
 			return root;
 		}
 		if (clast_stmt_is_branch(stmt)) {
-			struct clast_stmt *before =
-				clast_get_stmt_before(syntax_next, stmt);
+			struct clast_stmt *before = clast_get_stmt_before(syntax_next, stmt);
 			if (before != NULL) {
 				return before;
 			}
@@ -26,9 +24,7 @@ struct clast_stmt *clast_get_stmt_before(struct clast_stmt *root,
 }
 
 int clast_stmt_is_branch(struct clast_stmt *stmt) {
-	return CLAST_STMT_IS_A(stmt, stmt_for) ||
-		   CLAST_STMT_IS_A(stmt, stmt_guard) ||
-		   CLAST_STMT_IS_A(stmt, stmt_block);
+	return CLAST_STMT_IS_A(stmt, stmt_for) || CLAST_STMT_IS_A(stmt, stmt_guard) || CLAST_STMT_IS_A(stmt, stmt_block);
 }
 
 struct clast_stmt *clast_branch_deeper_next(struct clast_stmt *stmt) {
@@ -55,35 +51,25 @@ struct clast_stmt **clast_get_next_ptr(struct clast_stmt *stmt) {
 	}
 }
 
-void clast_set_next(struct clast_stmt *stmt, struct clast_stmt *next) {
-	*clast_get_next_ptr(stmt) = next;
-}
+void clast_set_next(struct clast_stmt *stmt, struct clast_stmt *next) { *clast_get_next_ptr(stmt) = next; }
 
-struct clast_stmt *clast_insert_indepth(struct clast_stmt *before,
-										struct clast_stmt *stmt) {
+struct clast_stmt *clast_insert_indepth(struct clast_stmt *before, struct clast_stmt *stmt) {
 	stmt->next = clast_get_next(before);
 	clast_set_next(before, stmt);
 	return stmt;
 }
 
-struct clast_stmt *clast_get_next(struct clast_stmt *stmt) {
-	return *clast_get_next_ptr(stmt);
-}
+struct clast_stmt *clast_get_next(struct clast_stmt *stmt) { return *clast_get_next_ptr(stmt); }
 
-struct clast_user_stmt *pesto_clast_create_stmt(CloogOptions *cloogOptions,
-												CloogDomain *domain,
-												unsigned int id) {
-	CloogStatement *atiling_stmt =
-		cloog_statement_alloc(cloogOptions->state, id);
+struct clast_user_stmt *pesto_clast_create_stmt(CloogOptions *cloogOptions, CloogDomain *domain, unsigned int id) {
+	CloogStatement *atiling_stmt = cloog_statement_alloc(cloogOptions->state, id);
 
-	struct clast_user_stmt *user_stmt =
-		new_clast_user_stmt(domain, atiling_stmt, NULL);
+	struct clast_user_stmt *user_stmt = new_clast_user_stmt(domain, atiling_stmt, NULL);
 	cloog_statement_free(atiling_stmt);
 	return user_stmt;
 }
 
-struct clast_stmt *clast_insert_after(struct clast_stmt *before,
-									  struct clast_stmt *stmt) {
+struct clast_stmt *clast_insert_after(struct clast_stmt *before, struct clast_stmt *stmt) {
 	assert(before != NULL);
 	if (stmt != NULL) {
 		stmt->next = before->next;
@@ -92,9 +78,7 @@ struct clast_stmt *clast_insert_after(struct clast_stmt *before,
 	return stmt;
 }
 
-struct clast_stmt *clast_insert_before(struct clast_stmt *root,
-									   struct clast_stmt *before,
-									   struct clast_stmt *stmt) {
+struct clast_stmt *clast_insert_before(struct clast_stmt *root, struct clast_stmt *before, struct clast_stmt *stmt) {
 	assert(root != NULL);
 	assert(before != NULL);
 
@@ -112,8 +96,7 @@ struct clast_stmt *clast_insert_before(struct clast_stmt *root,
 				}
 				return stmt;
 			}
-			struct clast_stmt *inserted_stmt =
-				clast_insert_before(deeper_stmt, before, stmt);
+			struct clast_stmt *inserted_stmt = clast_insert_before(deeper_stmt, before, stmt);
 			if (inserted_stmt != NULL) {
 				return inserted_stmt;
 			}
@@ -130,14 +113,12 @@ struct clast_stmt *clast_insert_before(struct clast_stmt *root,
 	return NULL;
 }
 
-int clast_for_is_outter_tile_loop(__isl_keep isl_set *set,
-								  struct clast_for *for_stmt, int tilesize) {
+int clast_for_is_outter_tile_loop(__isl_keep isl_set *set, struct clast_for *for_stmt, int tilesize) {
 	assert(for_stmt->domain != NULL);
 
 	isl_set *domain = isl_set_copy(set);
 
-	int n_dim =
-		isl_set_dim(isl_set_from_cloog_domain(for_stmt->domain), isl_dim_set);
+	int n_dim = isl_set_dim(isl_set_from_cloog_domain(for_stmt->domain), isl_dim_set);
 	int idx = n_dim - 1;
 
 	// only keep constraints involving the iterator
@@ -161,8 +142,7 @@ int clast_for_is_outter_tile_loop(__isl_keep isl_set *set,
 			// or - t[idx] + 32 * t[k] + 31 >= 0
 			// then this loop is tiled by the k-th dimension
 
-			isl_val *val =
-				isl_constraint_get_coefficient_val(cst, isl_dim_set, idx);
+			isl_val *val = isl_constraint_get_coefficient_val(cst, isl_dim_set, idx);
 
 			if (isl_val_eq_si(val, tilesize) || isl_val_eq_si(val, -tilesize)) {
 				is_outter_tile = 1;
@@ -187,13 +167,10 @@ int clast_for_is_outter_tile_loop(__isl_keep isl_set *set,
 	return is_outter_tile;
 }
 
-int clast_for_get_outter_tile_depth(__isl_keep isl_set *domain,
-									struct clast_stmt *root,
-									struct clast_for *outter_for,
+int clast_for_get_outter_tile_depth(__isl_keep isl_set *domain, struct clast_stmt *root, struct clast_for *outter_for,
 									int tilesize) {
 	int depth = 0;
-	while ((outter_for = clast_get_parent_clast_for(
-				root, (struct clast_stmt *)outter_for)) != NULL) {
+	while ((outter_for = clast_get_parent_clast_for(root, (struct clast_stmt *)outter_for)) != NULL) {
 		if (clast_for_is_outter_tile_loop(domain, outter_for, tilesize)) {
 			depth += 1;
 		}
@@ -205,8 +182,7 @@ int clast_for_is_inner_tile_loop(struct clast_for *for_stmt, int tile_size) {
 	return clast_for_get_inner_tile_outter_dim(for_stmt, tile_size) != -1;
 }
 
-int clast_for_get_inner_tile_outter_dim(struct clast_for *for_stmt,
-										int tile_size) {
+int clast_for_get_inner_tile_outter_dim(struct clast_for *for_stmt, int tile_size) {
 	assert(for_stmt->domain != NULL);
 
 	isl_set *set = isl_set_from_cloog_domain(for_stmt->domain);
@@ -217,8 +193,7 @@ int clast_for_get_inner_tile_outter_dim(struct clast_for *for_stmt,
 	int idx = n_dim - 1;
 
 	// only keep constraints involving the iterator
-	domain = isl_set_drop_constraints_not_involving_dims(domain, isl_dim_set,
-														 idx, 1);
+	domain = isl_set_drop_constraints_not_involving_dims(domain, isl_dim_set, idx, 1);
 
 	isl_basic_set_list *bset_list = isl_set_get_basic_set_list(domain);
 	isl_size n_bset = isl_basic_set_list_n_basic_set(bset_list);
@@ -242,13 +217,10 @@ int clast_for_get_inner_tile_outter_dim(struct clast_for *for_stmt,
 				if (k == idx) {
 					continue;
 				}
-				isl_val *kval =
-					isl_constraint_get_coefficient_val(cst, isl_dim_set, k);
-				isl_val *idxval =
-					isl_constraint_get_coefficient_val(cst, isl_dim_set, idx);
+				isl_val *kval = isl_constraint_get_coefficient_val(cst, isl_dim_set, k);
+				isl_val *idxval = isl_constraint_get_coefficient_val(cst, isl_dim_set, idx);
 
-				if (isl_val_eq_si(idxval, 1) &&
-					isl_val_eq_si(kval, -tile_size)) {
+				if (isl_val_eq_si(idxval, 1) && isl_val_eq_si(kval, -tile_size)) {
 					corresponding_outter_dim = k;
 				}
 
@@ -274,8 +246,7 @@ int clast_for_get_inner_tile_outter_dim(struct clast_for *for_stmt,
 	return corresponding_outter_dim;
 }
 
-struct clast_stmt **clast_get_user_stmt_list(struct clast_stmt *root,
-											 int *size) {
+struct clast_stmt **clast_get_user_stmt_list(struct clast_stmt *root, int *size) {
 	struct clast_stmt **stmts = NULL;
 	*size = 0;
 
@@ -287,11 +258,9 @@ struct clast_stmt **clast_get_user_stmt_list(struct clast_stmt *root,
 			*size += 1;
 		} else if (clast_stmt_is_branch(root)) {
 			int branch_size = 0;
-			struct clast_stmt **branch_stmts = clast_get_user_stmt_list(
-				clast_branch_deeper_next(root), &branch_size);
+			struct clast_stmt **branch_stmts = clast_get_user_stmt_list(clast_branch_deeper_next(root), &branch_size);
 
-			stmts = realloc(stmts, (*size + branch_size) *
-									   sizeof(struct clast_stmt *));
+			stmts = realloc(stmts, (*size + branch_size) * sizeof(struct clast_stmt *));
 
 			for (int i = 0; i < branch_size; i += 1) {
 				stmts[*size + i] = branch_stmts[i];
@@ -304,8 +273,7 @@ struct clast_stmt **clast_get_user_stmt_list(struct clast_stmt *root,
 	return stmts;
 }
 
-static struct clast_for *_clast_get_parent_for(struct clast_stmt *root,
-											   struct clast_stmt *target,
+static struct clast_for *_clast_get_parent_for(struct clast_stmt *root, struct clast_stmt *target,
 											   struct clast_for *parent) {
 	for (; root != NULL; root = root->next) {
 		if (root == target) {
@@ -313,14 +281,12 @@ static struct clast_for *_clast_get_parent_for(struct clast_stmt *root,
 		}
 		if (CLAST_STMT_IS_A(root, stmt_for)) {
 			struct clast_for *for_stmt = (struct clast_for *)root;
-			struct clast_for *result =
-				_clast_get_parent_for(for_stmt->body, target, for_stmt);
+			struct clast_for *result = _clast_get_parent_for(for_stmt->body, target, for_stmt);
 			if (result != NULL) {
 				return result;
 			}
 		} else if (clast_stmt_is_branch(root)) {
-			struct clast_for *result = _clast_get_parent_for(
-				clast_branch_deeper_next(root), target, parent);
+			struct clast_for *result = _clast_get_parent_for(clast_branch_deeper_next(root), target, parent);
 			if (result != NULL) {
 				return result;
 			}
@@ -329,21 +295,16 @@ static struct clast_for *_clast_get_parent_for(struct clast_stmt *root,
 	return NULL;
 }
 
-struct clast_for *clast_get_parent_clast_for(struct clast_stmt *root,
-											 struct clast_stmt *stmt) {
+struct clast_for *clast_get_parent_clast_for(struct clast_stmt *root, struct clast_stmt *stmt) {
 	return _clast_get_parent_for(root, stmt, NULL);
 }
 
-struct clast_for *clast_get_outter_tiling_for(struct clast_stmt *root,
-											  struct clast_for *inner_for,
-											  int tile_size) {
-	int outter_tile_idx =
-		clast_for_get_inner_tile_outter_dim(inner_for, tile_size);
+struct clast_for *clast_get_outter_tiling_for(struct clast_stmt *root, struct clast_for *inner_for, int tile_size) {
+	int outter_tile_idx = clast_for_get_inner_tile_outter_dim(inner_for, tile_size);
 	if (outter_tile_idx == -1) {
 		return NULL;
 	}
-	struct clast_for *parent =
-		clast_get_parent_clast_for(root, (struct clast_stmt *)inner_for);
+	struct clast_for *parent = clast_get_parent_clast_for(root, (struct clast_stmt *)inner_for);
 	while (parent != NULL) {
 		isl_set *set = isl_set_from_cloog_domain(parent->domain);
 		isl_size ndim = isl_set_dim(set, isl_dim_set);
@@ -359,34 +320,28 @@ int clast_for_depth(struct clast_stmt *root, struct clast_for *for_stmt) {
 	int depth = 0;
 	while (for_stmt != NULL) {
 		depth += 1;
-		for_stmt =
-			clast_get_parent_clast_for(root, (struct clast_stmt *)for_stmt);
+		for_stmt = clast_get_parent_clast_for(root, (struct clast_stmt *)for_stmt);
 	}
 	return depth;
 }
 
-struct clast_expr *
-clast_for_compute_original_bound(CloogNames *names, struct clast_for *inner_for,
-								 struct clast_for *outter_for, int bound) {
+struct clast_expr *clast_for_compute_original_bound(CloogNames *names, struct clast_for *inner_for,
+													struct clast_for *outter_for, int bound) {
 	isl_set *set = isl_set_copy(isl_set_from_cloog_domain(inner_for->domain));
 
 	isl_size ndim = isl_set_dim(set, isl_dim_set);
-	isl_size ndim_outter =
-		isl_set_dim(isl_set_from_cloog_domain(outter_for->domain), isl_dim_set);
+	isl_size ndim_outter = isl_set_dim(isl_set_from_cloog_domain(outter_for->domain), isl_dim_set);
 
 	// keep only relation of current level
-	set = isl_set_drop_constraints_not_involving_dims(set, isl_dim_set,
-													  ndim - 1, 1);
+	set = isl_set_drop_constraints_not_involving_dims(set, isl_dim_set, ndim - 1, 1);
 
 	// remove constraints from the outter loop
-	set = isl_set_drop_constraints_involving_dims(set, isl_dim_set,
-												  ndim_outter - 1, 1);
+	set = isl_set_drop_constraints_involving_dims(set, isl_dim_set, ndim_outter - 1, 1);
 
 	set = isl_set_drop_tiling_constraints(set);
 	if (bound == 0) {
 		// TODO: bound min could be other than 0
-		if (isl_set_dim_has_lower_bound(set, isl_dim_set, ndim - 1) ==
-			isl_bool_false) {
+		if (isl_set_dim_has_lower_bound(set, isl_dim_set, ndim - 1) == isl_bool_false) {
 			set = isl_set_lower_bound_si(set, isl_dim_set, ndim - 1, 0);
 		}
 	}
@@ -414,14 +369,13 @@ clast_for_compute_original_bound(CloogNames *names, struct clast_for *inner_for,
 		isl_constraint *cst = isl_constraint_list_get_at(cst_list, i);
 
 		if (bound_fn(cst, isl_dim_set, ndim - 1)) {
-			struct clast_expr *expr = clast_bound_from_constraint(
-				cloog_constraint_from_isl_constraint(cst), ndim, names);
+			struct clast_expr *expr =
+				clast_bound_from_constraint(cloog_constraint_from_isl_constraint(cst), ndim, names);
 
 			if (result_expr == NULL) {
 				result_expr = expr;
 			} else {
-				struct clast_reduction *red = new_clast_reduction(
-					bound == 0 ? clast_red_max : clast_red_min, 2);
+				struct clast_reduction *red = new_clast_reduction(bound == 0 ? clast_red_max : clast_red_min, 2);
 				red->elts[0] = result_expr;
 				red->elts[1] = expr;
 				result_expr = (struct clast_expr *)red;
@@ -483,11 +437,9 @@ int clast_annotate_loops(osl_scop_p program, struct clast_stmt *root) {
 	while (ll) {
 		// for each loop
 		osl_loop_p loop = ll;
-		ClastFilter filter = {loop->iter, loop->stmt_ids, loop->nb_stmts,
-							  subset};
+		ClastFilter filter = {loop->iter, loop->stmt_ids, loop->nb_stmts, subset};
 
-		clast_filter(root, filter, &clastloops, &nclastloops, &claststmts,
-					 &nclaststmts);
+		clast_filter(root, filter, &clastloops, &nclastloops, &claststmts, &nclaststmts);
 
 		if (claststmts) {
 			free(claststmts);
@@ -540,9 +492,7 @@ int clast_annotate_loops(osl_scop_p program, struct clast_stmt *root) {
 	return ret;
 }
 
-struct clast_expr *clast_bound_from_isl_set(CloogNames *names,
-											__isl_keep isl_set *set, int bound,
-											int dim) {
+struct clast_expr *clast_bound_from_isl_set(CloogNames *names, __isl_keep isl_set *set, int bound, int dim) {
 	isl_size ndim = isl_set_dim(set, isl_dim_set);
 
 	assert(dim < ndim && "dim should be less than the number of dimensions");
@@ -566,14 +516,13 @@ struct clast_expr *clast_bound_from_isl_set(CloogNames *names,
 		isl_constraint *cst = isl_constraint_list_get_at(cst_list, i);
 
 		if (bound_fn(cst, isl_dim_set, dim)) {
-			struct clast_expr *expr = clast_bound_from_constraint(
-				cloog_constraint_from_isl_constraint(cst), ndim, names);
+			struct clast_expr *expr =
+				clast_bound_from_constraint(cloog_constraint_from_isl_constraint(cst), ndim, names);
 
 			if (result_expr == NULL) {
 				result_expr = expr;
 			} else {
-				struct clast_reduction *red = new_clast_reduction(
-					bound == 0 ? clast_red_max : clast_red_min, 2);
+				struct clast_reduction *red = new_clast_reduction(bound == 0 ? clast_red_max : clast_red_min, 2);
 				red->elts[0] = result_expr;
 				red->elts[1] = expr;
 				result_expr = (struct clast_expr *)red;

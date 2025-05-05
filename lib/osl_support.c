@@ -14,8 +14,7 @@ osl_vector_p osl_relation_row_as_vector(osl_relation_p rel, int row) {
 	return vec;
 }
 
-osl_vector_p
-osl_statement_get_scattering_first_dim_vector(osl_statement_p statement) {
+osl_vector_p osl_statement_get_scattering_first_dim_vector(osl_statement_p statement) {
 	assert(statement != NULL);
 	osl_relation_p scattering = statement->scattering;
 	osl_int_t mone;
@@ -46,10 +45,8 @@ int osl_scop_count_loop_nests(osl_scop_p scop) {
 	int precision = scop->statement->scattering->precision;
 
 	// first check if the first dimension is scalar
-	for (osl_statement_p stmt = scop->statement; stmt != NULL;
-		 stmt = stmt->next) {
-		osl_vector_p first_dim =
-			osl_statement_get_scattering_first_dim_vector(stmt);
+	for (osl_statement_p stmt = scop->statement; stmt != NULL; stmt = stmt->next) {
+		osl_vector_p first_dim = osl_statement_get_scattering_first_dim_vector(stmt);
 		assert(first_dim != NULL);
 
 		osl_int_set_si(first_dim->precision, &first_dim->v[1], 0);
@@ -70,25 +67,17 @@ int osl_scop_count_loop_nests(osl_scop_p scop) {
 	osl_int_t max_scalar_value;
 	osl_int_init_set_si(precision, &max_scalar_value, 0);
 
-	for (osl_statement_p stmt = scop->statement; stmt != NULL;
-		 stmt = stmt->next) {
-		if (osl_int_gt(precision,
-					   stmt->scattering->m[0][stmt->scattering->nb_columns - 1],
-					   max_scalar_value)) {
-			osl_int_assign(
-				precision, &max_scalar_value,
-				stmt->scattering->m[0][stmt->scattering->nb_columns - 1]);
+	for (osl_statement_p stmt = scop->statement; stmt != NULL; stmt = stmt->next) {
+		if (osl_int_gt(precision, stmt->scattering->m[0][stmt->scattering->nb_columns - 1], max_scalar_value)) {
+			osl_int_assign(precision, &max_scalar_value, stmt->scattering->m[0][stmt->scattering->nb_columns - 1]);
 		}
 	}
 
 	int si_max = osl_int_get_si(precision, max_scalar_value);
 	int *stmt_per_nest = (int *)calloc(si_max + 1, sizeof(int));
 	int count = 0;
-	for (osl_statement_p stmt = scop->statement; stmt != NULL;
-		 stmt = stmt->next) {
-		int scalar_value = osl_int_get_si(
-			precision,
-			stmt->scattering->m[0][stmt->scattering->nb_columns - 1]);
+	for (osl_statement_p stmt = scop->statement; stmt != NULL; stmt = stmt->next) {
+		int scalar_value = osl_int_get_si(precision, stmt->scattering->m[0][stmt->scattering->nb_columns - 1]);
 		if (stmt_per_nest[scalar_value] == 0) {
 			count += 1;
 		}
@@ -105,8 +94,7 @@ osl_scop_p *osl_scop_split_nests(osl_scop_p scop) {
 	if (nest_count <= 1) {
 		return NULL;
 	}
-	osl_scop_p *new_scops =
-		(osl_scop_p *)malloc(nest_count * sizeof(osl_scop_p));
+	osl_scop_p *new_scops = (osl_scop_p *)malloc(nest_count * sizeof(osl_scop_p));
 
 	// create a new scop for each loop nest
 	for (int i = 0; i < nest_count; i++) {
@@ -137,22 +125,17 @@ osl_scop_p *osl_scop_split_nests(osl_scop_p scop) {
 		// we have to check all values
 		int found_stmt = 0;
 		while (found_stmt == 0) {
-			for (osl_statement_p stmt = scop->statement; stmt != NULL;
-				 stmt = stmt->next) {
-				osl_vector_p first_dim =
-					osl_statement_get_scattering_first_dim_vector(stmt);
+			for (osl_statement_p stmt = scop->statement; stmt != NULL; stmt = stmt->next) {
+				osl_vector_p first_dim = osl_statement_get_scattering_first_dim_vector(stmt);
 
-				if (osl_int_eq(stmt->scattering->precision,
-							   first_dim->v[stmt->scattering->nb_columns - 1],
+				if (osl_int_eq(stmt->scattering->precision, first_dim->v[stmt->scattering->nb_columns - 1],
 							   scat_value)) {
-					osl_statement_add(&new_scops[i]->statement,
-									  osl_statement_nclone(stmt, 1));
+					osl_statement_add(&new_scops[i]->statement, osl_statement_nclone(stmt, 1));
 					found_stmt += 1;
 				}
 				osl_vector_free(first_dim);
 			}
-			osl_int_add_si(scop->statement->scattering->precision, &scat_value,
-						   scat_value, 1);
+			osl_int_add_si(scop->statement->scattering->precision, &scat_value, scat_value, 1);
 		}
 	}
 	return new_scops;
@@ -161,8 +144,7 @@ osl_scop_p *osl_scop_split_nests(osl_scop_p scop) {
 int osl_max_scattering_dim(osl_scop_p scop) {
 	assert(scop != NULL);
 	int max_dim = 0;
-	for (osl_statement_p stmt = scop->statement; stmt != NULL;
-		 stmt = stmt->next) {
+	for (osl_statement_p stmt = scop->statement; stmt != NULL; stmt = stmt->next) {
 		if (stmt->scattering->nb_output_dims > max_dim) {
 			max_dim = stmt->scattering->nb_output_dims;
 		}
