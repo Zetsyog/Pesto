@@ -8,7 +8,6 @@
 #include <pesto/PlutoPass.hpp>
 #include <pesto/Program.hpp>
 #include <pesto/clast/GenClastPass.hpp>
-#include <pesto/trahrhe.h>
 
 #include <isl/set.h>
 
@@ -28,7 +27,6 @@ struct tiling_info {
 	int depth;
 	struct clast_for *inner_for;
 	struct clast_for *outter_for;
-	struct trahrhe_codegen_data gen_data[2];
 };
 
 /**
@@ -39,7 +37,7 @@ class ClastParamTilingPass : public IPass {
 	bool gen_trahrhe;
 	std::string trahrhe_mask;
 	bool trahrhe_use_dichotomy;
-	trahrhe_bound_compute_method boundComputeMethod;
+	ptile::codegen::BoundComputeMethod boundComputeMethod;
 	int tileSizeHint;
 
 	ClastParamTilingPass();

@@ -15,7 +15,6 @@
 #include <cloog/clast.h>
 
 #include <pesto/codegen/ParamTiling.hpp>
-#include <pesto/trahrhe.h>
 namespace pesto {
 
 enum class ParamTilingType { RECTANGULAR, ALGEBRAIC, SCHEDULED };
@@ -30,7 +29,9 @@ struct TilingData {
 	struct clast_for *inner_for;
 	int tiling_depth;
 	// TODO: only one codegen_data should be needed
-	std::pair<struct trahrhe_codegen_data, struct trahrhe_codegen_data> codegen_data;
+	unsigned int head_stmt_id;
+	unsigned int body_stmt_id;
+	std::unique_ptr<ptile::codegen::ParamTilingCodegen> codegen;
 };
 
 struct StmtGroup {
@@ -92,7 +93,7 @@ class ParamTilingUtility {
 
 	void setIdTrahrhePrefix(int id);
 
-	void setBoundComputingMethod(trahrhe_bound_compute_method method);
+	void setBoundComputingMethod(ptile::codegen::BoundComputeMethod method);
 
 	std::vector<std::shared_ptr<std::string>> getNames();
 
@@ -135,7 +136,7 @@ class ParamTilingUtility {
 	std::vector<std::pair<int, std::string>> statements; /* list of statements id and their content */
 	std::vector<std::string> varList;
 
-	trahrhe_bound_compute_method boundComputeMethod;
+	ptile::codegen::BoundComputeMethod boundComputeMethod;
 
 	bool canBeTiled();
 
@@ -179,6 +180,8 @@ class ParamTilingUtility {
 
 	__isl_give isl_set *extractIslInnerTiledDomain(struct StmtGroup &group, __isl_take isl_set *domain,
 												   std::size_t ndim);
+
+	__isl_give isl_set *getInnerDomain(struct StmtGroup &group, std::unique_ptr<struct TilingData> &data);
 };
 
 } // namespace pesto

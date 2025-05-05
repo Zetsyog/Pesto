@@ -34,13 +34,13 @@ std::unique_ptr<pesto::pass::IPass> ClastParamTilingPB::build(PassManagerBuilder
 		}
 		if (key == "bound-compute-method") {
 			if (val == "fill-last" || val == "default") {
-				pass->boundComputeMethod = trahrhe_compute_fill_last;
+				pass->boundComputeMethod = ptile::codegen::BoundComputeMethod::FILL_LAST;
 			} else if (val == "reduce-control") {
-				pass->boundComputeMethod = trahrhe_compute_reduce_control;
+				pass->boundComputeMethod = ptile::codegen::BoundComputeMethod::FILL_FIRST;
 			} else {
 				std::cerr << "Warning: unknown bound compute method \"" << val << "\". Default to fill-last."
 						  << std::endl;
-				pass->boundComputeMethod = trahrhe_compute_fill_last;
+				pass->boundComputeMethod = ptile::codegen::BoundComputeMethod::FILL_LAST;
 			}
 			continue;
 		}

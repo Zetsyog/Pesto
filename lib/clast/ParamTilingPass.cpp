@@ -1,5 +1,3 @@
-#include "pesto/clast/ParamTilingPass.hpp"
-#include "pesto/OslScop.hpp"
 #include <iostream>
 #include <memory>
 #include <string>
@@ -24,7 +22,7 @@ pesto::pass::ClastParamTilingPass::ClastParamTilingPass()
 	, gen_trahrhe(false)
 	, trahrhe_mask("")
 	, trahrhe_use_dichotomy(true)
-	, boundComputeMethod(trahrhe_compute_fill_last)
+	, boundComputeMethod(ptile::codegen::BoundComputeMethod::FILL_LAST)
 	, tileSizeHint(PESTO_PARAM_TILING_DEFAULT_TILE_SIZE_HINT)
 	, is_stencil(false)
 	, tiling_types()

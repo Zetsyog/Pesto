@@ -2,13 +2,13 @@
 
 - [ ] Ensure passes input/output are compatible i.e. some pass might only alter clast. This prevents any later passes to work on openscop of the program
 - [ ] Pet Frontend
-- [ ] Remove trahrhe codegen legacy code
 - [ ] Do a Changelog
 - [ ] Cleanup log messages
 - [ ] Add a quiet option
 - [ ] More documentation
 - [ ] Release !
 - [ ] Log system
+- [x] Remove trahrhe codegen legacy code
 - [x] Tests
   - [ ] Polybench
     - [x] linear-algebra/blas
