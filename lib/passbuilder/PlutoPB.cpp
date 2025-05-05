@@ -36,7 +36,6 @@ std::unique_ptr<pesto::pass::IPass> PlutoPB::build(PassManagerBuilder &builder,
 		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), intratileopt);
 		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), diamondtile);
 		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), per_cc_obj);
-		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), pet);
 		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), dynschedule);
 		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(),
 							 dynschedule_graph_old);
@@ -61,9 +60,6 @@ std::unique_ptr<pesto::pass::IPass> PlutoPB::build(PassManagerBuilder &builder,
 		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), data_element_size);
 		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), ft);
 		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), lt);
-		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), debug);
-		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), moredebug);
-		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), quiet);
 		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), identity);
 		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), bee);
 		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), isldep);
@@ -74,8 +70,6 @@ std::unique_ptr<pesto::pass::IPass> PlutoPB::build(PassManagerBuilder &builder,
 		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), nodepbound);
 		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), coeff_bound);
 		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), scalpriv);
-		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), silent);
-		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), readscop);
 		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), pipsolve);
 		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), islsolve);
 		PESTO_BIND_PLUTO_OPT(key, val, pass->getOptions(), glpk);
@@ -139,6 +133,28 @@ std::unique_ptr<pesto::pass::IPass> PlutoPB::build(PassManagerBuilder &builder,
 				<< "Warning: cloog options are not handled by "
 				   "PlutoPassBuilder as Pluto does not directly generate code"
 				<< std::endl;
+			continue;
+		}
+		if (key == "silent") {
+			pass->getOptions().silent = val;
+			pass->getOptions().quiet = val;
+			continue;
+		}
+		if (key == "debug") {
+			pass->getOptions().debug = val;
+			pass->getOptions().moredebug = val;
+			continue;
+		}
+		if (key == "readscop") {
+			std::cerr << "Warning: option 'readscop' is not handled by "
+						 "PlutoPassBuilder"
+					  << std::endl;
+			continue;
+		}
+		if (key == "pet") {
+			std::cerr << "Warning: option 'pet' is not handled by "
+						 "PlutoPassBuilder"
+					  << std::endl;
 			continue;
 		}
 		std::cerr << "Warning: unknown pluto option '" << key << "'"
