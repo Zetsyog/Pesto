@@ -107,6 +107,7 @@ class ParamTilingUtility {
 
   private:
 	/* polyhedral stuff */
+	// TODO: remove this
 	osl_scop_p scop; /* scop that will be tiled */
 	isl_ctx *ctx;	 /* isl context */
 

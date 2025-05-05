@@ -4,7 +4,6 @@
 #include <pesto/PassBuilder.hpp>
 
 #include <memory>
-#include <string>
 
 namespace pesto {
 
