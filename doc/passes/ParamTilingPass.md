@@ -75,3 +75,13 @@ _Advanced use_
 This pass is working on the CloogAST. It is looking in the AST for the loops that have been tiled.
 This parameter gives a hint on the tile size that was used so the algorithm can find tiled dimensions.
 Default value is `32`.
+
+### `boundCorrectionStrategy`
+
+_String_
+Allowed values: `no-correction`, `correct`, `shout-and-continue`, `shout-and-die`
+
+### `volumeCheckStrategy`
+
+_String_
+Allowed values: `no-check`, `check-and-die`, `check-and-warn`, `no-tile-until-threshold`

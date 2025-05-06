@@ -12,8 +12,6 @@
 
 #include <cloog/cloog.h>
 
-#include <cloog/clast.h>
-
 #include <pesto/codegen/ParamTiling.hpp>
 namespace pesto {
 
@@ -28,10 +26,8 @@ struct TilingData {
 	struct clast_for *outter_for;
 	struct clast_for *inner_for;
 	int tiling_depth;
-	// TODO: only one codegen_data should be needed
 	unsigned int head_stmt_id;
 	unsigned int body_stmt_id;
-	std::unique_ptr<ptile::codegen::ParamTilingCodegen> codegen;
 };
 
 struct StmtGroup {
@@ -42,7 +38,7 @@ struct StmtGroup {
 	/**
 	 * A vector of TilingData
 	 */
-	std::vector<std::unique_ptr<struct TilingData>> tilingData;
+	std::vector<TilingData> tilingData;
 
 	/**
 	 * Holds domain information to pass to trahrhe software
@@ -67,12 +63,10 @@ class ParamTilingUtility {
 	 * clast representation
 	 * @param nest[in] the OslScop to apply the tiling on
 	 */
-	void apply();
+	void apply(CloogProgram *cloogProgram, CloogOptions *cloogOptions, struct clast_root *root);
 
 	bool hasError();
 	std::string getErrorMessage();
-
-	void setClastRoot(struct clast_root *root);
 
 	/**
 	 * @brief given a depth, return the tiling type
@@ -87,13 +81,12 @@ class ParamTilingUtility {
 	 */
 	void pushTilingType(ParamTilingType type);
 
-	void setScop(osl_scop_p scop);
-	void setCloogProgram(CloogProgram *cloogProgram);
-	void setCloogOptions(CloogOptions *cloogOptions);
-
 	void setIdTrahrhePrefix(int id);
 
+	/* Codegen options */
 	void setBoundComputingMethod(ptile::codegen::BoundComputeMethod method);
+	void setBoundCorrectionStrategy(ptile::codegen::BoundCorrectionStrategy strategy);
+	void setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy strategy);
 
 	std::vector<std::shared_ptr<std::string>> getNames();
 
@@ -107,16 +100,7 @@ class ParamTilingUtility {
 
   private:
 	/* polyhedral stuff */
-	// TODO: remove this
-	osl_scop_p scop; /* scop that will be tiled */
-	isl_ctx *ctx;	 /* isl context */
-
-	/* clast stuff */
-	struct clast_root *root;
-	CloogProgram *cloogProgram;
-	CloogOptions *cloogOptions;
-
-	std::vector<std::unique_ptr<struct StmtGroup>> stmtGroups;
+	isl_ctx *ctx; /* isl context */
 
 	std::vector<ParamTilingType> tilingTypes;
 
@@ -129,7 +113,9 @@ class ParamTilingUtility {
 	std::string errorMessage;
 
 	/* str utilities */
-	std::vector<std::shared_ptr<std::string>> names; /* those string should survive till code gen */
+	std::vector<std::shared_ptr<std::string>> names; /* those string should survive till the end of pesto */
+
+	std::vector<std::pair<int, std::string>> trahrheDomains; /* trahrhe domains */
 
 	/* code gen */
 	int id;
@@ -137,32 +123,25 @@ class ParamTilingUtility {
 	std::vector<std::string> varList;
 
 	ptile::codegen::BoundComputeMethod boundComputeMethod;
+	ptile::codegen::BoundCorrectionStrategy boundCorrectionStrategy;
+	ptile::codegen::VolumeCheckStrategy volumeCheckStrategy;
 
-	bool canBeTiled();
+	std::vector<StmtGroup> computeStmtGroups(struct clast_root *root);
 
-	void computeStmtGroups();
+	void tileGroup(CloogProgram *cloogProgram, CloogOptions *cloogOptions, struct clast_root *root, StmtGroup &group);
 
-	void tileGroup(StmtGroup &group);
+	void associateTilingFor(struct clast_root *root, StmtGroup &group);
 
-	void associateTilingFor(StmtGroup &group);
+	int islFirstTilingDimIdx(StmtGroup &group);
 
-	void sanityCheck();
+	void insertStatements(CloogOptions *cloogOptions, struct clast_root *root, struct StmtGroup &group,
+						  TilingData &data);
 
-	void computeCodegenData(struct StmtGroup &group, struct clast_for *outter_for, struct clast_for *inner_for,
-							int tiling_depth);
+	void replaceInnerForBounds(CloogProgram *cloogProgram, struct StmtGroup &group, TilingData &data);
 
-	int islFirstTilingDimIdx(struct StmtGroup &group);
+	void replaceOutterForBounds(StmtGroup &group, TilingData &data);
 
-	void insertStatements(struct StmtGroup &group, struct clast_for *outter_for, struct clast_for *inner_for,
-						  int tiling_depth);
-
-	void replaceInnerForBounds(struct StmtGroup &group, struct clast_for *outter_for, struct clast_for *inner_for,
-							   int tiling_depth);
-
-	void replaceOutterForBounds(struct StmtGroup &group, struct clast_for *outter_for, struct clast_for *inner_for,
-								int tiling_depth);
-
-	void generateStatements(struct StmtGroup &group);
+	void generateStatements(CloogProgram *cloogProgram, StmtGroup &group);
 
 	__isl_give isl_set *dropTilingConstraints(__isl_take isl_set *set, struct StmtGroup &group);
 
@@ -174,14 +153,18 @@ class ParamTilingUtility {
 
 	void declareGroupVariables(struct StmtGroup &group);
 
-	void computeTrahrheDomain(struct StmtGroup &group);
+	void computeTrahrheDomain(CloogProgram *cloogProgram, StmtGroup &group);
 
-	void updateOmpPragma(struct StmtGroup &group);
+	void updateOmpPragma(StmtGroup &group);
 
-	__isl_give isl_set *extractIslInnerTiledDomain(struct StmtGroup &group, __isl_take isl_set *domain,
-												   std::size_t ndim);
+	__isl_give isl_set *extractIslInnerTiledDomain(StmtGroup &group, __isl_take isl_set *domain, std::size_t ndim);
 
-	__isl_give isl_set *getInnerDomain(struct StmtGroup &group, std::unique_ptr<struct TilingData> &data);
+	__isl_give isl_set *getInnerDomain(CloogProgram *cloogProgram, StmtGroup &group, TilingData &data);
+
+	ptile::NameHelper getNameHelper(StmtGroup &group, TilingData &data);
+	ptile::NameHelper getTrahrheNameHelper(StmtGroup &group, TilingData &data);
+
+	ptile::codegen::ParamTilingCodegen getCodegen(CloogProgram *cloogProgram, StmtGroup &group, TilingData &data);
 };
 
 } // namespace pesto

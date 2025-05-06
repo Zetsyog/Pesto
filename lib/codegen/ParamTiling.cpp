@@ -1,7 +1,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <pesto/ParamTiling.hpp>
+#include <isl/aff.h>
+#include <isl/set.h>
+
 #include <pesto/Pesto.hpp>
 #include <pesto/clast/clast_support.h>
 
@@ -14,12 +16,21 @@ ParamTilingCodegen::ParamTilingCodegen(StmtGroup &group, struct clast_for &outte
 	, outterFor(outterFor)
 	, innerFor(innerFor)
 	, tilingDepth(tilingDepth)
-	, nestId(nestId)
 	, innerDomain(nullptr)
 	, boundComputeMethod(BoundComputeMethod::FILL_LAST)
-	, endline(std::string("\\\n")) {
+	, endline(std::string("\\\n"))
+	, boundCorrectionStrategy(BoundCorrectionStrategy::NO_CORRECTION)
+	, volumeCheckStrategy(VolumeCheckStrategy::NO_CHECK)
+	, innerForLBExpr("")
+	, innerForUBExpr("")
+	, nameHelper(tilingDepth, outterFor.iterator, innerFor.iterator)
+	, trahrheNameHelper(tilingDepth, outterFor.iterator, innerFor.iterator) {
 	this->innerDomain = isl_set_copy(innerDomain);
-	this->computeNames();
+	isl_set_free(innerDomain);
+	this->nameHelper.setPrefix("g" + std::to_string(group.id));
+	this->trahrheNameHelper.setPrefix("n" + std::to_string(nestId) + this->nameHelper.getSeparator() + "g" +
+									  std::to_string(group.id));
+	this->computeBoundExpr();
 }
 
 ParamTilingCodegen::~ParamTilingCodegen() {
@@ -30,48 +41,14 @@ ParamTilingCodegen::~ParamTilingCodegen() {
 void ParamTilingCodegen::setTilingType(pesto::ParamTilingType type) { this->tilingType = type; }
 
 void ParamTilingCodegen::setBoundComputeMethod(BoundComputeMethod method) { this->boundComputeMethod = method; }
-
-std::string &ParamTilingCodegen::getGroupPrefixName() { return this->groupPrefixName; }
-
-std::string &ParamTilingCodegen::getNestPrefixName() { return this->nestPrefixName; }
-
-std::string &ParamTilingCodegen::getOutterForUBName() { return this->outterForUBName; }
-std::string &ParamTilingCodegen::getInnerForLBName() { return this->innerForLBName; }
-std::string &ParamTilingCodegen::getInnerForUBName() { return this->innerForUBName; }
-std::string &ParamTilingCodegen::getDivName() { return this->divName; }
-std::string &ParamTilingCodegen::getTargetVolName() { return this->targetVolName; }
-std::string &ParamTilingCodegen::getPCMaxName() { return this->pcMaxName; }
-std::string &ParamTilingCodegen::getEhrhartFnName() { return this->ehrhartFnName; }
-std::string &ParamTilingCodegen::getTrahrheFnName() { return this->trahrheFnName; }
-std::string &ParamTilingCodegen::getTrahrheIteratorName() { return this->trahrheIteratorName; }
-
-std::string genInnerForLBName(std::string &sep, int groupId, const std::string &innerForIt) {
-	return "g" + std::to_string(groupId) + sep + "lb" + innerForIt;
+void ParamTilingCodegen::setBoundCorrectionStrategy(BoundCorrectionStrategy strategy) {
+	this->boundCorrectionStrategy = strategy;
 }
+void ParamTilingCodegen::setVolumeCheckStrategy(VolumeCheckStrategy strategy) { this->volumeCheckStrategy = strategy; }
 
-std::string genInnerForUBName(std::string &sep, int groupId, const std::string &innerForIt) {
-	return "g" + std::to_string(groupId) + sep + "ub" + innerForIt;
-}
-
-void ParamTilingCodegen::computeNames() {
+void ParamTilingCodegen::computeBoundExpr() {
 	std::string innerForIt = std::string(this->innerFor.iterator);
 	std::string outterForIt = std::string(this->outterFor.iterator);
-
-	std::string sep = "_";
-
-	this->groupPrefixName = "g" + std::to_string(this->group.id);
-	this->nestPrefixName = "n" + std::to_string(this->nestId);
-	this->outterForUBName = this->groupPrefixName + sep + "ub" + outterForIt;
-	this->innerForLBName = genInnerForLBName(sep, group.id, innerForIt);
-	this->innerForUBName = genInnerForUBName(sep, group.id, innerForIt);
-	this->divName = "DIV" + std::to_string(this->tilingDepth);
-	this->targetVolName =
-		this->groupPrefixName + sep + "TARGET" + sep + "VOL" + sep + "L" + std::to_string(this->tilingDepth);
-	this->pcMaxName = this->groupPrefixName + sep + innerForIt + sep + "pcmax";
-	this->ehrhartFnName = this->nestPrefixName + sep + this->groupPrefixName + sep + innerForIt + sep + "Ehrhart";
-	this->trahrheFnName = this->nestPrefixName + sep + this->groupPrefixName + sep + innerForIt + sep + "trahrhe" +
-						  sep + this->nestPrefixName + sep + this->groupPrefixName + sep + innerForIt;
-	this->trahrheIteratorName = this->nestPrefixName + sep + this->groupPrefixName + sep + innerForIt;
 
 	// [0] is for lower bound, [1] is for upper bound
 	CloogOptions *cloogOptions = cloog_options_malloc(nullptr);
@@ -93,8 +70,10 @@ void ParamTilingCodegen::computeNames() {
 		names->scattering = (char **)calloc(names->nb_scattering, sizeof(char *));
 		for (isl_size j = 0; j < names->nb_scattering; j += 1) {
 			auto &data = this->group.tilingData[j];
-			std::string bound = i == 0 ? genInnerForLBName(sep, group.id, std::string(data->inner_for->iterator))
-									   : genInnerForUBName(sep, group.id, std::string(data->inner_for->iterator));
+			NameHelper helper = NameHelper(data.tiling_depth, data.outter_for->iterator, data.inner_for->iterator);
+			helper.setPrefix(this->nameHelper.getPrefix());
+			helper.setSeparator(this->nameHelper.getSeparator());
+			std::string bound = i == 0 ? helper.innerForLBName() : helper.innerForUBName();
 			names->scattering[j] = strdup(bound.c_str());
 		}
 	}
@@ -104,6 +83,7 @@ void ParamTilingCodegen::computeNames() {
 	for (std::size_t i = 0; i < 2; ++i) {
 		struct clast_expr *expr = clast_bound_from_isl_set(namesList[i], this->innerDomain, i, this->tilingDepth);
 		if (expr != NULL) {
+			memset(buffer, 0, 512);
 			rewind(fd);
 			clast_pprint_expr(cloogOptions, fd, expr);
 			fflush(fd);
@@ -151,17 +131,17 @@ void ParamTilingCodegen::genHeaderStmt(std::ostream &os) {
 }
 
 void ParamTilingCodegen::genHeaderStmtRectangular(std::ostream &os) {
-	os << this->getOutterForUBName() << " = ceild(" << this->innerForUBExpr;
+	os << this->nameHelper.outterForUBName() << " = ceild(" << this->innerForUBExpr;
 	if (this->innerForLBExpr.length() > 0) {
 		os << " - (" << this->innerForLBExpr << ")";
 	}
-	os << ", " << this->getDivName() << ")";
+	os << ", " << this->nameHelper.divName() << ")";
 }
 
 void ParamTilingCodegen::genHeaderStmtAlgebraic(std::ostream &os) {
 	isl_size npar = isl_set_dim(this->innerDomain, isl_dim_param);
-	os << this->getOutterForUBName() << " = " << this->getDivName() << " - 1;" << this->endline;
-	os << this->getPCMaxName() << " = " << this->getEhrhartFnName() << "(";
+	os << this->nameHelper.outterForUBName() << " = " << this->nameHelper.divName() << " - 1;" << this->endline;
+	os << this->nameHelper.pcMaxName() << " = " << this->trahrheNameHelper.ehrhartFnName() << "(";
 	for (isl_size i = 0; i < npar; i += 1) {
 		if (i != 0) {
 			os << ", ";
@@ -170,18 +150,43 @@ void ParamTilingCodegen::genHeaderStmtAlgebraic(std::ostream &os) {
 	}
 	for (std::size_t i = 0; i < this->tilingDepth; i += 1) {
 		auto &data = this->group.tilingData[i];
-		os << ", " << data->codegen->getInnerForLBName();
-		os << ", " << data->codegen->getInnerForUBName();
+		NameHelper helper = NameHelper(data.tiling_depth, data.outter_for->iterator, data.inner_for->iterator);
+		helper.setPrefix(this->nameHelper.getPrefix());
+		helper.setSeparator(this->nameHelper.getSeparator());
+		os << ", " << helper.innerForLBName();
+		os << ", " << helper.innerForUBName();
 	}
 	os << ");" << this->endline;
-	os << this->getTargetVolName() << " = ";
+	os << this->nameHelper.targetVolName() << " = ";
 	if (this->boundComputeMethod == BoundComputeMethod::FILL_FIRST) {
-		os << "ceild(" << this->getPCMaxName() << ", " << this->getDivName() << ")";
+		os << "ceild(" << this->nameHelper.pcMaxName() << ", " << this->nameHelper.divName() << ")";
 	}
 	if (this->boundComputeMethod == BoundComputeMethod::FILL_LAST) {
-		os << this->getPCMaxName() << " / " << this->getDivName();
+		os << this->nameHelper.pcMaxName() << " / " << this->nameHelper.divName();
 	}
-	os << this->endline;
+	if (this->volumeCheckStrategy != VolumeCheckStrategy::NO_CHECK) {
+		os << ";" << this->endline;
+		// TODO: volume treshold should be a parameter
+		std::string volumeThreshold = this->nameHelper.divName() + " * 5";
+		os << "if(" << this->nameHelper.targetVolName() << " <= " << volumeThreshold << ") {" << this->endline;
+
+		if (this->volumeCheckStrategy == VolumeCheckStrategy::CHECK_AND_WARN ||
+			this->volumeCheckStrategy == VolumeCheckStrategy::CHECK_AND_DIE) {
+			os << "\tfprintf(stderr, \"Warning: computed volume is too small (" << this->nameHelper.targetVolName()
+			   << " <= " << volumeThreshold
+			   << ").\\nTry with smaller divider or bigger parameters to increase tile "
+				  "volume.\\n\");"
+			   << this->endline;
+			if (this->volumeCheckStrategy == VolumeCheckStrategy::CHECK_AND_DIE) {
+				os << "\texit(1);" << this->endline;
+			}
+		} else if (this->volumeCheckStrategy == VolumeCheckStrategy::NO_TILE_UNTIL_THRESHOLD) {
+			os << "\t" << this->nameHelper.targetVolName() << " = " << this->nameHelper.pcMaxName() << ";"
+			   << this->endline;
+			os << "\t" << this->nameHelper.outterForUBName() << " = 0;" << this->endline;
+		}
+		os << "}";
+	}
 }
 
 void ParamTilingCodegen::genBodyStmt(std::ostream &os) {
@@ -198,11 +203,11 @@ void ParamTilingCodegen::genBodyStmt(std::ostream &os) {
 }
 
 void ParamTilingCodegen::genBodyStmtRectangular(std::ostream &os) {
-	os << this->getInnerForLBName() << " = " << this->getDivName() << " * " << this->outterFor.iterator;
+	os << this->nameHelper.innerForLBName() << " = " << this->nameHelper.divName() << " * " << this->outterFor.iterator;
 	os << "+" << this->innerForLBExpr << ";" << this->endline;
 
-	os << this->getInnerForUBName() << " = " << this->getDivName() << " * " << this->outterFor.iterator << " + "
-	   << this->getDivName() << " - 1";
+	os << this->nameHelper.innerForUBName() << " = " << this->nameHelper.divName() << " * " << this->outterFor.iterator
+	   << " + " << this->nameHelper.divName() << " - 1";
 	os << "+" << this->innerForLBExpr;
 }
 
@@ -210,17 +215,20 @@ void ParamTilingCodegen::genBodyStmtAlgebraic(std::ostream &os) {
 	isl_size npar = isl_set_dim(this->innerDomain, isl_dim_param);
 
 	// inner for lower bound
-	os << this->getInnerForLBName() << " = ";
-	os << this->getTrahrheFnName() << "(max(1, (" << this->outterFor.iterator << ") * " << this->getTargetVolName()
-	   << ")";
+	os << this->nameHelper.innerForLBName() << " = ";
+	os << this->trahrheNameHelper.trahrheFnName() << "(max(1, (" << this->outterFor.iterator << ") * "
+	   << this->nameHelper.targetVolName() << ")";
 	for (isl_size i = 0; i < npar; i += 1) {
 		os << ", " << isl_set_get_dim_name(this->innerDomain, isl_dim_param, i);
 	}
 
 	for (std::size_t i = 0; i < this->tilingDepth; i += 1) {
 		auto &data = this->group.tilingData[i];
-		os << ", " << data->codegen->getInnerForLBName();
-		os << ", " << data->codegen->getInnerForUBName();
+		NameHelper helper = NameHelper(data.tiling_depth, data.outter_for->iterator, data.inner_for->iterator);
+		helper.setPrefix(this->nameHelper.getPrefix());
+		helper.setSeparator(this->nameHelper.getSeparator());
+		os << ", " << helper.innerForLBName();
+		os << ", " << helper.innerForUBName();
 	}
 	os << ")";
 	if (this->boundComputeMethod == BoundComputeMethod::FILL_FIRST) {
@@ -228,16 +236,19 @@ void ParamTilingCodegen::genBodyStmtAlgebraic(std::ostream &os) {
 	}
 	os << ";" << this->endline;
 	// inner for upper bound
-	os << this->getInnerForUBName() << " = ";
-	os << this->getTrahrheFnName() << "(min(" << this->getPCMaxName() << ", (" << this->outterFor.iterator << " + 1) * "
-	   << this->getTargetVolName() << ")";
+	os << this->nameHelper.innerForUBName() << " = ";
+	os << this->trahrheNameHelper.trahrheFnName() << "(min(" << this->nameHelper.pcMaxName() << ", ("
+	   << this->outterFor.iterator << " + 1) * " << this->nameHelper.targetVolName() << ")";
 	for (isl_size i = 0; i < npar; i += 1) {
 		os << ", " << isl_set_get_dim_name(this->innerDomain, isl_dim_param, i);
 	}
 	for (std::size_t i = 0; i < this->tilingDepth; i += 1) {
 		auto &data = this->group.tilingData[i];
-		os << ", " << data->codegen->getInnerForLBName();
-		os << ", " << data->codegen->getInnerForUBName();
+		NameHelper helper = NameHelper(data.tiling_depth, data.outter_for->iterator, data.inner_for->iterator);
+		helper.setPrefix(this->nameHelper.getPrefix());
+		helper.setSeparator(this->nameHelper.getSeparator());
+		os << ", " << helper.innerForLBName();
+		os << ", " << helper.innerForUBName();
 	}
 	os << ")";
 	if (this->boundComputeMethod == BoundComputeMethod::FILL_LAST) {
@@ -246,8 +257,64 @@ void ParamTilingCodegen::genBodyStmtAlgebraic(std::ostream &os) {
 	// last bound adjustment
 	if (this->boundComputeMethod == BoundComputeMethod::FILL_LAST) {
 		os << ";" << this->endline;
-		os << "if(" << this->outterFor.iterator << " == " << this->getDivName() << " - 1) {" << this->endline;
-		os << "\t" << this->getInnerForUBName() << " = " << this->innerForUBExpr << ";" << this->endline;
+		os << "if(" << this->outterFor.iterator << " == " << this->nameHelper.divName() << " - 1) {" << this->endline;
+		os << "\t" << this->nameHelper.innerForUBName() << " = " << this->innerForUBExpr << ";" << this->endline;
+		os << "}";
+	}
+	if (this->boundCorrectionStrategy != BoundCorrectionStrategy::NO_CORRECTION) {
+		os << ";" << this->endline;
+		os << "if(" << this->nameHelper.innerForLBName() << " > " << this->nameHelper.innerForUBName() << ") {"
+		   << this->endline;
+		if (this->boundCorrectionStrategy == BoundCorrectionStrategy::SHOUT_AND_CONTINUE ||
+			this->boundCorrectionStrategy == BoundCorrectionStrategy::SHOUT_AND_DIE) {
+			os << "\tfprintf(stderr, \"Error: computed bounds are incorrects (" << this->nameHelper.innerForLBName()
+			   << " > " << this->nameHelper.innerForUBName()
+			   << ").\\nTry with smaller divider or bigger parameters to increase tile volume.\\n\");" << this->endline;
+			if (this->boundCorrectionStrategy == BoundCorrectionStrategy::SHOUT_AND_DIE) {
+				os << "\texit(1);" << this->endline;
+			}
+		} else if (this->boundCorrectionStrategy == BoundCorrectionStrategy::CORRECT) {
+			os << "\t" << this->nameHelper.innerForUBName() << " = " << this->nameHelper.innerForLBName() << ";"
+			   << this->endline;
+		}
 		os << "}";
 	}
 }
+
+void ParamTilingCodegen::setEndline(std::string endline) { this->endline = endline; }
+
+using pesto::ptile::NameHelper;
+
+NameHelper::NameHelper(int depth, std::string outterForIt, std::string innerForIt)
+	: depth(depth)
+	, sep("_")
+	, prefix("")
+	, outterForIt(outterForIt)
+	, innerForIt(innerForIt) //
+{}
+
+NameHelper::~NameHelper() {}
+
+std::string &NameHelper::getSeparator() { return this->sep; }
+std::string &NameHelper::getPrefix() { return this->prefix; }
+
+void NameHelper::setSeparator(std::string sep) { this->sep = sep; }
+void NameHelper::setPrefix(std::string prefix) { this->prefix = prefix; }
+
+std::string NameHelper::outterForUBName() { return this->prefix + this->sep + "ub" + this->outterForIt; }
+std::string NameHelper::innerForLBName() { return this->prefix + this->sep + "lb" + this->innerForIt; }
+std::string NameHelper::innerForUBName() { return this->prefix + this->sep + "ub" + this->innerForIt; }
+std::string NameHelper::divName() { return "DIV" + std::to_string(this->depth); }
+std::string NameHelper::targetVolName() {
+	return this->prefix + this->sep + "TARGET" + this->sep + "VOL" + this->sep + "L" + std::to_string(this->depth);
+}
+std::string NameHelper::pcMaxName() { return this->prefix + this->sep + this->innerForIt + this->sep + "pcmax"; }
+std::string NameHelper::ehrhartFnName() {
+	std::string itName = this->prefix + this->sep + this->innerForIt;
+	return itName + this->sep + "Ehrhart";
+}
+std::string NameHelper::trahrheFnName() {
+	std::string itName = this->prefix + this->sep + this->innerForIt;
+	return itName + this->sep + "trahrhe" + this->sep + itName;
+}
+std::string NameHelper::trahrheIteratorName() { return this->prefix + this->sep + this->innerForIt; }

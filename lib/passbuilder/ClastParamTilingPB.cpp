@@ -34,13 +34,13 @@ std::unique_ptr<pesto::pass::IPass> ClastParamTilingPB::build(PassManagerBuilder
 		}
 		if (key == "bound-compute-method") {
 			if (val == "fill-last" || val == "default") {
-				pass->boundComputeMethod = ptile::codegen::BoundComputeMethod::FILL_LAST;
-			} else if (val == "reduce-control") {
-				pass->boundComputeMethod = ptile::codegen::BoundComputeMethod::FILL_FIRST;
+				pass->setBoundComputeMethod(ptile::codegen::BoundComputeMethod::FILL_FIRST);
+			} else if (val == "fill-first") {
+				pass->setBoundComputeMethod(ptile::codegen::BoundComputeMethod::FILL_FIRST);
 			} else {
 				std::cerr << "Warning: unknown bound compute method \"" << val << "\". Default to fill-last."
 						  << std::endl;
-				pass->boundComputeMethod = ptile::codegen::BoundComputeMethod::FILL_LAST;
+				pass->setBoundComputeMethod(ptile::codegen::BoundComputeMethod::FILL_FIRST);
 			}
 			continue;
 		}
@@ -80,7 +80,35 @@ std::unique_ptr<pesto::pass::IPass> ClastParamTilingPB::build(PassManagerBuilder
 						  << std::endl;
 				continue;
 			}
-			pass->tileSizeHint = j["tile-size-hint"];
+			pass->setTileSizeHint(val);
+			continue;
+		}
+		if (key == "boundCorrectionStrategy") {
+			if (val == "no-correction") {
+				pass->setBoundCorrectionStrategy(ptile::codegen::BoundCorrectionStrategy::NO_CORRECTION);
+			} else if (val == "correct") {
+				pass->setBoundCorrectionStrategy(ptile::codegen::BoundCorrectionStrategy::CORRECT);
+			} else if (val == "shout-and-continue") {
+				pass->setBoundCorrectionStrategy(ptile::codegen::BoundCorrectionStrategy::SHOUT_AND_CONTINUE);
+			} else if (val == "shout-and-die") {
+				pass->setBoundCorrectionStrategy(ptile::codegen::BoundCorrectionStrategy::SHOUT_AND_DIE);
+			} else {
+				std::cerr << "Warning: unknown bound correction strategy \"" << val << "\". Skipping." << std::endl;
+			}
+			continue;
+		}
+		if (key == "volumeCheckStrategy") {
+			if (val == "no-check") {
+				pass->setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::NO_CHECK);
+			} else if (val == "check-and-die") {
+				pass->setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::CHECK_AND_DIE);
+			} else if (val == "check-and-warn") {
+				pass->setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::CHECK_AND_WARN);
+			} else if (val == "no-tile-until-threshold") {
+				pass->setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::NO_TILE_UNTIL_THRESHOLD);
+			} else {
+				std::cerr << "Warning: unknown volume check strategy \"" << val << "\". Skipping." << std::endl;
+			}
 			continue;
 		}
 

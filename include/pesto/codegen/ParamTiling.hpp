@@ -13,38 +13,77 @@ enum class ParamTilingType;
 struct TilingData;
 struct StmtGroup;
 
-namespace ptile::codegen {
+namespace ptile {
 
-enum StmtType { HEAD, BODY };
+class NameHelper {
+  public:
+	NameHelper(int depth, std::string outterForIt, std::string innerForIt);
+	virtual ~NameHelper();
 
-enum BoundComputeMethod {
+	void setSeparator(std::string sep);
+	void setPrefix(std::string prefix);
+
+	std::string &getSeparator();
+	std::string &getPrefix();
+
+	std::string outterForUBName();
+	std::string innerForLBName();
+	std::string innerForUBName();
+	std::string divName();
+	std::string targetVolName();
+	std::string pcMaxName();
+	std::string ehrhartFnName();
+	std::string trahrheFnName();
+	std::string trahrheIteratorName();
+
+  private:
+	int depth;
+	std::string sep;
+	std::string prefix;
+	std::string outterForIt;
+	std::string innerForIt;
+};
+
+namespace codegen {
+
+enum class StmtType {
+	HEAD,
+	BODY,
+};
+
+enum class BoundComputeMethod {
 	FILL_LAST,
 	FILL_FIRST,
 };
 
-// TODO: better name?
+enum class BoundCorrectionStrategy {
+	NO_CORRECTION,
+	SHOUT_AND_DIE,
+	SHOUT_AND_CONTINUE,
+	CORRECT,
+};
+
+enum class VolumeCheckStrategy {
+	NO_CHECK,
+	CHECK_AND_WARN,
+	CHECK_AND_DIE,
+	NO_TILE_UNTIL_THRESHOLD,
+};
+
 class ParamTilingCodegen {
   public:
 	ParamTilingCodegen(StmtGroup &group, struct clast_for &outterFor, struct clast_for &innerFor, int tilingDepth,
-					   int nestId, isl_set *innerDomain);
+					   int nestId, __isl_take isl_set *innerDomain);
 	~ParamTilingCodegen();
 
 	void genStmt(std::ostream &os, StmtType type);
 
+	void setEndline(std::string endline);
+
 	void setTilingType(ParamTilingType type);
 	void setBoundComputeMethod(BoundComputeMethod method);
-
-	std::string &getGroupPrefixName();
-	std::string &getNestPrefixName();
-	std::string &getOutterForUBName();
-	std::string &getInnerForLBName();
-	std::string &getInnerForUBName();
-	std::string &getDivName();
-	std::string &getTargetVolName();
-	std::string &getPCMaxName();
-	std::string &getEhrhartFnName();
-	std::string &getTrahrheFnName();
-	std::string &getTrahrheIteratorName();
+	void setBoundCorrectionStrategy(BoundCorrectionStrategy strategy);
+	void setVolumeCheckStrategy(VolumeCheckStrategy strategy);
 
   private:
 	StmtGroup &group;
@@ -52,29 +91,21 @@ class ParamTilingCodegen {
 	struct clast_for &outterFor;
 	struct clast_for &innerFor;
 	std::size_t tilingDepth;
-	int nestId;
 	isl_set *innerDomain;
 
 	BoundComputeMethod boundComputeMethod;
 	std::string endline;
+	BoundCorrectionStrategy boundCorrectionStrategy;
+	VolumeCheckStrategy volumeCheckStrategy;
 
 	/* Names */
-	std::string groupPrefixName;
-	std::string nestPrefixName;
-	std::string outterForUBName;
-	std::string innerForLBName;
-	std::string innerForUBName;
-	std::string divName;
-	std::string targetVolName;
-	std::string pcMaxName;
-	std::string ehrhartFnName;
-	std::string trahrheFnName;
-	std::string trahrheIteratorName;
-
 	std::string innerForLBExpr;
 	std::string innerForUBExpr;
 
-	void computeNames();
+	NameHelper nameHelper;
+	NameHelper trahrheNameHelper;
+
+	void computeBoundExpr();
 
 	void genHeaderStmt(std::ostream &os);
 	void genHeaderStmtAlgebraic(std::ostream &os);
@@ -83,8 +114,9 @@ class ParamTilingCodegen {
 	void genBodyStmtAlgebraic(std::ostream &os);
 	void genBodyStmtRectangular(std::ostream &os);
 };
+} // namespace codegen
 
-} // namespace ptile::codegen
+} // namespace ptile
 
 } // namespace pesto
 

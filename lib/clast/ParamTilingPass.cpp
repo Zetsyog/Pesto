@@ -20,15 +20,11 @@ using pesto::pass::metadata::VarDeclMetadata;
 pesto::pass::ClastParamTilingPass::ClastParamTilingPass()
 	: IPass("pass-param-tiling")
 	, gen_trahrhe(false)
-	, trahrhe_mask("")
 	, trahrhe_use_dichotomy(true)
-	, boundComputeMethod(ptile::codegen::BoundComputeMethod::FILL_LAST)
-	, tileSizeHint(PESTO_PARAM_TILING_DEFAULT_TILE_SIZE_HINT)
 	, is_stencil(false)
 	, tiling_types()
-	, outputFile(".") {
-	using namespace pesto::pass;
-
+	, outputFile(".")
+	, ptileUtil() {
 	this->gen_clast_pass = std::make_unique<GenClastPass>();
 	// TODO: WHY IS THIS HERE?
 	this->gen_clast_pass->codegenContext = 1;
@@ -37,51 +33,41 @@ pesto::pass::ClastParamTilingPass::ClastParamTilingPass()
 pesto::pass::ClastParamTilingPass::~ClastParamTilingPass() {}
 
 void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
-	// run the pass on each nest
-	auto tilingUtil = std::make_unique<ParamTilingUtility>();
-
-	// Then we generate the clast
+	// generate the clast
 	log(std::cerr) << "Generating clast for nest " << scop.getId() << std::endl;
 	this->gen_clast_pass->applyScop(scop);
-	auto clastData = scop.metadata.get<ClastHolder>();
-	if (clastData.expired()) {
+	if (!scop.metadata.has<ClastHolder>()) {
 		log(std::cerr) << "Error: "
-					   << "No clast data found" << std::endl;
+					   << "Clast generation failed." << std::endl;
+		return;
 	}
-	tilingUtil->setScop(scop.c_scop());
-	tilingUtil->setIdTrahrhePrefix(scop.getId());
+	auto clastData = scop.metadata.get<ClastHolder>().lock();
+
+	ptileUtil.setIdTrahrhePrefix(scop.getId());
 	for (auto &type : this->tiling_types) {
-		tilingUtil->pushTilingType(type);
+		ptileUtil.pushTilingType(type);
 	}
 
-	std::shared_ptr<ClastHolder> clastDataShared = clastData.lock();
-	tilingUtil->setClastRoot((struct clast_root *)clastDataShared->root);
-	tilingUtil->setCloogProgram(clastDataShared->cloogProgram);
-	tilingUtil->setCloogOptions(clastDataShared->cloogOptions);
-
-	tilingUtil->setBoundComputingMethod(this->boundComputeMethod);
-	tilingUtil->setTileSizeTarget(this->tileSizeHint);
-
-	tilingUtil->apply();
-	if (tilingUtil->hasError()) {
-		log(std::cerr) << "Error while tiling: " << tilingUtil->getErrorMessage() << std::endl;
+	ptileUtil.apply(clastData->cloogProgram, clastData->cloogOptions, (struct clast_root *)clastData->root);
+	if (ptileUtil.hasError()) {
+		log(std::cerr) << "Error while tiling: " << ptileUtil.getErrorMessage() << std::endl;
 	}
 
-	for (auto &name : tilingUtil->getNames()) {
-		clastDataShared->names.push_back(name);
+	for (auto &name : ptileUtil.getNames()) {
+		clastData->names.push_back(name);
 	}
 
 	auto macroData = scop.metadata.getOrCreate<MacroMetadata>().lock();
-	for (auto &pair : tilingUtil->getStatements()) {
+	for (auto &pair : ptileUtil.getStatements()) {
 		macroData->list.push_back("#define S" + std::to_string(pair.first) + "() " + pair.second);
 	}
 
 	auto varDeclData = scop.metadata.getOrCreate<VarDeclMetadata>().lock();
-	for (auto &var : tilingUtil->getVarList()) {
+	for (auto &var : ptileUtil.getVarList()) {
 		varDeclData->addVar(var);
 	}
 
-	auto trahrheDomains = tilingUtil->getTrahrheDomains();
+	auto trahrheDomains = ptileUtil.getTrahrheDomains();
 	for (auto &pair : trahrheDomains) {
 		// print trahrhe domain
 		log(std::cerr) << "Trahrhe domain = " << pair.second << std::endl;
@@ -170,4 +156,16 @@ void pesto::pass::ClastParamTilingPass::hookBegin(pesto::Program &prog) {
 	if (!prog.getOutputFile().string().empty()) {
 		this->outputFile = prog.getOutputFile();
 	}
+}
+
+void pesto::pass::ClastParamTilingPass::setTileSizeHint(int size) { this->ptileUtil.setTileSizeTarget(size); }
+
+void pesto::pass::ClastParamTilingPass::setBoundComputeMethod(ptile::codegen::BoundComputeMethod method) {
+	this->ptileUtil.setBoundComputingMethod(method);
+}
+void pesto::pass::ClastParamTilingPass::setBoundCorrectionStrategy(ptile::codegen::BoundCorrectionStrategy strategy) {
+	this->ptileUtil.setBoundCorrectionStrategy(strategy);
+}
+void pesto::pass::ClastParamTilingPass::setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy strategy) {
+	this->ptileUtil.setVolumeCheckStrategy(strategy);
 }

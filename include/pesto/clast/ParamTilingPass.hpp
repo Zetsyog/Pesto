@@ -3,7 +3,7 @@
 
 #include <filesystem>
 
-#include <pesto/ParamTiling.hpp>
+#include <pesto/ParamTilingUtility.hpp>
 #include <pesto/Pass.hpp>
 #include <pesto/PlutoPass.hpp>
 #include <pesto/Program.hpp>
@@ -35,10 +35,7 @@ struct tiling_info {
 class ClastParamTilingPass : public IPass {
   public:
 	bool gen_trahrhe;
-	std::string trahrhe_mask;
 	bool trahrhe_use_dichotomy;
-	ptile::codegen::BoundComputeMethod boundComputeMethod;
-	int tileSizeHint;
 
 	ClastParamTilingPass();
 	virtual ~ClastParamTilingPass();
@@ -59,11 +56,17 @@ class ClastParamTilingPass : public IPass {
 	 */
 	void pushTilingType(pesto::ParamTilingType type);
 
+	void setTileSizeHint(int size);
+	void setBoundComputeMethod(ptile::codegen::BoundComputeMethod method);
+	void setBoundCorrectionStrategy(ptile::codegen::BoundCorrectionStrategy strategy);
+	void setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy strategy);
+
   private:
 	bool is_stencil;
 	std::unique_ptr<GenClastPass> gen_clast_pass;
 	std::vector<pesto::ParamTilingType> tiling_types;
 	std::filesystem::path outputFile;
+	ParamTilingUtility ptileUtil;
 };
 
 } // namespace pass
