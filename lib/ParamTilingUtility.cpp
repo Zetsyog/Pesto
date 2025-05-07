@@ -647,5 +647,6 @@ pesto::ptile::codegen::ParamTilingCodegen pesto::ParamTilingUtility::getCodegen(
 	codegen.setBoundComputeMethod(this->boundComputeMethod);
 	codegen.setBoundCorrectionStrategy(this->boundCorrectionStrategy);
 	codegen.setVolumeCheckStrategy(this->volumeCheckStrategy);
+	codegen.setTilingType(this->getTilingType(data.tiling_depth));
 	return codegen;
 }
