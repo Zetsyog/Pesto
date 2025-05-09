@@ -17,7 +17,11 @@
             "gen-trahrhe": true,
             "trahrhe-use-dichotomy": true,
             "bound-compute-method": "default",
-            "volumeCheckStrategy": "no-tile-until-threshold"
+            "volumeCheck": {
+                "trigger": "first-outter-iterator-dependency",
+                "strategy": "dynamic-tile-until-threshold",
+                "threshold": "2000"
+            }
         },
         {
             "uuid": "clast-custom-vec-pragma",

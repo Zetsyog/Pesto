@@ -60,6 +60,8 @@ class ClastParamTilingPass : public IPass {
 	void setBoundComputeMethod(ptile::codegen::BoundComputeMethod method);
 	void setBoundCorrectionStrategy(ptile::codegen::BoundCorrectionStrategy strategy);
 	void setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy strategy);
+	void setVolumeCheckTrigger(VolumeCheckTrigger trigger);
+	void setVolumeCheckThreshold(std::string threshold);
 
   private:
 	bool is_stencil;

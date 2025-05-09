@@ -13,6 +13,7 @@ std::unique_ptr<pesto::pass::IPass> ClastParamTilingPB::build(PassManagerBuilder
 
 	std::unique_ptr<ClastParamTilingPass> pass = std::make_unique<ClastParamTilingPass>();
 
+	// TODO: cleaner parsing
 	for (auto &[key, val] : j.items()) {
 		if (key == "uuid") {
 			continue;
@@ -97,22 +98,58 @@ std::unique_ptr<pesto::pass::IPass> ClastParamTilingPB::build(PassManagerBuilder
 			}
 			continue;
 		}
-		if (key == "volumeCheckStrategy") {
-			if (val == "no-check") {
-				pass->setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::NO_CHECK);
-			} else if (val == "check-and-die") {
-				pass->setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::CHECK_AND_DIE);
-			} else if (val == "check-and-warn") {
-				pass->setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::CHECK_AND_WARN);
-			} else if (val == "no-tile-until-threshold") {
-				pass->setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::NO_TILE_UNTIL_THRESHOLD);
-			} else {
-				std::cerr << "Warning: unknown volume check strategy \"" << val << "\". Skipping." << std::endl;
+		if (key == "volumeCheck") {
+			if (!val.is_object()) {
+				std::cerr << "Warning: volumeCheck should be an object. Skipping." << std::endl;
+				continue;
+			}
+			for (auto &[k, v] : val.items()) {
+				if (k == "strategy") {
+					if (!v.is_string()) {
+						std::cerr << "Warning: volumeCheck strategy should be a string. Skipping." << std::endl;
+						continue;
+					}
+					if (v == "no-check") {
+						pass->setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::NO_CHECK);
+					} else if (v == "check-and-die") {
+						pass->setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::CHECK_AND_DIE);
+					} else if (v == "check-and-warn") {
+						pass->setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::CHECK_AND_WARN);
+					} else if (v == "no-tile-until-threshold") {
+						pass->setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::NO_TILE_UNTIL_THRESHOLD);
+					} else if (v == "dynamic-tile-until-threshold") {
+						pass->setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::DYNAMIC_TILE_UNTIL_THRESHOLD);
+					} else {
+						std::cerr << "Warning: unknown volume check strategy \"" << v << "\". Skipping." << std::endl;
+					}
+				} else if (k == "trigger") {
+					if (!v.is_string()) {
+						std::cerr << "Warning: volumeCheck trigger should be a string. Skipping." << std::endl;
+						continue;
+					}
+					if (v == "never") {
+						pass->setVolumeCheckTrigger(VolumeCheckTrigger::NEVER);
+					} else if (v == "always") {
+						pass->setVolumeCheckTrigger(VolumeCheckTrigger::ALWAYS);
+					} else if (v == "first-outter-iterator-dependency") {
+						pass->setVolumeCheckTrigger(VolumeCheckTrigger::FIRST_OUTTER_ITERATOR_DEPENDENCY);
+					} else {
+						std::cerr << "Warning: unknown volume check trigger \"" << v << "\". Skipping." << std::endl;
+					}
+				} else if (k == "threshold") {
+					if (!v.is_string()) {
+						std::cerr << "Warning: volume check threshold should be a string. Skipping." << std::endl;
+						continue;
+					}
+					pass->setVolumeCheckThreshold(v);
+				} else {
+					std::cerr << "Warning: unknown volume check option " << k << ". Skipping." << std::endl;
+				}
 			}
 			continue;
 		}
 
-		std::cerr << "Warning: unknown option \"" << key << "\" in clast-param-tiling pass. Ignoring." << std::endl;
+		std::cerr << "Warning: unknown option " << key << " in clast-param-tiling pass. Ignoring." << std::endl;
 	}
 
 	// TODO: trahrhe parameters

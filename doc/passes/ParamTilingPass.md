@@ -81,7 +81,32 @@ Default value is `32`.
 _String_
 Allowed values: `no-correction`, `correct`, `shout-and-continue`, `shout-and-die`
 
-### `volumeCheckStrategy`
+### `volumeCheck`
 
-_String_
-Allowed values: `no-check`, `check-and-die`, `check-and-warn`, `no-tile-until-threshold`
+_Object_
+Example:
+
+```json
+    ...
+    "volumeCheck": {
+        "trigger": "first-outter-iterator-dependency",
+        "strategy": "dynamic-tile-until-threshold",
+        "threshold": "2000"
+    },
+    ...
+
+```
+
+Allowed `trigger` values :
+
+- `never`: volume check is never triggered
+- `always`: volume check strategy is applied at every depth of each loop nest
+- `first-outter-iterator-dependency`: the volume check strategy will only be applied to the outtermost for that depend on an untiled outter iterator
+
+Allowed `strategy` values:
+
+- `no-check`: no volume check is done
+- `check-and-die`: if volume is lower than threshold, then shout and exit program
+- `check-and-warn`: if volume is lower than threshold, then warn. Program execution continues. _Might leader to uncorrect program, or crash later_
+- `no-tile-until-threshold`: no tiling will be done until the volume reaches the given `threshold`
+- `dynamic-tile-until-threshold`: when target volume is under `threshold`, it will increase progressively the divider until it reaches the required volume.

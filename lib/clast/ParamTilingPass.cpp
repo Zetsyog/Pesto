@@ -169,3 +169,11 @@ void pesto::pass::ClastParamTilingPass::setBoundCorrectionStrategy(ptile::codege
 void pesto::pass::ClastParamTilingPass::setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy strategy) {
 	this->ptileUtil.setVolumeCheckStrategy(strategy);
 }
+
+void pesto::pass::ClastParamTilingPass::setVolumeCheckTrigger(VolumeCheckTrigger trigger) {
+	this->ptileUtil.setVolumeCheckTrigger(trigger);
+}
+
+void pesto::pass::ClastParamTilingPass::setVolumeCheckThreshold(std::string threshold) {
+	this->ptileUtil.setVolumeCheckThreshold(threshold);
+}

@@ -19,7 +19,9 @@ pesto::ParamTilingUtility::ParamTilingUtility()
 	, error(false)
 	, boundComputeMethod(ptile::codegen::BoundComputeMethod::FILL_LAST)
 	, boundCorrectionStrategy(ptile::codegen::BoundCorrectionStrategy::NO_CORRECTION)
-	, volumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::NO_CHECK) {
+	, volumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::DYNAMIC_TILE_UNTIL_THRESHOLD)
+	, volumeCheckTrigger(VolumeCheckTrigger::FIRST_OUTTER_ITERATOR_DEPENDENCY)
+	, volumeCheckThreshold("") {
 	this->ctx = isl_ctx_alloc();
 }
 
@@ -573,11 +575,14 @@ __isl_give isl_set *pesto::ParamTilingUtility::moveNonTiledDimensionsToParameter
 	isl_set *domain = isl_set_copy(set);
 	isl_set_free(set);
 
-	isl_size ndim = isl_set_dim(set, isl_dim_set);
+	isl_size ndim = isl_set_dim(domain, isl_dim_set);
 	// TODO: move untiled dimensions as parameters
 	for (isl_size i = 0; i < ndim; i++) {
 		// ignore scalar dim
 		if (isl_set_is_dim_scalar(domain, i)) {
+			continue;
+		}
+		if (!isl_set_involves_dims(domain, isl_dim_set, i, 1)) {
 			continue;
 		}
 		bool is_tiled = false;
@@ -605,7 +610,7 @@ __isl_give isl_set *pesto::ParamTilingUtility::moveNonTiledDimensionsToParameter
 }
 
 __isl_give isl_set *pesto::ParamTilingUtility::getInnerDomain(CloogProgram *cloogProgram, StmtGroup &group,
-															  TilingData &data) {
+															  TilingData &data, bool moveNonTiledDimensions) {
 	isl_set *inner_domain = isl_set_copy(isl_set_from_cloog_domain(group.parent_for->domain));
 	// define param names
 	for (int i = 0; i < cloogProgram->names->nb_parameters; i += 1) {
@@ -615,7 +620,10 @@ __isl_give isl_set *pesto::ParamTilingUtility::getInnerDomain(CloogProgram *cloo
 	for (isl_size i = 0; i < isl_set_n_dim(inner_domain); i += 1) {
 		inner_domain = isl_set_set_dim_name(inner_domain, isl_dim_set, i, cloogProgram->names->scattering[i]);
 	}
-	inner_domain = this->moveNonTiledDimensionsToParameters(inner_domain, group);
+	if (moveNonTiledDimensions) {
+
+		inner_domain = this->moveNonTiledDimensionsToParameters(inner_domain, group);
+	}
 	inner_domain = this->extractIslInnerTiledDomain(group, inner_domain, data.tiling_depth + 1);
 
 	return inner_domain;
@@ -646,7 +654,55 @@ pesto::ptile::codegen::ParamTilingCodegen pesto::ParamTilingUtility::getCodegen(
 											   this->getInnerDomain(cloogProgram, group, data));
 	codegen.setBoundComputeMethod(this->boundComputeMethod);
 	codegen.setBoundCorrectionStrategy(this->boundCorrectionStrategy);
-	codegen.setVolumeCheckStrategy(this->volumeCheckStrategy);
 	codegen.setTilingType(this->getTilingType(data.tiling_depth));
+	codegen.setVolumeCheckThreshold(this->volumeCheckThreshold);
+
+	if (this->volumeCheckTrigger == VolumeCheckTrigger::ALWAYS) {
+		codegen.setVolumeCheckStrategy(this->volumeCheckStrategy);
+	} else if (this->volumeCheckTrigger == VolumeCheckTrigger::FIRST_OUTTER_ITERATOR_DEPENDENCY) {
+		size_t movedDimCount = this->movedDimensionsCount(cloogProgram, group, data);
+		if (movedDimCount == 0) {
+			codegen.setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::NO_CHECK);
+		} else {
+			std::cerr << "[param-tiling] moved dimensions count: " << movedDimCount << std::endl;
+			bool isFirstDependency = true;
+			for (auto &tdata : group.tilingData) {
+				if (tdata.tiling_depth >= data.tiling_depth) {
+					continue;
+				}
+				size_t iMovedDimCount = this->movedDimensionsCount(cloogProgram, group, tdata);
+				if (iMovedDimCount > 0) {
+					isFirstDependency = false;
+					break;
+				}
+			}
+			if (isFirstDependency) {
+				codegen.setVolumeCheckStrategy(this->volumeCheckStrategy);
+				std::cerr << "[param-tiling] volume check strategy triggered !" << std::endl;
+			} else {
+				codegen.setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::NO_CHECK);
+				std::cerr << "[param-tiling] volume check strategy not triggered !" << std::endl;
+			}
+		}
+	}
 	return codegen;
+}
+
+void pesto::ParamTilingUtility::setVolumeCheckTrigger(VolumeCheckTrigger trigger) {
+	this->volumeCheckTrigger = trigger;
+}
+
+void pesto::ParamTilingUtility::setVolumeCheckThreshold(std::string threshold) {
+	this->volumeCheckThreshold = threshold;
+}
+
+size_t pesto::ParamTilingUtility::movedDimensionsCount(CloogProgram *cloogProgram, StmtGroup &group, TilingData &data) {
+	isl_set *orig_inner_domain = this->getInnerDomain(cloogProgram, group, data, false);
+	isl_size orig_npar = isl_set_dim(orig_inner_domain, isl_dim_param);
+	isl_set_free(orig_inner_domain);
+	isl_set *inner_domain = this->getInnerDomain(cloogProgram, group, data, true);
+	isl_size inner_npar = isl_set_dim(inner_domain, isl_dim_param);
+	isl_set_free(inner_domain);
+
+	return inner_npar - orig_npar;
 }

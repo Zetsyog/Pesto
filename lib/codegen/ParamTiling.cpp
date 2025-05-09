@@ -21,6 +21,7 @@ ParamTilingCodegen::ParamTilingCodegen(StmtGroup &group, struct clast_for &outte
 	, endline(std::string("\\\n"))
 	, boundCorrectionStrategy(BoundCorrectionStrategy::NO_CORRECTION)
 	, volumeCheckStrategy(VolumeCheckStrategy::NO_CHECK)
+	, volumeCheckThreshold("")
 	, innerForLBExpr("")
 	, innerForUBExpr("")
 	, nameHelper(tilingDepth, outterFor.iterator, innerFor.iterator)
@@ -30,6 +31,7 @@ ParamTilingCodegen::ParamTilingCodegen(StmtGroup &group, struct clast_for &outte
 	this->nameHelper.setPrefix("g" + std::to_string(group.id));
 	this->trahrheNameHelper.setPrefix("n" + std::to_string(nestId) + this->nameHelper.getSeparator() + "g" +
 									  std::to_string(group.id));
+	this->volumeCheckThreshold = this->nameHelper.divName() + " * 10";
 	this->computeBoundExpr();
 }
 
@@ -167,13 +169,13 @@ void ParamTilingCodegen::genHeaderStmtAlgebraic(std::ostream &os) {
 	if (this->volumeCheckStrategy != VolumeCheckStrategy::NO_CHECK) {
 		os << ";" << this->endline;
 		// TODO: volume treshold should be a parameter
-		std::string volumeThreshold = this->nameHelper.divName() + " * 5";
-		os << "if(" << this->nameHelper.targetVolName() << " <= " << volumeThreshold << ") {" << this->endline;
+		os << "if(" << this->nameHelper.targetVolName() << " <= " << this->volumeCheckThreshold << ") {"
+		   << this->endline;
 
 		if (this->volumeCheckStrategy == VolumeCheckStrategy::CHECK_AND_WARN ||
 			this->volumeCheckStrategy == VolumeCheckStrategy::CHECK_AND_DIE) {
 			os << "\tfprintf(stderr, \"Warning: computed volume is too small (" << this->nameHelper.targetVolName()
-			   << " <= " << volumeThreshold
+			   << " <= " << this->volumeCheckThreshold
 			   << ").\\nTry with smaller divider or bigger parameters to increase tile "
 				  "volume.\\n\");"
 			   << this->endline;
@@ -184,6 +186,21 @@ void ParamTilingCodegen::genHeaderStmtAlgebraic(std::ostream &os) {
 			os << "\t" << this->nameHelper.targetVolName() << " = " << this->nameHelper.pcMaxName() << ";"
 			   << this->endline;
 			os << "\t" << this->nameHelper.outterForUBName() << " = 0;" << this->endline;
+		} else if (this->volumeCheckStrategy == VolumeCheckStrategy::DYNAMIC_TILE_UNTIL_THRESHOLD) {
+			std::string dynDividerName = "dynamicDivider";
+			std::string minDividerName = "minDivider";
+			os << "\tunsigned long " << dynDividerName << " = 1;" << this->endline;
+			os << "\tunsigned long " << minDividerName << " = max(1, floord(" << this->nameHelper.pcMaxName() << ", "
+			   << this->volumeCheckThreshold << "));" << this->endline;
+			os << "\tif(" << minDividerName << " < " << this->nameHelper.divName() << ") {" << this->endline;
+			os << "\t\t" << dynDividerName << " = " << minDividerName << ";" << this->endline;
+			os << "\t} else {" << this->endline;
+			os << "\t\t" << dynDividerName << " = floord(" << minDividerName << ", " << this->nameHelper.divName()
+			   << ") * " << this->nameHelper.divName() << ";" << this->endline;
+			os << "\t}" << this->endline;
+			os << "\t" << this->nameHelper.targetVolName() << " = " << this->nameHelper.pcMaxName() << " / "
+			   << dynDividerName << ";" << this->endline;
+			os << "\t" << this->nameHelper.outterForUBName() << " = " << dynDividerName << " - 1;" << this->endline;
 		}
 		os << "}";
 	}
@@ -257,10 +274,12 @@ void ParamTilingCodegen::genBodyStmtAlgebraic(std::ostream &os) {
 	// last bound adjustment
 	if (this->boundComputeMethod == BoundComputeMethod::FILL_LAST) {
 		os << ";" << this->endline;
-		os << "if(" << this->outterFor.iterator << " == " << this->nameHelper.divName() << " - 1) {" << this->endline;
+		os << "if(" << this->outterFor.iterator << " == " << this->nameHelper.outterForUBName() << ") {"
+		   << this->endline;
 		os << "\t" << this->nameHelper.innerForUBName() << " = " << this->innerForUBExpr << ";" << this->endline;
 		os << "}";
 	}
+
 	if (this->boundCorrectionStrategy != BoundCorrectionStrategy::NO_CORRECTION) {
 		os << ";" << this->endline;
 		os << "if(" << this->nameHelper.innerForLBName() << " > " << this->nameHelper.innerForUBName() << ") {"
@@ -282,6 +301,15 @@ void ParamTilingCodegen::genBodyStmtAlgebraic(std::ostream &os) {
 }
 
 void ParamTilingCodegen::setEndline(std::string endline) { this->endline = endline; }
+
+void ParamTilingCodegen::setVolumeCheckThreshold(std::string threshold) {
+	if (threshold.empty()) {
+		std::cerr << "[param-tiling] Warning: volume check threshold is empty. Default to "
+				  << this->volumeCheckThreshold << std::endl;
+		return;
+	}
+	this->volumeCheckThreshold = threshold;
+}
 
 using pesto::ptile::NameHelper;
 

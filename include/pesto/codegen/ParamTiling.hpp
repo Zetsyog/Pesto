@@ -68,6 +68,7 @@ enum class VolumeCheckStrategy {
 	CHECK_AND_WARN,
 	CHECK_AND_DIE,
 	NO_TILE_UNTIL_THRESHOLD,
+	DYNAMIC_TILE_UNTIL_THRESHOLD,
 };
 
 class ParamTilingCodegen {
@@ -84,6 +85,7 @@ class ParamTilingCodegen {
 	void setBoundComputeMethod(BoundComputeMethod method);
 	void setBoundCorrectionStrategy(BoundCorrectionStrategy strategy);
 	void setVolumeCheckStrategy(VolumeCheckStrategy strategy);
+	void setVolumeCheckThreshold(std::string threshold);
 
   private:
 	StmtGroup &group;
@@ -97,6 +99,7 @@ class ParamTilingCodegen {
 	std::string endline;
 	BoundCorrectionStrategy boundCorrectionStrategy;
 	VolumeCheckStrategy volumeCheckStrategy;
+	std::string volumeCheckThreshold;
 
 	/* Names */
 	std::string innerForLBExpr;

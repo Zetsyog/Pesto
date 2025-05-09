@@ -13,9 +13,16 @@
 #include <cloog/cloog.h>
 
 #include <pesto/codegen/ParamTiling.hpp>
+
 namespace pesto {
 
 enum class ParamTilingType { RECTANGULAR, ALGEBRAIC, SCHEDULED };
+
+enum class VolumeCheckTrigger {
+	NEVER,
+	ALWAYS,
+	FIRST_OUTTER_ITERATOR_DEPENDENCY,
+};
 
 /**
  * Holds information needed to generate trahrhe code
@@ -87,6 +94,8 @@ class ParamTilingUtility {
 	void setBoundComputingMethod(ptile::codegen::BoundComputeMethod method);
 	void setBoundCorrectionStrategy(ptile::codegen::BoundCorrectionStrategy strategy);
 	void setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy strategy);
+	void setVolumeCheckTrigger(VolumeCheckTrigger trigger);
+	void setVolumeCheckThreshold(std::string threshold);
 
 	std::vector<std::shared_ptr<std::string>> getNames();
 
@@ -125,6 +134,8 @@ class ParamTilingUtility {
 	ptile::codegen::BoundComputeMethod boundComputeMethod;
 	ptile::codegen::BoundCorrectionStrategy boundCorrectionStrategy;
 	ptile::codegen::VolumeCheckStrategy volumeCheckStrategy;
+	VolumeCheckTrigger volumeCheckTrigger;
+	std::string volumeCheckThreshold;
 
 	std::vector<StmtGroup> computeStmtGroups(struct clast_root *root);
 
@@ -149,6 +160,8 @@ class ParamTilingUtility {
 
 	__isl_give isl_set *moveNonTiledDimensionsToParameters(__isl_take isl_set *set, struct StmtGroup &group);
 
+	size_t movedDimensionsCount(CloogProgram *cloogProgram, struct StmtGroup &group, TilingData &data);
+
 	void declareVariable(std::string varName);
 
 	void declareGroupVariables(struct StmtGroup &group);
@@ -159,7 +172,8 @@ class ParamTilingUtility {
 
 	__isl_give isl_set *extractIslInnerTiledDomain(StmtGroup &group, __isl_take isl_set *domain, std::size_t ndim);
 
-	__isl_give isl_set *getInnerDomain(CloogProgram *cloogProgram, StmtGroup &group, TilingData &data);
+	__isl_give isl_set *getInnerDomain(CloogProgram *cloogProgram, StmtGroup &group, TilingData &data,
+									   bool moveNonTiledDimensions = true);
 
 	ptile::NameHelper getNameHelper(StmtGroup &group, TilingData &data);
 	ptile::NameHelper getTrahrheNameHelper(StmtGroup &group, TilingData &data);
