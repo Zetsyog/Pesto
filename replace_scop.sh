@@ -2,7 +2,7 @@
 
 # Function to display usage
 usage() {
-    echo "[replace-scop] Usage: $0 source_file scop_file" >&2
+    echo "Usage: $0 <source_file> <replacement_file>"
     exit 1
 }
 
@@ -12,7 +12,7 @@ if [ "$#" -ne 2 ]; then
 fi
 
 source_file="$1"
-scop_file="$2"
+replacement_file="$2"
 
 # Check if source_file and scop_file exist
 if [ ! -f "$source_file" ]; then
@@ -20,34 +20,29 @@ if [ ! -f "$source_file" ]; then
     exit 1
 fi
 
-if [ ! -f "$scop_file" ]; then
-    echo "[replace_scop] Error: Scop file '$scop_file' not found!" >&2
+if [ ! -f "$replacement_file" ]; then
+    echo "[replace_scop] Error: Scop file '$replacement_file' not found!" >&2
     exit 1
 fi
 
-inside_scop=0
-scop_replaced=0
-
-# Read through the source file and replace the first #pragma scop block
-while IFS= read -r line; do
-    if [[ "$line" == "#pragma scop" && "$scop_replaced" -eq 0 ]]; then
-        inside_scop=1
-        cat "$scop_file"
-        scop_replaced=1
-        continue
-    fi
-
-    if [[ "$line" == "#pragma endscop" && "$inside_scop" -eq 1 ]]; then
-        inside_scop=0
-        continue
-    fi
-
-    if [ "$inside_scop" -eq 0 ]; then
-        echo "$line"
-    fi
-done <"$source_file"
-
-# Check if #pragma scop was not found and hence not replaced
-if [ "$scop_replaced" -eq 0 ]; then
-    echo "[replace-scop] Warning: No #pragma scop block found in the source file." >&2
-fi
+awk -v repl_file="$replacement_file" '
+  BEGIN {
+    in_block = 0;
+    replaced = 0;
+  }
+  {
+    if (!replaced && $0 ~ /#pragma scop/) {
+      in_block = 1;
+      replaced = 1;
+      while ((getline line < repl_file) > 0) print line;
+      next;
+    }
+    if (in_block && $0 ~ /#pragma endscop/) {
+      in_block = 0;
+      next;
+    }
+    if (!in_block) {
+      print;
+    }
+  }
+' "$source_file"
