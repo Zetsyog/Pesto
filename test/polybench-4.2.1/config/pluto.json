@@ -1,0 +1,27 @@
+{
+    "options": {
+        "input-format": "c"
+    },
+    "passes": [
+        {
+            "uuid": "pluto",
+            "options": {
+                "tile": true,
+                "parallel": true,
+                "prevector": true,
+                "intratileopt": true,
+                "silent": false
+            }
+        },
+        {
+            "uuid": "clast-gen"
+        },
+        {
+            "uuid": "clast-custom-vec-pragma",
+            "pragma": "GCC ivdep"
+        },
+        {
+            "uuid": "codegen-cloog"
+        }
+    ]
+}
