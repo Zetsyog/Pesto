@@ -4,7 +4,6 @@
 #include <pesto/PassBuilder.hpp>
 
 #include <memory>
-#include <string>
 
 namespace pesto {
 
@@ -15,8 +14,7 @@ class CloogCodegenPB : public IPassBuilder {
 	CloogCodegenPB();
 	virtual ~CloogCodegenPB();
 
-	virtual std::unique_ptr<pesto::pass::IPass>
-	build(PassManagerBuilder &builder, const json &j);
+	virtual std::unique_ptr<pesto::pass::IPass> build(PassManagerBuilder &builder, const json &j);
 };
 
 } // namespace builder

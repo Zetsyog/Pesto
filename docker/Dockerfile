@@ -9,17 +9,6 @@ RUN apt-get update && apt-get install -y \
     libntl-dev bzip2 texinfo &&\    
     rm -rf /var/lib/apt/lists/*
 
-# install barvinok-0.41.8
-WORKDIR /build
-RUN wget "https://barvinok.sourceforge.io/barvinok-0.41.8.tar.gz" -O barvinok-0.41.8.tar.gz &&\
-    tar -xzvf barvinok-0.41.8.tar.gz &&\
-    cd barvinok-0.41.8 &&\
-    ./configure --prefix=/usr &&\
-    make -j &&\
-    make install &&\
-    cd .. &&\
-    rm -rf barvinok-0.41.8/ barvinok-0.41.8.tar.gz
-
 # install sbcl
 RUN wget --quiet 'http://prdownloads.sourceforge.net/sbcl/sbcl-1.4.16-x86-64-linux-binary.tar.bz2' -O /tmp/sbcl.tar.bz2 &&\
     mkdir /sbcl &&\
@@ -52,9 +41,6 @@ RUN rm -rf build && mkdir -p build
 
 ENV CC=gcc
 ENV CXX=g++
-
-# Cleanup the trahrhe directory that might have been built by host
-RUN cd trahrhe-dev && make clean && cd ..
 
 # Build the project
 RUN mkdir -p build && cd build && cmake .. && cmake --build . -j

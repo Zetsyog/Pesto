@@ -1,14 +1,13 @@
 #ifndef PESTO_POLY_PROGRAM_H
 #define PESTO_POLY_PROGRAM_H
 
+#include <filesystem>
+#include <memory>
+#include <vector>
+
 #include <osl/osl.h>
 
 #include <pesto/OslScop.hpp>
-
-#include <any>
-#include <map>
-#include <memory>
-#include <vector>
 
 namespace pesto {
 
@@ -28,7 +27,12 @@ class Program {
 	void clearScopNests();
 	std::vector<OslScop *> getScopNests();
 
+	std::filesystem::path getInputFile();
+	std::filesystem::path getOutputFile();
+
   private:
+	std::filesystem::path inputFile;
+	std::filesystem::path outputFile;
 	std::vector<OslScop *> scops;
 };
 
@@ -41,12 +45,14 @@ class Program::Builder {
 	Builder();
 
 	Builder &addScop(osl_scop_p scop);
+	Builder &setInputFile(std::filesystem::path path);
+	Builder &setOutputFile(std::filesystem::path path);
 
 	std::unique_ptr<Program> build();
 
   private:
+	std::unique_ptr<Program> prog;
 	int nextScopId;
-	std::vector<OslScop *> scops;
 };
 
 } // namespace pesto

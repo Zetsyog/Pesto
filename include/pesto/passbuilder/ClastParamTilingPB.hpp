@@ -4,7 +4,6 @@
 #include <pesto/PassBuilder.hpp>
 
 #include <memory>
-#include <string>
 
 namespace pesto {
 
@@ -15,8 +14,7 @@ class ClastParamTilingPB : public IPassBuilder {
 	ClastParamTilingPB();
 	virtual ~ClastParamTilingPB();
 
-	virtual std::unique_ptr<pesto::pass::IPass>
-	build(PassManagerBuilder &builder, const json &j);
+	virtual std::unique_ptr<pesto::pass::IPass> build(PassManagerBuilder &builder, const json &j);
 };
 
 } // namespace builder

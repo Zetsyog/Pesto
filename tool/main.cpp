@@ -1,3 +1,4 @@
+#include <filesystem>
 #include <iostream>
 
 #include <stdio.h>
@@ -11,29 +12,27 @@
 #include <pesto/Pesto.hpp>
 
 #include "Options.hpp"
+#include <pesto/OslScop.hpp>
 
 int main(int argc, char **argv) {
 	auto options = pesto::Options::build(argc, argv);
 
 	/* FRONTEND */
 	// check if input file is provided
-	std::cerr << "[pesto-tool] Received input file '" << options->getInputPath()
-			  << "'" << std::endl;
+	std::cerr << "[pesto-tool] Received input file '" << options->getInputPath() << "'" << std::endl;
 
 	// check if input file is regular file, else shout
 	struct stat path_stat;
 	stat(options->getInputPath().c_str(), &path_stat);
 	if (!S_ISREG(path_stat.st_mode)) {
-		std::cerr << "[pesto-tool] Input file is not a regular file"
-				  << std::endl;
+		std::cerr << "[pesto-tool] Input file is not a regular file" << std::endl;
 		return 1;
 	}
 
 	// open input file
 	FILE *in = fopen(options->getInputPath().c_str(), "r");
 	if (in == NULL) {
-		std::cerr << "[pesto-tool] Error while opening input file '"
-				  << options->getInputPath() << "'" << std::endl;
+		std::cerr << "[pesto-tool] Error while opening input file '" << options->getInputPath() << "'" << std::endl;
 		return 1;
 	}
 
@@ -41,24 +40,20 @@ int main(int argc, char **argv) {
 
 	// if input is scop file
 	if (options->getReadScop()) {
-		std::cerr << "[pesto-tool] Considering input as openscop file"
-				  << std::endl;
+		std::cerr << "[pesto-tool] Considering input as openscop file" << std::endl;
 		scop = osl_scop_read(in);
 		if (scop == NULL) {
 			std::cerr << "[pesto-tool] Error parsing scop file" << std::endl;
 			return 1;
 		}
 	} else { // else we consider it is plain c and extract openscop using clan
-		std::cerr << "[pesto-tool] Considering input file as plain c"
-				  << std::endl;
-		std::cerr << "[pesto-tool] Running clan on '" << options->getInputPath()
-				  << "'" << std::endl;
+		std::cerr << "[pesto-tool] Considering input file as plain c" << std::endl;
+		std::cerr << "[pesto-tool] Running clan on '" << options->getInputPath() << "'" << std::endl;
 		clan_options_p clan_opt = clan_options_malloc();
 		scop = clan_scop_extract(in, clan_opt);
 		clan_options_free(clan_opt);
 		if (scop == NULL) {
-			std::cerr << "[pesto-tool] Clan scop extraction failed. Abort"
-					  << std::endl;
+			std::cerr << "[pesto-tool] Clan scop extraction failed. Abort" << std::endl;
 			return 1;
 		}
 
@@ -72,8 +67,11 @@ int main(int argc, char **argv) {
 
 	// pesto magic starts here
 	// create pesto program
-	std::unique_ptr<pesto::Program> program =
-		pesto::Program::Builder().addScop(scop).build();
+	std::unique_ptr<pesto::Program> program = pesto::Program::Builder()
+												  .addScop(scop)
+												  .setInputFile(options->getInputPath())
+												  .setOutputFile(options->getOutputPath())
+												  .build();
 	// scop has been copied by builder, we can free memory
 	osl_scop_free(scop);
 
@@ -85,8 +83,7 @@ int main(int argc, char **argv) {
 
 		passManager = builder->build(options->getConfigPath().value());
 		if (passManager == nullptr) {
-			std::cerr << "[pesto-tool] Error while building pass manager"
-					  << std::endl;
+			std::cerr << "[pesto-tool] Error while building pass manager" << std::endl;
 			return 1;
 		}
 	} else {
@@ -104,13 +101,12 @@ int main(int argc, char **argv) {
 		passManager->addPass(std::make_unique<pass::GenClastPass>());
 		passManager->addPass(std::make_unique<pass::ClastParamTilingPass>());
 		// TODO: should codegen be a pass? Or whole different component ?
-		passManager->addPass(
-			std::make_unique<pass::CloogCodegenPass>(options->getGenPrefix()));
+		passManager->addPass(std::make_unique<pass::CloogCodegenPass>());
 	}
 
 	// run the passes
 	std::cerr << "[pesto-tool] Running optimizations passes" << std::endl;
-	passManager->runPasses(*program.get());
+	passManager->run(*program.get());
 
 	std::cerr << "[pesto-tool] Done" << std::endl;
 	return 0;

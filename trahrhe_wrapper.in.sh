@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# Legacy trahrhe wrapper
+# This script was used to support all trahrhe versions
+# This is no longer needed
+
 TRAHRHE_DIR="@TRAHRHE_DIR@"
 USE_LEGACY="@TRAHRHE_IS_LEGACY@"
 VERSION="@PESTO_VERSION@"

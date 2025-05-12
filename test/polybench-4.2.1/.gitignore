@@ -8,6 +8,7 @@ header.*.h
 trahrhe_header.*.h
 schedule.h
 trahrhe_schedule.*.h
+*.trahrhe.*.h
 
 # datamining
 datamining/correlation/correlation
@@ -59,5 +60,19 @@ linear-algebra/kernels/doitgen/doitgen_pluto
 linear-algebra/kernels/mvt/mvt
 linear-algebra/kernels/mvt/mvt_pesto
 linear-algebra/kernels/mvt/mvt_pluto
+
+# solvers
+linear-algebra/solvers/lu/lu
+linear-algebra/solvers/lu/lu_pesto
+linear-algebra/solvers/lu/lu_pluto
+linear-algebra/solvers/cholesky/cholesky
+linear-algebra/solvers/cholesky/cholesky_pesto
+linear-algebra/solvers/cholesky/cholesky_pluto
+linear-algebra/solvers/gramschmidt/gramschmidt
+linear-algebra/solvers/gramschmidt/gramschmidt_pesto
+linear-algebra/solvers/gramschmidt/gramschmidt_pluto
+linear-algebra/solvers/durbin/durbin
+linear-algebra/solvers/durbin/durbin_pesto
+linear-algebra/solvers/durbin/durbin_pluto
 
 # stencils

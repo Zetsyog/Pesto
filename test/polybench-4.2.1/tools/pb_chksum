@@ -6,6 +6,10 @@
 CFLAGS="-march=native -fopenmp -O3 -DPOLYBENCH_TIME -DPOLYBENCH_DUMP_ARRAYS"
 LD_FLAGS="-lm"
 EXTRAFLAGS=""
+# Check if a compiler is specified
+if [ -z "$CC" ]; then
+    CC=gcc
+fi
 
 ROOT_DIR=$(realpath "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)/../")
 POLYBENCH_DIR="$ROOT_DIR/"
@@ -26,11 +30,11 @@ cleanup() {
 source_file=$1
 source_dir=$(dirname $source_file)
 
-gcc -o __tmp $CFLAGS "$POLYBENCH_DIR/utilities/polybench.c" -I "$ROOT_DIR/utilities/" -I "$source_dir" "$source_file" $LD_FLAGS $EXTRAFLAGS
-if [ $? -ne 0 ]; then
+CMD="${CC} -o __tmp $CFLAGS $POLYBENCH_DIR/utilities/polybench.c -I $POLYBENCH_DIR/utilities/ -I $source_dir $source_file $LD_FLAGS $EXTRAFLAGS"
+if ! $CMD; then
     echo "Compilation failed" >&2
     echo "command :" >&2
-    echo gcc -o __tmp $CFLAGS "$POLYBENCH_DIR/utilities/polybench.c" -I "$ROOT_DIR/utilities/" -I "$source_dir" "$source_file" $LD_FLAGS $EXTRAFLAGS >&2
+    echo "$CMD" >&2
     exit 1
 fi
 

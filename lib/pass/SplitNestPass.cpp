@@ -40,9 +40,7 @@ void SplitNestedLoopsPass::hookBegin(Program &prog) {
 
 		for (int i = 0; i < nest_count; i++) {
 			auto nest = new OslScop(nextNestId++, new_scops[i]);
-			nest->metadata.getOrCreate<metadata::OpenScopMetadata>()
-				.lock()
-				->scops["original"] = osl_scop_clone(scop);
+			nest->metadata.getOrCreate<metadata::OpenScopMetadata>().lock()->scops["original"] = osl_scop_clone(scop);
 
 			new_nests.push_back(nest);
 		}
@@ -54,8 +52,7 @@ void SplitNestedLoopsPass::hookBegin(Program &prog) {
 	}
 
 	if (new_nests.size() > 0) {
-		log(std::cerr) << "Added " << new_nests.size() << " new nests"
-					   << std::endl;
+		log(std::cerr) << "Added " << new_nests.size() << " new nests" << std::endl;
 	} else {
 		log(std::cerr) << "No new nests added" << std::endl;
 		return;

@@ -6,10 +6,9 @@ CloogCodegenPB::CloogCodegenPB() {}
 
 CloogCodegenPB::~CloogCodegenPB() {}
 
-std::unique_ptr<pesto::pass::IPass>
-CloogCodegenPB::build(PassManagerBuilder &builder, const json &j) {
+std::unique_ptr<pesto::pass::IPass> CloogCodegenPB::build(PassManagerBuilder &builder, const json &j) {
 	(void)builder;
 	(void)j;
 
-	return std::make_unique<pesto::pass::CloogCodegenPass>(".pesto.gen");
+	return std::make_unique<pesto::pass::CloogCodegenPass>();
 }

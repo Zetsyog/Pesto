@@ -7,6 +7,8 @@
 - [ ] Add a quiet option
 - [ ] More documentation
 - [ ] Release !
+- [ ] Log system
+- [x] Remove trahrhe codegen legacy code
 - [x] Tests
   - [ ] Polybench
     - [x] linear-algebra/blas

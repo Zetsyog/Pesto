@@ -1,11 +1,13 @@
 #ifndef PESTO_PARAM_TILING_PASS_H
 #define PESTO_PARAM_TILING_PASS_H
 
-#include <pesto/ParamTiling.hpp>
+#include <filesystem>
+
+#include <pesto/ParamTilingUtility.hpp>
 #include <pesto/Pass.hpp>
 #include <pesto/PlutoPass.hpp>
+#include <pesto/Program.hpp>
 #include <pesto/clast/GenClastPass.hpp>
-#include <pesto/trahrhe.h>
 
 #include <isl/set.h>
 
@@ -25,7 +27,6 @@ struct tiling_info {
 	int depth;
 	struct clast_for *inner_for;
 	struct clast_for *outter_for;
-	struct trahrhe_codegen_data gen_data[2];
 };
 
 /**
@@ -34,15 +35,13 @@ struct tiling_info {
 class ClastParamTilingPass : public IPass {
   public:
 	bool gen_trahrhe;
-	std::string trahrhe_mask;
 	bool trahrhe_use_dichotomy;
-	trahrhe_bound_compute_method boundComputeMethod;
-	int tileSizeHint;
 
 	ClastParamTilingPass();
 	virtual ~ClastParamTilingPass();
 
 	virtual void applyScop(pesto::OslScop &nest) override;
+	virtual void hookBegin(pesto::Program &prog) override;
 
 	/**
 	 * @brief given a depth, return the tiling type
@@ -57,11 +56,19 @@ class ClastParamTilingPass : public IPass {
 	 */
 	void pushTilingType(pesto::ParamTilingType type);
 
+	void setTileSizeHint(int size);
+	void setBoundComputeMethod(ptile::codegen::BoundComputeMethod method);
+	void setBoundCorrectionStrategy(ptile::codegen::BoundCorrectionStrategy strategy);
+	void setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy strategy);
+	void setVolumeCheckTrigger(VolumeCheckTrigger trigger);
+	void setVolumeCheckThreshold(std::string threshold);
+
   private:
 	bool is_stencil;
 	std::unique_ptr<GenClastPass> gen_clast_pass;
-
 	std::vector<pesto::ParamTilingType> tiling_types;
+	std::filesystem::path outputFile;
+	ParamTilingUtility ptileUtil;
 };
 
 } // namespace pass

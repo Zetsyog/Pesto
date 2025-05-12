@@ -1,11 +1,13 @@
 #ifndef PESTO_CODEGEN_PASSES_H
 #define PESTO_CODEGEN_PASSES_H
 
+#include <filesystem>
+#include <string>
+#include <vector>
+
 #include <pesto/OslScop.hpp>
 #include <pesto/Pass.hpp>
 #include <pesto/Program.hpp>
-#include <string>
-#include <vector>
 
 namespace pesto {
 
@@ -27,6 +29,10 @@ class VarDeclMetadata {
 	std::vector<std::string> vars;
 };
 
+/**
+ * A metadata that holds a list of macros that will be included at the top of
+ * the generated C code
+ */
 class MacroMetadata {
   public:
 	std::vector<std::string> list;
@@ -42,15 +48,16 @@ class MacroMetadata {
  */
 class CloogCodegenPass : public IPass {
   public:
-	CloogCodegenPass(std::string prefix);
+	CloogCodegenPass();
 	virtual ~CloogCodegenPass();
 
 	virtual void hookBegin(Program &prog) override;
-	virtual void hookEnd(Program &prog) override;
 	virtual void applyScop(OslScop &nest) override;
 
   private:
-	std::string path_prefix;
+	std::filesystem::path output;
+
+	pesto::pass::metadata::VarDeclMetadata mergeVarDecls(Program &prog);
 };
 
 } // namespace pass

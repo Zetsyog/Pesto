@@ -1,3 +1,5 @@
+#include "pesto/clast/GenClastPass.hpp"
+#include <iostream>
 #include <pesto/Pesto.hpp>
 
 #include <pesto/osl_support.h>
@@ -12,9 +14,15 @@ GenClastPass::~GenClastPass() {}
 
 void GenClastPass::applyScop(OslScop &nest) {
 	using metadata::ClastHolder;
+	using metadata::VarDeclMetadata;
 
-	nest.metadata.set<ClastHolder>();
-	auto data = nest.metadata.get<ClastHolder>().lock();
+	auto data = nest.metadata.getOrCreate<ClastHolder>().lock();
+	// TODO: add an option to force clast generation? (and erase old clast)
+	if (data->cloogState != nullptr || data->cloogOptions != nullptr || data->cloogProgram != nullptr ||
+		data->root != nullptr) {
+		log(std::cerr) << "Clast already generated for nest " << nest.getId() << ". Skipping." << std::endl;
+		return;
+	}
 
 	osl_scop_p scop = nest.c_scop();
 
@@ -30,20 +38,16 @@ void GenClastPass::applyScop(OslScop &nest) {
 	if (this->codegenContext != -1) {
 		for (int i = 0; i < scop->context->nb_parameters; i += 1) {
 			osl_relation_insert_blank_row(scop->context, -1);
+			osl_int_set_si(scop->context->precision, &scop->context->m[scop->context->nb_rows - 1][0], 1);
 			osl_int_set_si(scop->context->precision,
-						   &scop->context->m[scop->context->nb_rows - 1][0], 1);
-			osl_int_set_si(scop->context->precision,
-						   &scop->context->m[scop->context->nb_rows - 1]
-											[1 + scop->context->nb_input_dims +
-											 scop->context->nb_local_dims +
-											 scop->context->nb_output_dims + i],
+						   &scop->context->m[scop->context->nb_rows - 1][1 + scop->context->nb_input_dims +
+																		 scop->context->nb_local_dims +
+																		 scop->context->nb_output_dims + i],
 						   1);
 			osl_int_set_si(scop->context->precision,
 						   &scop->context->m[scop->context->nb_rows - 1]
-											[1 + scop->context->nb_input_dims +
-											 scop->context->nb_local_dims +
-											 scop->context->nb_output_dims +
-											 scop->context->nb_parameters],
+											[1 + scop->context->nb_input_dims + scop->context->nb_local_dims +
+											 scop->context->nb_output_dims + scop->context->nb_parameters],
 
 						   -this->codegenContext);
 		}
@@ -53,8 +57,7 @@ void GenClastPass::applyScop(OslScop &nest) {
 	// input is freed by cloog_clast_create_from_input
 	CloogProgram *program;
 
-	program =
-		cloog_program_alloc(input->context, input->ud, data->cloogOptions);
+	program = cloog_program_alloc(input->context, input->ud, data->cloogOptions);
 	free(input);
 
 	data->cloogOptions->f = -1;
@@ -66,11 +69,25 @@ void GenClastPass::applyScop(OslScop &nest) {
 
 	data->root = cloog_clast_create(program, data->cloogOptions);
 	clast_annotate_loops(scop, data->root);
+
+	// update vardecl metadata
+	auto varDecls = nest.metadata.getOrCreate<VarDeclMetadata>().lock();
+
+	// Add iterators to var decls
+	for (int i = 0; i < program->names->nb_scattering; i += 1) {
+		varDecls->addVar(program->names->scattering[i]);
+	}
+
+	osl_scatnames_p scatnames = (osl_scatnames_p)osl_generic_lookup(nest.c_scop()->extension, OSL_URI_SCATNAMES);
+	if (scatnames != nullptr) {
+		for (size_t i = 0; i < osl_strings_size(scatnames->names); i++) {
+			varDecls->addVar(scatnames->names->string[i]);
+		}
+	}
 }
 
 metadata::ClastHolder::ClastHolder()
-	: cloogState(nullptr), cloogOptions(nullptr), cloogProgram(nullptr),
-	  root(nullptr) {}
+	: cloogState(nullptr), cloogOptions(nullptr), cloogProgram(nullptr), root(nullptr) {}
 
 metadata::ClastHolder::~ClastHolder() {
 	if (root) {

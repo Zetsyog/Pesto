@@ -15,6 +15,12 @@ set(BUILD_SHARED_LIBS
 	off
 	CACHE BOOL "" FORCE
 )
+set(BUILD_TESTING
+	off
+	CACHE BOOL "" FORCE
+)
+
+dump_cmake_variables("muparser.*")
 if(CMAKE_VERSION VERSION_LESS "3.28")
 	FetchContent_GetProperties(muparser)
 	if(NOT muparser_POPULATED)

@@ -8,15 +8,13 @@ using pesto::pass::metadata::OpenScopMetadata;
 
 // DumpOslPass
 
-DumpOslPass::DumpOslPass(std::string prefix)
-	: IPass("pass-dump-osl"), path_prefix(prefix) {}
+DumpOslPass::DumpOslPass(std::string prefix) : IPass("pass-dump-osl"), path_prefix(prefix) {}
 
 DumpOslPass::~DumpOslPass() {}
 
 void DumpOslPass::applyScop(OslScop &nest) {
 	osl_scop_p scop = nest.c_scop();
-	std::string path =
-		path_prefix + "." + std::to_string(nest.getId()) + ".scop";
+	std::string path = path_prefix + "." + std::to_string(nest.getId()) + ".scop";
 	log(std::cerr) << "Dumping scop to " << path << std::endl;
 	FILE *fd = fopen(path.c_str(), "w");
 	osl_scop_print(fd, scop);

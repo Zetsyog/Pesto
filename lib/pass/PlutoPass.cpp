@@ -1,5 +1,4 @@
 #include <iostream>
-#include <string.h>
 
 #include <isl/id.h>
 #include <isl/map.h>
@@ -16,7 +15,7 @@
 #include <pluto/pluto_internal.h>
 #include <pluto/program.h>
 
-#include "pesto/Pesto.hpp"
+#include <pesto/Pesto.hpp>
 #include <pesto/isl_support.h>
 
 #define PLUTO_DEBUG 0
@@ -46,9 +45,7 @@ void PlutoPass::applyScop(OslScop &nest) {
 	this->pluto.run(nest);
 }
 
-PlutoAutoTransformPass::PlutoAutoTransformPass() : PlutoPass() {
-	this->name = "pass-pluto-auto-transform";
-}
+PlutoAutoTransformPass::PlutoAutoTransformPass() : PlutoPass() { this->name = "pass-pluto-auto-transform"; }
 
 PlutoTilingPass::PlutoTilingPass() : PlutoPass() {
 	// pluto opt

@@ -7,23 +7,6 @@ if [ "$#" -ne 1 ]; then
 fi
 
 input_file="$1"
-inside_scop=0
-
-# Remove the output file if it already exists
 
 # Read through the input file line by line
-while IFS= read -r line; do
-    if [[ "$line" == "#pragma scop" ]]; then
-        inside_scop=1
-        continue
-    fi
-
-    if [[ "$line" == "#pragma endscop" ]]; then
-        inside_scop=0
-        break
-    fi
-
-    if [ "$inside_scop" -eq 1 ]; then
-        echo "$line"
-    fi
-done <"$input_file"
+awk '/#pragma scop/ {inblock=1} inblock; /#pragma endscop/ && inblock {exit}' "$input_file"

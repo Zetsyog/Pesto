@@ -27,8 +27,8 @@ ExternalProject_Add(
 	BUILD_IN_SOURCE true
 	CONFIGURE_COMMAND
 		./autogen.sh && ./configure --prefix=${CLOOG_BIN} #
-		--with-isl=system --with-isl-prefix=${PLUTO_BIN} #
-		--with-osl=system --with-osl-prefix=${PLUTO_BIN}
+		--with-isl=system --with-isl-prefix=${PLUTO_PREFIX} #
+		--with-osl=system --with-osl-prefix=${PLUTO_PREFIX}
 	PATCH_COMMAND
 		${CMAKE_COMMAND} -E echo "Applying ${CLOOG_PATCH_CLAST_USER_VEC}" && #
 		patch -p1 < ${CLOOG_PATCH_CLAST_USER_VEC} && #

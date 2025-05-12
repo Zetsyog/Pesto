@@ -14,7 +14,7 @@ set(PESTO_SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/clast/clast_support.c
 	${CMAKE_CURRENT_SOURCE_DIR}/codegen/CloogPass.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/codegen/VarDecls.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/codegen/trahrhe.c
+	${CMAKE_CURRENT_SOURCE_DIR}/codegen/ParamTiling.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/isl_support.c
 	${CMAKE_CURRENT_SOURCE_DIR}/osl_support.c
 	${CMAKE_CURRENT_SOURCE_DIR}/pass/DumpOslPass.cpp
@@ -36,7 +36,10 @@ set(PESTO_SOURCES
 )
 
 add_library(pesto STATIC ${PESTO_SOURCES})
+add_dependencies(pesto trahrhe-src barvinok-src)
 
-target_include_directories(pesto PUBLIC ${CMAKE_SOURCE_DIR}/include)
+target_include_directories(pesto PUBLIC ${CMAKE_SOURCE_DIR}/include ${TRAHRHE_INCLUDE_DIRS})
 target_include_directories(pesto PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(pesto PUBLIC pluto cloog nlohmann_json muparser)
+target_link_libraries(pesto PUBLIC pluto cloog nlohmann_json muparser ${TRAHRHE_LIBRARIES})
+
+message(STATUS "Trahrhe libraries: ${TRAHRHE_LIBRARIES}")

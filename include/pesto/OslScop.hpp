@@ -1,6 +1,8 @@
 #ifndef PESTO_SCOPNEST_H
 #define PESTO_SCOPNEST_H
 
+#include <filesystem>
+
 #include <osl/osl.h>
 
 #include <pesto/Utils.hpp>
