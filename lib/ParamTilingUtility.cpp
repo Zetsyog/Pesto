@@ -568,6 +568,7 @@ void pesto::ParamTilingUtility::setBoundComputingMethod(pesto::ptile::codegen::B
 }
 
 void pesto::ParamTilingUtility::setTileSizeTarget(int size) { this->tilesizeTarget = size; }
+int pesto::ParamTilingUtility::getTileSizeTarget() { return this->tilesizeTarget; }
 
 __isl_give isl_set *pesto::ParamTilingUtility::moveNonTiledDimensionsToParameters(__isl_take isl_set *set,
 																				  StmtGroup &group) {

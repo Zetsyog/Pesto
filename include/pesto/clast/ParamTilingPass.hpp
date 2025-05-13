@@ -64,11 +64,12 @@ class ClastParamTilingPass : public IPass {
 	void setVolumeCheckThreshold(std::string threshold);
 
   private:
-	bool is_stencil;
 	std::unique_ptr<GenClastPass> gen_clast_pass;
 	std::vector<pesto::ParamTilingType> tiling_types;
 	std::filesystem::path outputFile;
 	ParamTilingUtility ptileUtil;
+
+	bool areTileSkewed(pesto::OslScop &scop);
 };
 
 } // namespace pass

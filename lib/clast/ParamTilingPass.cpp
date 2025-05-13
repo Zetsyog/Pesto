@@ -5,13 +5,21 @@
 
 #include <cloog/isl/cloog.h>
 
+#include <osl/osl.h>
+
 #include <isl/val.h>
 
 #include <trahrhe/trahrhe.h>
 
-#include <pesto/Pesto.hpp>
+#include <pesto/CodegenPasses.hpp>
+#include <pesto/ParamTilingUtility.hpp>
+#include <pesto/Pass.hpp>
+#include <pesto/PlutoPass.hpp>
+#include <pesto/Program.hpp>
+#include <pesto/clast/ParamTilingPass.hpp>
 #include <pesto/clast/clast_support.h>
 #include <pesto/isl_support.h>
+#include <pesto/osl_support.h>
 
 using pesto::pass::metadata::ClastHolder;
 using pesto::pass::metadata::MacroMetadata;
@@ -21,7 +29,6 @@ pesto::pass::ClastParamTilingPass::ClastParamTilingPass()
 	: IPass("pass-param-tiling")
 	, gen_trahrhe(false)
 	, trahrhe_use_dichotomy(true)
-	, is_stencil(false)
 	, tiling_types()
 	, outputFile(".")
 	, ptileUtil() {
@@ -42,6 +49,12 @@ void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
 		return;
 	}
 	auto clastData = scop.metadata.get<ClastHolder>().lock();
+
+	if (this->areTileSkewed(scop)) {
+		log(std::cerr) << "Detected skewing over tiling loops. Resulting code may be incorrect. Please use dynamic "
+						  "scheduling or non rectangular tiling"
+					   << std::endl;
+	}
 
 	ptileUtil.setIdTrahrhePrefix(scop.getId());
 	for (auto &type : this->tiling_types) {
@@ -176,4 +189,45 @@ void pesto::pass::ClastParamTilingPass::setVolumeCheckTrigger(VolumeCheckTrigger
 
 void pesto::pass::ClastParamTilingPass::setVolumeCheckThreshold(std::string threshold) {
 	this->ptileUtil.setVolumeCheckThreshold(threshold);
+}
+
+bool pesto::pass::ClastParamTilingPass::areTileSkewed(pesto::OslScop &scop) {
+	osl_scop_p cscop = scop.c_scop();
+
+	osl_statement_p stmt = cscop->statement;
+	while (stmt != NULL) {
+		osl_relation_p domain = stmt->domain;
+		osl_relation_p scat = stmt->scattering;
+
+		std::vector<int> tilingDims;
+		int ndim = domain->nb_output_dims;
+
+		for (int i = 0; i < ndim; i++) {
+			// ignore equalities
+			if (osl_relation_is_row_equality(domain, i)) {
+				continue;
+			}
+			if (osl_relation_is_tiling_dim(domain, i)) {
+				tilingDims.push_back(i);
+			}
+		}
+
+		for (int i = 0; i < scat->nb_rows; i++) {
+			int involvedTiledDims = 0;
+			for (auto &dim : tilingDims) {
+				int dimIdx = 1 + scat->nb_input_dims + dim;
+				if (!osl_int_zero(scat->precision, scat->m[i][dimIdx])) {
+					involvedTiledDims++;
+				}
+			}
+			if (involvedTiledDims > 1) {
+				log(std::cerr) << "Found skewed tiling" << std::endl;
+				return true;
+			}
+		}
+
+		stmt = stmt->next;
+	}
+
+	return false;
 }

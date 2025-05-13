@@ -5,6 +5,8 @@
 extern "C" {
 #endif
 
+#include <stdbool.h>
+
 #include <osl/osl.h>
 
 /**
@@ -63,6 +65,11 @@ int osl_max_scattering_dim(osl_scop_p scop);
  * @return 1 if the dimension is scalar, 0 otherwise
  */
 int osl_relation_is_dim_scalar(osl_relation_p rel, int dim);
+
+bool osl_relation_is_row_equality(osl_relation_p rel, int row);
+bool osl_relation_is_row_inequality(osl_relation_p rel, int row);
+
+bool osl_relation_is_tiling_dim(osl_relation_p relation, int dim);
 
 #ifdef __cplusplus
 }

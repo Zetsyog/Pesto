@@ -106,6 +106,7 @@ class ParamTilingUtility {
 	std::vector<std::pair<int, std::string>> getTrahrheDomains();
 
 	void setTileSizeTarget(int tilesize);
+	int getTileSizeTarget();
 
   private:
 	/* polyhedral stuff */
