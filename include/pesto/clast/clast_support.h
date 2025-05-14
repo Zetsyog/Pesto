@@ -129,6 +129,17 @@ int clast_annotate_loops(osl_scop_p program, struct clast_stmt *root);
  */
 struct clast_expr *clast_bound_from_isl_set(CloogNames *names, __isl_keep isl_set *set, int bound, int dim);
 
+/**
+ * @brief search for the corresponding outter tiling for of the given clast for
+ * This function will search among all the clast for that contains @param inner_for
+ * and return the one that iterate over the tile space of @param inner_for
+ * @param root the root of the clast tree
+ * @param inner_for the inner for to search for
+ * @return struct clast_for* the outter for that contains the inner for
+ * @note the function will return NULL if no outter for is found
+ */
+struct clast_for *clast_find_outter_tiling_for(struct clast_stmt *root, struct clast_for *inner_for);
+
 #ifdef __cplusplus
 }
 #endif

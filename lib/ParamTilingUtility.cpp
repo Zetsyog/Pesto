@@ -201,28 +201,16 @@ std::string pesto::ParamTilingUtility::getErrorMessage() { return this->errorMes
 bool pesto::ParamTilingUtility::hasError() { return this->error; }
 
 void pesto::ParamTilingUtility::associateTilingFor(struct clast_root *root, StmtGroup &group) {
-	struct clast_for *current_for = group.parent_for;
-
-	while (current_for != NULL) {
-		// if the current for is an inner tiled for
-		if (clast_for_is_inner_tile_loop(current_for, this->tilesizeTarget)) {
-			// we get the corresponding outter for
-			struct clast_for *outter_for =
-				clast_get_outter_tiling_for((struct clast_stmt *)root, current_for, this->tilesizeTarget);
-			if (outter_for == NULL) {
-				std::cerr << "[param-tiling] Warning: found a inner tiled for "
-							 "with no outter tiling for"
-						  << std::endl;
-				current_for = clast_get_parent_clast_for((struct clast_stmt *)root, (struct clast_stmt *)current_for);
-				continue;
-			}
-			TilingData data;
-
-			data.outter_for = outter_for;
-			data.inner_for = current_for;
-			group.tilingData.push_back(data);
+	for (struct clast_for *current_for = group.parent_for; current_for != NULL;
+		 current_for = clast_get_parent_clast_for(&(root->stmt), &(current_for->stmt))) {
+		struct clast_for *outter_for = clast_find_outter_tiling_for(&(root->stmt), current_for);
+		if (outter_for == nullptr) {
+			continue;
 		}
-		current_for = clast_get_parent_clast_for((struct clast_stmt *)root, (struct clast_stmt *)current_for);
+		TilingData data;
+		data.outter_for = outter_for;
+		data.inner_for = current_for;
+		group.tilingData.push_back(data);
 	}
 
 	// sort the tiling data by depth of the outter for
@@ -380,27 +368,6 @@ isl_set *pesto::ParamTilingUtility::dropTilingConstraints(__isl_take isl_set *se
 		int ndim = isl_set_dim(isl_set_from_cloog_domain(data.outter_for->domain), isl_dim_set);
 
 		res = isl_set_drop_constraints_involving_dims(res, isl_dim_set, ndim - 1, 1);
-	}
-
-	return res;
-}
-
-// TODO: remove because not used
-isl_set *pesto::ParamTilingUtility::removeTilingDimensions(__isl_take isl_set *set, StmtGroup &group) {
-	isl_set *res = isl_set_copy(set);
-	isl_set_free(set);
-
-	// we need to drop the constraints that are not related to the tiling
-	// dimensions
-	// but from the inner most to the outter most
-	// so we sort the tiling_for pair by descending depth of the outter for
-	for (auto riter = group.tilingData.rbegin(); riter != group.tilingData.rend(); ++riter) {
-		auto &data = *riter;
-
-		int ndim = isl_set_dim(isl_set_from_cloog_domain(data.outter_for->domain), isl_dim_set);
-
-		res = isl_set_drop_constraints_involving_dims(res, isl_dim_set, ndim - 1, 1);
-		res = isl_set_remove_dims(res, isl_dim_set, ndim - 1, 1);
 	}
 
 	return res;
@@ -707,3 +674,5 @@ size_t pesto::ParamTilingUtility::movedDimensionsCount(CloogProgram *cloogProgra
 
 	return inner_npar - orig_npar;
 }
+
+void pesto::ParamTilingUtility::clearTilingTypes() { this->tilingTypes.clear(); }

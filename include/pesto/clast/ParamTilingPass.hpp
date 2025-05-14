@@ -2,6 +2,7 @@
 #define PESTO_PARAM_TILING_PASS_H
 
 #include <filesystem>
+#include <optional>
 
 #include <pesto/ParamTilingUtility.hpp>
 #include <pesto/Pass.hpp>
@@ -70,6 +71,9 @@ class ClastParamTilingPass : public IPass {
 	ParamTilingUtility ptileUtil;
 
 	bool areTileSkewed(pesto::OslScop &scop);
+	std::optional<std::pair<int, int>> getSkewedTilingDimensions(pesto::OslScop &scop);
+
+	void undoTileSkewing(pesto::OslScop &scop);
 };
 
 } // namespace pass

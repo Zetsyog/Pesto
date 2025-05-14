@@ -537,3 +537,42 @@ struct clast_expr *clast_bound_from_isl_set(CloogNames *names, __isl_keep isl_se
 
 	return result_expr;
 }
+
+struct clast_for *clast_find_outter_tiling_for(struct clast_stmt *root, struct clast_for *inner_for) {
+	isl_set *inner_domain = isl_set_copy(isl_set_from_cloog_domain(inner_for->domain));
+	isl_size inner_ndim = isl_set_dim(inner_domain, isl_dim_set);
+
+	inner_domain = isl_set_drop_constraints_not_involving_dims(inner_domain, isl_dim_set, inner_ndim - 1, 1);
+
+	// iterate over the parent loops in ast
+	for (struct clast_for *outter_for = clast_get_parent_clast_for(root, &(inner_for->stmt)); outter_for != NULL;
+		 outter_for = clast_get_parent_clast_for(root, (struct clast_stmt *)outter_for)) {
+		isl_set *outter_domain = isl_set_copy(isl_set_from_cloog_domain(outter_for->domain));
+		isl_size outter_ndim = isl_set_dim(outter_domain, isl_dim_set);
+
+		// if this iterator is not a tiling loop, skip it
+		if (isl_set_is_tiling_dim(inner_domain, outter_ndim - 1) == isl_bool_false) {
+			isl_set_free(outter_domain);
+			continue;
+		}
+		// this set contains only the constraints of the inner loop iterator and of the outter loop iterator
+		isl_set *outter_constraints =
+			isl_set_drop_constraints_not_involving_dims(isl_set_copy(inner_domain), isl_dim_set, outter_ndim - 1, 1);
+
+		if (isl_set_is_tiling_dim(outter_constraints, outter_ndim - 1) == isl_bool_true) {
+			// if it is still a tiling loop, we found the outter loop
+			isl_set_free(outter_constraints);
+			isl_set_free(inner_domain);
+			isl_set_free(outter_domain);
+			return outter_for;
+		}
+
+		isl_set_free(outter_constraints);
+
+		isl_set_free(outter_domain);
+	}
+
+	isl_set_free(inner_domain);
+
+	return NULL;
+}

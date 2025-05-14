@@ -1,5 +1,6 @@
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -40,6 +41,19 @@ pesto::pass::ClastParamTilingPass::ClastParamTilingPass()
 pesto::pass::ClastParamTilingPass::~ClastParamTilingPass() {}
 
 void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
+	if (this->areTileSkewed(scop)) {
+		// TODO: add a flag to preven pesto to do this
+		log(std::cerr) << "Detected skewing over tiling loops. Switching to dynamic scheduling. " << std::endl;
+
+		ptileUtil.clearTilingTypes();
+		ptileUtil.pushTilingType(ParamTilingType::SCHEDULED);
+		ptileUtil.pushTilingType(ParamTilingType::SCHEDULED);
+		ptileUtil.pushTilingType(ParamTilingType::RECTANGULAR);
+
+		// Undo tile skewing ?
+		this->undoTileSkewing(scop);
+	}
+
 	// generate the clast
 	log(std::cerr) << "Generating clast for nest " << scop.getId() << std::endl;
 	this->gen_clast_pass->applyScop(scop);
@@ -49,12 +63,6 @@ void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
 		return;
 	}
 	auto clastData = scop.metadata.get<ClastHolder>().lock();
-
-	if (this->areTileSkewed(scop)) {
-		log(std::cerr) << "Detected skewing over tiling loops. Resulting code may be incorrect. Please use dynamic "
-						  "scheduling or non rectangular tiling"
-					   << std::endl;
-	}
 
 	ptileUtil.setIdTrahrhePrefix(scop.getId());
 	for (auto &type : this->tiling_types) {
@@ -192,6 +200,10 @@ void pesto::pass::ClastParamTilingPass::setVolumeCheckThreshold(std::string thre
 }
 
 bool pesto::pass::ClastParamTilingPass::areTileSkewed(pesto::OslScop &scop) {
+	return this->getSkewedTilingDimensions(scop).has_value();
+}
+
+std::optional<std::pair<int, int>> pesto::pass::ClastParamTilingPass::getSkewedTilingDimensions(pesto::OslScop &scop) {
 	osl_scop_p cscop = scop.c_scop();
 
 	osl_statement_p stmt = cscop->statement;
@@ -212,6 +224,7 @@ bool pesto::pass::ClastParamTilingPass::areTileSkewed(pesto::OslScop &scop) {
 			}
 		}
 
+		int d1 = -1;
 		for (int i = 0; i < scat->nb_rows; i++) {
 			int involvedTiledDims = 0;
 			for (auto &dim : tilingDims) {
@@ -220,14 +233,70 @@ bool pesto::pass::ClastParamTilingPass::areTileSkewed(pesto::OslScop &scop) {
 					involvedTiledDims++;
 				}
 			}
-			if (involvedTiledDims > 1) {
-				log(std::cerr) << "Found skewed tiling" << std::endl;
-				return true;
+			if (involvedTiledDims == 2) {
+				d1 = i;
+				break;
+			}
+		}
+		if (d1 == -1) {
+			stmt = stmt->next;
+			continue;
+		}
+		for (int i = 0; i < scat->nb_rows; i++) {
+			if (i == d1) {
+				continue;
+			}
+			for (auto &dim : tilingDims) {
+				if (osl_int_eq(scat->precision, scat->m[d1][1 + scat->nb_input_dims + dim],
+							   scat->m[i][1 + scat->nb_input_dims + dim])) {
+					return std::make_pair(d1, i);
+				}
 			}
 		}
 
 		stmt = stmt->next;
 	}
 
-	return false;
+	return std::nullopt;
+}
+
+void pesto::pass::ClastParamTilingPass::undoTileSkewing(pesto::OslScop &scop) {
+	auto skewedDims = this->getSkewedTilingDimensions(scop);
+	if (!skewedDims.has_value()) {
+		return;
+	}
+	log(std::cerr) << "Undoing tile skewing of dim " << skewedDims->first << " and " << skewedDims->second << std::endl;
+	osl_scop_p cscop = scop.c_scop();
+	osl_statement_p stmt = cscop->statement;
+	while (stmt != nullptr) {
+		osl_relation_p scat = stmt->scattering;
+
+		osl_int_t one;
+		osl_int_init_set_long(scat->precision, &one, 1);
+		osl_int_t tmp;
+		osl_int_init(scat->precision, &tmp);
+
+		std::vector<int> firstNonZeroOutputDims;
+		std::vector<int> secondNonZeroOutputDims;
+		for (int i = 0; i < scat->nb_output_dims; i++) {
+			if (osl_int_eq(scat->precision, scat->m[skewedDims->first][1 + scat->nb_input_dims + i], one)) {
+				firstNonZeroOutputDims.push_back(i);
+			}
+			if (osl_int_eq(scat->precision, scat->m[skewedDims->second][1 + scat->nb_input_dims + i], one)) {
+				secondNonZeroOutputDims.push_back(i);
+			}
+		}
+
+		if (firstNonZeroOutputDims.size() == 2 && secondNonZeroOutputDims.size() == 1) {
+			if (firstNonZeroOutputDims[1] == secondNonZeroOutputDims[0]) {
+				osl_int_set_si(scat->precision,
+							   &scat->m[skewedDims->first][1 + scat->nb_input_dims + firstNonZeroOutputDims[1]], 0);
+			}
+		}
+
+		osl_int_clear(scat->precision, &tmp);
+		osl_int_clear(scat->precision, &one);
+
+		stmt = stmt->next;
+	}
 }

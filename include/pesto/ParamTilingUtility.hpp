@@ -88,6 +88,11 @@ class ParamTilingUtility {
 	 */
 	void pushTilingType(ParamTilingType type);
 
+	/**
+	 * @brief clear the list of tiling types
+	 */
+	void clearTilingTypes();
+
 	void setIdTrahrhePrefix(int id);
 
 	/* Codegen options */
@@ -156,8 +161,6 @@ class ParamTilingUtility {
 	void generateStatements(CloogProgram *cloogProgram, StmtGroup &group);
 
 	__isl_give isl_set *dropTilingConstraints(__isl_take isl_set *set, struct StmtGroup &group);
-
-	__isl_give isl_set *removeTilingDimensions(__isl_take isl_set *set, struct StmtGroup &group);
 
 	__isl_give isl_set *moveNonTiledDimensionsToParameters(__isl_take isl_set *set, struct StmtGroup &group);
 

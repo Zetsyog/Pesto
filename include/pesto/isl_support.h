@@ -1,19 +1,21 @@
 #ifndef PESTO_ISL_SUPPORT_H
 #define PESTO_ISL_SUPPORT_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <isl/constraint.h>
 #include <isl/ctx.h>
 #include <isl/map.h>
+#include <isl/mat.h>
 #include <isl/set.h>
 #include <isl/space.h>
 #include <isl/space_type.h>
 #include <isl/union_map.h>
+#include <isl/vec.h>
 
 #include <osl/osl.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 void osl_scop_to_isl(osl_scop_p scop, isl_ctx *ctx, isl_union_map **schedules, isl_union_map **reads,
 					 isl_union_map **writes);
@@ -114,6 +116,14 @@ __isl_give isl_set *isl_set_drop_tiling_constraints(__isl_take isl_set *set);
  * @return isl_bool whether the dimension is scalar
  */
 isl_bool isl_set_is_dim_scalar(__isl_keep isl_set *set, int dim);
+
+__isl_give isl_vec *isl_mat_row_at(__isl_keep isl_mat *mat, int row);
+
+/**
+ * @brief check if the given dimension is a tiling dimension in the set
+ * @param set
+ */
+isl_bool isl_set_is_tiling_dim(__isl_keep isl_set *set, int pos);
 
 #ifdef __cplusplus
 }
