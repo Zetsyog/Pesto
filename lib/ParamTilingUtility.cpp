@@ -1,5 +1,7 @@
 #include <algorithm>
 #include <memory>
+#include <sstream>
+#include <string>
 
 #include <isl/aff.h>
 #include <isl/ctx.h>
@@ -9,7 +11,7 @@
 
 #include <trahrhe/trahrhe.h>
 
-#include <pesto/Pesto.hpp>
+#include <pesto/ParamTilingUtility.hpp>
 #include <pesto/clast/clast_support.h>
 #include <pesto/isl_support.h>
 

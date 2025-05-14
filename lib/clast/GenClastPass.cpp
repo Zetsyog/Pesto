@@ -1,10 +1,9 @@
-#include "pesto/clast/GenClastPass.hpp"
 #include <iostream>
-#include <pesto/Pesto.hpp>
 
-#include <pesto/osl_support.h>
-
+#include <pesto/CodegenPasses.hpp>
+#include <pesto/clast/GenClastPass.hpp>
 #include <pesto/clast/clast_support.h>
+#include <pesto/osl_support.h>
 
 using namespace pesto::pass;
 

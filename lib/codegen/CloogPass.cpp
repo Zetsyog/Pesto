@@ -2,7 +2,6 @@
 #include <iostream>
 
 #include <pesto/CodegenPasses.hpp>
-#include <pesto/Pesto.hpp>
 #include <pesto/clast/GenClastPass.hpp>
 #include <pesto/clast/clast_support.h>
 

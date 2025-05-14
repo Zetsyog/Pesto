@@ -1,7 +1,17 @@
 #include <fstream>
 #include <iostream>
 
-#include <pesto/Pesto.hpp>
+#include <pesto/PassBuilder.hpp>
+#include <pesto/macros.h>
+
+#include <pesto/passbuilder/ClastCustomVecPragmaPB.hpp>
+#include <pesto/passbuilder/ClastParamTilingPB.hpp>
+#include <pesto/passbuilder/CloogCodegenPB.hpp>
+#include <pesto/passbuilder/GenClastPB.hpp>
+#include <pesto/passbuilder/MatchCriteriaPB.hpp>
+#include <pesto/passbuilder/ParamContextPB.hpp>
+#include <pesto/passbuilder/PlutoPB.hpp>
+#include <pesto/passbuilder/SplitNestPB.hpp>
 
 using namespace pesto::builder;
 

@@ -1,4 +1,5 @@
-#include <pesto/Pesto.hpp>
+#include <pesto/clast/GenClastPass.hpp>
+#include <pesto/passbuilder/GenClastPB.hpp>
 
 using namespace pesto::builder;
 

@@ -1,4 +1,5 @@
-#include <pesto/Pesto.hpp>
+#include <pesto/OslPass.hpp>
+#include <pesto/passbuilder/MatchCriteriaPB.hpp>
 
 using namespace pesto::builder;
 

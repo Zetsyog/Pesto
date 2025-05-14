@@ -15,7 +15,8 @@
 #include <pluto/pluto_internal.h>
 #include <pluto/program.h>
 
-#include <pesto/Pesto.hpp>
+#include <pesto/Pluto.hpp>
+#include <pesto/PlutoPass.hpp>
 #include <pesto/isl_support.h>
 
 #define PLUTO_DEBUG 0
