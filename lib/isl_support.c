@@ -292,6 +292,7 @@ isl_bool isl_basic_set_is_tiling_dim(__isl_keep isl_basic_set *bset, int pos) {
 	for (isl_size i = 0; i < n_row; ++i) {
 		isl_val *val = isl_mat_get_element_val(ineq, i, pos);
 		if (isl_val_is_zero(val) == isl_bool_true) {
+			isl_val_free(val);
 			continue;
 		}
 		isl_vec *ivec = isl_mat_row_at(ineq, i);
@@ -350,10 +351,14 @@ isl_bool isl_set_is_tiling_dim(__isl_keep isl_set *set, int pos) {
 		isl_basic_set *bset = isl_basic_set_list_get_at(bset_list, i);
 		if (isl_basic_set_is_tiling_dim(bset, pos) == isl_bool_false) {
 			isl_basic_set_free(bset);
+			isl_basic_set_list_free(bset_list);
+
 			return isl_bool_false;
 		}
 		isl_basic_set_free(bset);
 	}
+
+	isl_basic_set_list_free(bset_list);
 	return isl_bool_true;
 }
 
