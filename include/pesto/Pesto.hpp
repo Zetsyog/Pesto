@@ -5,6 +5,8 @@
 	Publicly available library headers
 */
 
+#include <pesto/version.h>
+
 #include <pesto/OslScop.hpp>
 #include <pesto/Program.hpp>
 #include <pesto/Utils.hpp>
