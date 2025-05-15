@@ -38,7 +38,6 @@ pesto::pass::ClastParamTilingPass::ClastParamTilingPass()
 	this->gen_clast_pass->cloogF = -1;
 	this->gen_clast_pass->cloogL = 1;
 	// TODO: WHY IS THIS HERE?
-	this->gen_clast_pass->codegenContext = 1;
 }
 
 pesto::pass::ClastParamTilingPass::~ClastParamTilingPass() {}

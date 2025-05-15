@@ -63,6 +63,17 @@ void pesto::ParamTilingUtility::apply(CloogProgram *cloogProgram, CloogOptions *
 		return;
 	}
 
+	for (auto &group : stmtGroups) {
+		// First we need to associate for each tiled dimension its inner and outter
+		// for
+		this->associateTilingFor(root, group);
+
+		// compute tiling data bound expressions
+		for (auto &data : group.tilingData) {
+			this->computeTilingDataBoundExpr(cloogProgram, group, data);
+		}
+	}
+
 	std::cerr << "[param-tiling] Applying tiling..." << std::endl;
 
 	// then for each statement group we apply the tiling
@@ -94,6 +105,16 @@ std::vector<pesto::StmtGroup> pesto::ParamTilingUtility::computeStmtGroups(struc
 	for (int i = 0; i < stmt_count; i++) {
 		stmt_to_process.push_back(stmt[i]);
 	}
+
+	// sort by clast depth
+	// deeper last
+	std::sort(stmt_to_process.begin(), stmt_to_process.end(),
+			  [root](struct clast_user_stmt *a, struct clast_user_stmt *b) {
+				  struct clast_for *a_parent_for = clast_get_parent_clast_for(&(root->stmt), &(a->stmt));
+				  struct clast_for *b_parent_for = clast_get_parent_clast_for(&(root->stmt), &(b->stmt));
+
+				  return clast_for_depth(&(root->stmt), b_parent_for) - clast_for_depth(&(root->stmt), a_parent_for);
+			  });
 
 	/*
 		The algorithm is as follows:
@@ -132,12 +153,11 @@ std::vector<pesto::StmtGroup> pesto::ParamTilingUtility::computeStmtGroups(struc
 
 		isl_set *parent_domain = isl_set_from_cloog_domain(parent_for->domain);
 
-		for (struct clast_for *tmp = parent_for; tmp != NULL;
-			 tmp = clast_get_parent_clast_for(&(root->stmt), &(tmp->stmt))) {
-			isl_size tmp_dim = isl_set_dim(isl_set_from_cloog_domain(tmp->domain), isl_dim_set) - 1;
-			if (isl_set_is_tiling_dim(parent_domain, tmp_dim) == isl_bool_true) {
-				group.first_tiling_for = tmp;
-				std::cerr << "for " << tmp->iterator << " is tiling for" << std::endl;
+		for (struct clast_for *current_for = parent_for; current_for != NULL;
+			 current_for = clast_get_parent_clast_for((struct clast_stmt *)root, (struct clast_stmt *)current_for)) {
+			isl_size current_ndim = isl_set_dim(isl_set_from_cloog_domain(current_for->domain), isl_dim_set);
+			if (isl_set_is_tiling_dim(parent_domain, current_ndim - 1) == isl_bool_true) {
+				group.first_tiling_for = current_for;
 				break;
 			}
 		}
@@ -145,16 +165,17 @@ std::vector<pesto::StmtGroup> pesto::ParamTilingUtility::computeStmtGroups(struc
 		// for each statement that has not been processed yet
 		for (std::vector<struct clast_user_stmt *>::iterator it = stmt_to_process.begin();
 			 it != stmt_to_process.end();) {
-			struct clast_for *tmp = clast_get_parent_clast_for((struct clast_stmt *)root, (struct clast_stmt *)*it);
-			for (struct clast_for *cfor = tmp; cfor != NULL;
-				 cfor = clast_get_parent_clast_for(&(root->stmt), &(cfor->stmt))) {
-				isl_size tmp_dim = isl_set_dim(isl_set_from_cloog_domain(cfor->domain), isl_dim_set) - 1;
-				if (isl_set_is_tiling_dim(parent_domain, tmp_dim) == isl_bool_true) {
-					std::cerr << " 2for " << tmp->iterator << " is tiling for" << std::endl;
+			bool add = false;
+			for (struct clast_for *current_for =
+					 clast_get_parent_clast_for((struct clast_stmt *)root, (struct clast_stmt *)*it);
+				 current_for != nullptr; current_for = clast_get_parent_clast_for((struct clast_stmt *)root,
+																				  (struct clast_stmt *)current_for)) {
+				if (current_for == group.first_tiling_for) {
+					add = true;
 					break;
 				}
 			}
-			if (parent_for == tmp) {
+			if (add) {
 				group.stmts.push_back(*it);
 				it = stmt_to_process.erase(it);
 			} else {
@@ -201,15 +222,6 @@ void pesto::ParamTilingUtility::tileGroup(CloogProgram *cloogProgram, CloogOptio
 	if (tiling_dim_count == 0) {
 		std::cerr << "No tiled dimensions found in group" << std::endl;
 		return;
-	}
-
-	// First we need to associate for each tiled dimension its inner and outter
-	// for
-	this->associateTilingFor(root, group);
-
-	// compute tiling data bound expressions
-	for (auto &data : group.tilingData) {
-		this->computeTilingDataBoundExpr(cloogProgram, group, data);
 	}
 
 	for (auto &data : group.tilingData) {

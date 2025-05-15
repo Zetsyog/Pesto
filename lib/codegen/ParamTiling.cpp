@@ -383,6 +383,9 @@ void ParamTilingCodegen::genScheduleHeaderFile(std::ostream &os) {
 	os << varType << " " << t1NameHelper.pcMaxName() << ", " << t1NameHelper.targetVolName() << ";" << this->endline;
 
 	INDENT_TABS(os, 1);
+	os << varType << " t1;" << this->endline;
+
+	INDENT_TABS(os, 1);
 	os << varType << " " << this->nameHelper.innerForLBName() << ", " << this->nameHelper.innerForUBName() << ";"
 	   << this->endline;
 
@@ -431,7 +434,7 @@ void ParamTilingCodegen::genScheduleHeaderFile(std::ostream &os) {
 	   << this->endline;
 
 	INDENT_TABS(os, 2);
-	os << "for(" << varType << " t1 = 0; t1 < " << t1NameHelper.divName() << "; ++t1) {" << this->endline;
+	os << "for(t1 = 0; t1 < " << t1NameHelper.divName() << "; ++t1) {" << this->endline;
 
 	INDENT_TABS(os, 3);
 	os << "tileArray[t0][t1].t0 = t0;" << this->endline;

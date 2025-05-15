@@ -7,6 +7,7 @@
 #include <pesto/passbuilder/ClastCustomVecPragmaPB.hpp>
 #include <pesto/passbuilder/ClastParamTilingPB.hpp>
 #include <pesto/passbuilder/CloogCodegenPB.hpp>
+#include <pesto/passbuilder/DumpOsl.hpp>
 #include <pesto/passbuilder/GenClastPB.hpp>
 #include <pesto/passbuilder/MatchCriteriaPB.hpp>
 #include <pesto/passbuilder/ParamContextPB.hpp>
@@ -31,6 +32,7 @@ std::unique_ptr<PassManagerBuilder> PassManagerBuilder::createDefault() {
 	pm->registerPassBuilder(PESTO_UUID_PASS_PARAM_CONTEXT, std::make_unique<ParamContextPB>());
 	pm->registerPassBuilder(PESTO_UUID_PASS_MATCH_CRITERIA, std::make_unique<MatchCriteriaPB>());
 	pm->registerPassBuilder(PESTO_UUID_PASS_CLAST_CUSTOM_VEC_PRAGMA, std::make_unique<ClastCustomVecPragmaPB>());
+	pm->registerPassBuilder(PESTO_UUID_PASS_DUMP_OSL, std::make_unique<OslDumpPB>());
 
 	return pm;
 }

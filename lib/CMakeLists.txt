@@ -26,6 +26,7 @@ set(PESTO_SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/ClastCustomVecPragmaPB.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/ClastParamTilingPB.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/CloogCodegenPB.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/DumpOsl.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/GenClastPB.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/MatchCriteriaPB.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/PMBuilder.cpp
