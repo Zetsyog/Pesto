@@ -9,6 +9,7 @@ trahrhe_header.*.h
 schedule.h
 trahrhe_schedule.*.h
 *.trahrhe.*.h
+*.schedule.*.h
 
 # datamining
 datamining/correlation/correlation
@@ -76,3 +77,21 @@ linear-algebra/solvers/durbin/durbin_pesto
 linear-algebra/solvers/durbin/durbin_pluto
 
 # stencils
+stencils/adi/adi
+stencils/adi/adi_pesto
+stencils/adi/adi_pluto
+stencils/fdtd-2d/fdtd-2d
+stencils/fdtd-2d/fdtd-2d_pesto
+stencils/fdtd-2d/fdtd-2d_pluto
+stencils/heat-3d/heat-3d
+stencils/heat-3d/heat-3d_pesto
+stencils/heat-3d/heat-3d_pluto
+stencils/jacobi-1d/jacobi-1d
+stencils/jacobi-1d/jacobi-1d_pesto
+stencils/jacobi-1d/jacobi-1d_pluto
+stencils/jacobi-2d/jacobi-2d
+stencils/jacobi-2d/jacobi-2d_pesto
+stencils/jacobi-2d/jacobi-2d_pluto
+stencils/seidel-2d/seidel-2d
+stencils/seidel-2d/seidel-2d_pesto
+stencils/seidel-2d/seidel-2d_pluto

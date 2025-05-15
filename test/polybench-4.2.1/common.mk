@@ -7,8 +7,7 @@ PESTO_FLAGS?=--indent
 
 PESTO_CONFIG?=$(BASEDIR)/config/ptile.json
 
-POLYCC?=polycc
-PLUTO_FLAGS=--tile --parallel --prevector --nounroll
+PLUTO_CONFIG?=$(BASEDIR)/config/pluto.json
 
 CLEANFILES=\
 	$(SRC) \
@@ -28,7 +27,7 @@ $(SRC): $(SRC).c
 	$(CC) $(CFLAGS) -o $@ -I $(BASEDIR)/include/ $(BASEDIR)/utilities/polybench.c $< $(LDLIBS) $(EXTRA_FLAGS)
 
 $(SRC).pluto.c: $(SRC).c
-	$(POLYCC) $(SRC).c $(PLUTO_FLAGS) -o $@ 
+	$(PESTO) $(SRC).c --config "$(PLUTO_CONFIG)" -o $@ $(PESTO_FLAGS)
 
 $(SRC).pesto.c: $(SRC).c
 	$(PESTO) $(SRC).c --config "$(PESTO_CONFIG)" -o $@ $(PESTO_FLAGS)
@@ -39,7 +38,7 @@ $(SRC)_pesto: $(SRC).pesto.c
 $(SRC)_pluto: $(SRC).pluto.c
 	$(CC) $(CFLAGS) -o $@ -I $(BASEDIR)/utilities/ $(BASEDIR)/utilities/polybench.c $< $(LDLIBS) $(EXTRA_FLAGS)
 
-check:
+check: $(SRC).pesto.c
 	@$(BASEDIR)/tools/pb_chksum $(SRC).c "-DLARGE_DATASET"
 	@$(BASEDIR)/tools/pb_chksum $(SRC).pesto.c "-DLARGE_DATASET"
 
