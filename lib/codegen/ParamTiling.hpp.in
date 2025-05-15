@@ -7,6 +7,10 @@
 
 #include <cloog/cloog.h>
 
+// clang-format off
+#define _PESTO_TEMPLATE_SCHEDULE_PATH "@PESTO_TEMPLATE_SCHEDULE@"
+// clang-format on
+
 namespace pesto {
 
 enum class ParamTilingType;
@@ -35,6 +39,8 @@ class NameHelper {
 	std::string ehrhartFnName();
 	std::string trahrheFnName();
 	std::string trahrheIteratorName();
+	std::string tileArrayName();
+	std::string scheduleName();
 
   private:
 	int depth;
@@ -73,8 +79,7 @@ enum class VolumeCheckStrategy {
 
 class ParamTilingCodegen {
   public:
-	ParamTilingCodegen(StmtGroup &group, struct clast_for &outterFor, struct clast_for &innerFor, int tilingDepth,
-					   int nestId, __isl_take isl_set *innerDomain);
+	ParamTilingCodegen(StmtGroup &group, TilingData &data, int nestId, __isl_take isl_set *innerDomain);
 	~ParamTilingCodegen();
 
 	void genStmt(std::ostream &os, StmtType type);
@@ -87,8 +92,11 @@ class ParamTilingCodegen {
 	void setVolumeCheckStrategy(VolumeCheckStrategy strategy);
 	void setVolumeCheckThreshold(std::string threshold);
 
+	void genScheduleHeaderFile(std::ostream &os);
+
   private:
 	StmtGroup &group;
+	TilingData &data;
 	ParamTilingType tilingType;
 	struct clast_for &outterFor;
 	struct clast_for &innerFor;
@@ -101,21 +109,20 @@ class ParamTilingCodegen {
 	VolumeCheckStrategy volumeCheckStrategy;
 	std::string volumeCheckThreshold;
 
-	/* Names */
-	std::string innerForLBExpr;
-	std::string innerForUBExpr;
-
 	NameHelper nameHelper;
 	NameHelper trahrheNameHelper;
 
-	void computeBoundExpr();
-
 	void genHeaderStmt(std::ostream &os);
-	void genHeaderStmtAlgebraic(std::ostream &os);
-	void genHeaderStmtRectangular(std::ostream &os);
 	void genBodyStmt(std::ostream &os);
+
+	void genHeaderStmtAlgebraic(std::ostream &os);
 	void genBodyStmtAlgebraic(std::ostream &os);
+
+	void genHeaderStmtRectangular(std::ostream &os);
 	void genBodyStmtRectangular(std::ostream &os);
+
+	void genHeaderStmtScheduled(std::ostream &os);
+	void genBodyStmtScheduled(std::ostream &os);
 };
 } // namespace codegen
 

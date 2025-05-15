@@ -8,6 +8,7 @@
 #include <pesto/OslScop.hpp>
 #include <pesto/Pass.hpp>
 #include <pesto/Program.hpp>
+#include <pesto/clast/GenClastPass.hpp>
 
 namespace pesto {
 
@@ -54,8 +55,12 @@ class CloogCodegenPass : public IPass {
 	virtual void hookBegin(Program &prog) override;
 	virtual void applyScop(OslScop &nest) override;
 
+	void setGenClastPass(std::unique_ptr<pass::GenClastPass> pass);
+
   private:
 	std::filesystem::path output;
+
+	std::unique_ptr<pass::GenClastPass> genClastPass;
 
 	pesto::pass::metadata::VarDeclMetadata mergeVarDecls(Program &prog);
 };

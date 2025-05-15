@@ -7,7 +7,7 @@
 
 using namespace pesto::pass;
 
-CloogCodegenPass::CloogCodegenPass() : IPass("pass-gen-cloog"), output("") {}
+CloogCodegenPass::CloogCodegenPass() : IPass("pass-gen-cloog"), output(""), genClastPass() {}
 
 CloogCodegenPass::~CloogCodegenPass() {}
 
@@ -18,8 +18,7 @@ void CloogCodegenPass::hookBegin(Program &prog) {
 
 	log(std::cerr) << "Starting Cloog codegen. Writing in '" << output.string() << "'" << std::endl;
 
-	GenClastPass genClast = GenClastPass();
-	genClast.apply(prog);
+	this->genClastPass->apply(prog);
 
 	// Check that all scops has a ClastHolder metadata
 	for (auto scop : prog.getScopNests()) {
@@ -63,6 +62,7 @@ void generateStmtMacro(FILE *fd, pesto::OslScop &nest) {
 		int it_size = osl_strings_size(body->iterators);
 		// osl statements are 1-indexed
 		fprintf(fd, "#define S%d(", idx + 1);
+		fprintf(stderr, "#define S%d(...) ", idx + 1);
 		for (int i = 0; i < it_size; i += 1) {
 			if (i != 0) {
 				fprintf(fd, ", ");
@@ -71,6 +71,7 @@ void generateStmtMacro(FILE *fd, pesto::OslScop &nest) {
 		}
 		fprintf(fd, ") ");
 		osl_strings_print(fd, body->expression);
+		osl_strings_print(stderr, body->expression);
 
 		idx += 1;
 		statement = statement->next;
@@ -151,4 +152,8 @@ pesto::pass::metadata::VarDeclMetadata CloogCodegenPass::mergeVarDecls(Program &
 	}
 
 	return data;
+}
+
+void pesto::pass::CloogCodegenPass::setGenClastPass(std::unique_ptr<pesto::pass::GenClastPass> pass) {
+	this->genClastPass = std::move(pass);
 }

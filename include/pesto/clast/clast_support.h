@@ -85,7 +85,7 @@ struct clast_for *clast_get_outter_tiling_for(struct clast_stmt *root, struct cl
  * @param root the root of the syntax tree
  * @param size the number of user statements
  */
-struct clast_stmt **clast_get_user_stmt_list(struct clast_stmt *root, int *size);
+struct clast_user_stmt **clast_get_user_stmt_list(struct clast_stmt *root, int *size);
 
 /**
  * Return the parent loop of a given statement

@@ -1,4 +1,5 @@
 #include <pesto/CodegenPasses.hpp>
+#include <pesto/macros.h>
 #include <pesto/passbuilder/CloogCodegenPB.hpp>
 
 using namespace pesto::builder;
@@ -11,5 +12,18 @@ std::unique_ptr<pesto::pass::IPass> CloogCodegenPB::build(PassManagerBuilder &bu
 	(void)builder;
 	(void)j;
 
-	return std::make_unique<pesto::pass::CloogCodegenPass>();
+	auto pass = std::make_unique<pass::CloogCodegenPass>();
+
+	std::unique_ptr<pass::GenClastPass> clastPass =
+		std::unique_ptr<pass::GenClastPass>(static_cast<pass::GenClastPass *>(
+			builder.getPassBuilder(PESTO_UUID_PASS_CLAST_GEN)->build(builder, j).release()));
+	if (clastPass) {
+		pass->setGenClastPass(std::move(clastPass));
+	} else {
+		std::cerr << "Error: "
+				  << "Could not create clast pass" << std::endl;
+		return nullptr;
+	}
+
+	return pass;
 }

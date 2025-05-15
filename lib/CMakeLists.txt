@@ -39,13 +39,29 @@ add_library(pesto STATIC ${PESTO_SOURCES})
 
 configure_file(
 	${CMAKE_CURRENT_SOURCE_DIR}/version.h.in # input template file
-	${CMAKE_CURRENT_BINARY_DIR}/include/pesto/version.h # output file
+	${PESTO_BINARY_HEADER_DIR}/pesto/version.h # output file
+)
+
+set(PESTO_TEMPLATE_SCHEDULE ${CMAKE_CURRENT_BINARY_DIR}/template/schedule.h)
+configure_file(
+	${CMAKE_CURRENT_SOURCE_DIR}/export/schedule.h # input template file
+	${PESTO_TEMPLATE_SCHEDULE} # output file
+	COPYONLY # do not configure
+)
+
+configure_file(
+	${CMAKE_CURRENT_SOURCE_DIR}/codegen/ParamTiling.hpp.in # input file
+	${PESTO_BINARY_HEADER_DIR}/pesto/codegen/ParamTiling.hpp # output file
 )
 
 add_dependencies(pesto trahrhe-src barvinok-src)
 
-target_include_directories(pesto PUBLIC ${PESTO_SOURCE_INCLUDE_DIR} ${TRAHRHE_INCLUDE_DIRS})
+target_include_directories(
+	pesto PUBLIC $<BUILD_INTERFACE:${PESTO_SOURCE_HEADER_DIR}>
+				 $<BUILD_INTERFACE:${PESTO_BINARY_HEADER_DIR}> $<INSTALL_INTERFACE:include>
+)
 target_include_directories(pesto PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/include)
+target_include_directories(pesto PUBLIC ${TRAHRHE_INCLUDE_DIRS})
 target_include_directories(pesto PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(pesto PUBLIC pluto cloog nlohmann_json muparser ${TRAHRHE_LIBRARIES})
 

@@ -227,6 +227,8 @@ bool osl_relation_is_tiling_dim(osl_relation_p relation, int dim) {
 			osl_vector_p jvec = osl_relation_row_as_vector(relation, j);
 			osl_int_set_si(jvec->precision, &(jvec->v[0]), 0);
 			osl_vector_p sum = osl_vector_add(ivec, jvec);
+			osl_int_t sumCst;
+			osl_int_init_set(sum->precision, &sumCst, sum->v[sum->size - 1]);
 			// ignore scalar
 			osl_int_set_si(sum->precision, &(sum->v[sum->size - 1]), 0);
 			if (!osl_vector_is_scalar(sum)) {
@@ -238,11 +240,12 @@ bool osl_relation_is_tiling_dim(osl_relation_p relation, int dim) {
 			osl_int_t paddedTilingFactor;
 			osl_int_init(relation->precision, &tilingFactor);
 			osl_int_init(relation->precision, &paddedTilingFactor);
+
 			osl_int_abs(relation->precision, &tilingFactor, ivec->v[dimIdx]);
 			osl_int_add_si(relation->precision, &paddedTilingFactor, tilingFactor, -1);
 
 			if (!osl_int_zero(relation->precision, paddedTilingFactor)) {
-				if (osl_int_eq(relation->precision, paddedTilingFactor, relation->m[j][relation->nb_columns - 1])) {
+				if (osl_int_eq(relation->precision, paddedTilingFactor, sumCst)) {
 					osl_int_clear(relation->precision, &tilingFactor);
 					osl_int_clear(relation->precision, &paddedTilingFactor);
 					osl_vector_free(sum);

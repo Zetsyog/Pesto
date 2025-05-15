@@ -104,3 +104,5 @@ std::unique_ptr<pesto::pass::IPass> PassManagerBuilder::buildPass(const json &j)
 
 	return pass;
 }
+
+std::unique_ptr<IPassBuilder> &PassManagerBuilder::getPassBuilder(std::string uuid) { return builders[uuid]; }

@@ -246,21 +246,22 @@ int clast_for_get_inner_tile_outter_dim(struct clast_for *for_stmt, int tile_siz
 	return corresponding_outter_dim;
 }
 
-struct clast_stmt **clast_get_user_stmt_list(struct clast_stmt *root, int *size) {
-	struct clast_stmt **stmts = NULL;
+struct clast_user_stmt **clast_get_user_stmt_list(struct clast_stmt *root, int *size) {
+	struct clast_user_stmt **stmts = NULL;
 	*size = 0;
 
 	// DFS algorithm to traverse the syntax tree
 	for (; root != NULL; root = root->next) {
 		if (CLAST_STMT_IS_A(root, stmt_user)) {
 			stmts = realloc(stmts, (*size + 1) * sizeof(struct clast_stmt *));
-			stmts[*size] = root;
+			stmts[*size] = (struct clast_user_stmt *)root;
 			*size += 1;
 		} else if (clast_stmt_is_branch(root)) {
 			int branch_size = 0;
-			struct clast_stmt **branch_stmts = clast_get_user_stmt_list(clast_branch_deeper_next(root), &branch_size);
+			struct clast_user_stmt **branch_stmts =
+				clast_get_user_stmt_list(clast_branch_deeper_next(root), &branch_size);
 
-			stmts = realloc(stmts, (*size + branch_size) * sizeof(struct clast_stmt *));
+			stmts = realloc(stmts, (*size + branch_size) * sizeof(struct clast_user_stmt *));
 
 			for (int i = 0; i < branch_size; i += 1) {
 				stmts[*size + i] = branch_stmts[i];

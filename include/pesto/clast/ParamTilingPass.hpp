@@ -71,7 +71,7 @@ class ClastParamTilingPass : public IPass {
 	ParamTilingUtility ptileUtil;
 
 	bool areTileSkewed(pesto::OslScop &scop);
-	std::optional<std::pair<int, int>> getSkewedTilingDimensions(pesto::OslScop &scop);
+	std::optional<std::pair<int, int>> getSkewedTilingDimensions(osl_statement_p stmt);
 
 	void undoTileSkewing(pesto::OslScop &scop);
 };

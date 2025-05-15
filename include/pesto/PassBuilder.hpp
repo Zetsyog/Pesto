@@ -2,6 +2,7 @@
 #define PESTO_PASS_BUILDER_H
 
 #include <memory>
+#include <optional>
 
 #include <nlohmann/json.hpp>
 
@@ -76,6 +77,13 @@ class PassManagerBuilder {
 	std::unique_ptr<PassManager> build(std::string file);
 
 	static std::unique_ptr<PassManagerBuilder> createDefault();
+
+	/**
+	 * @brief Get the pass builder corresponding to the given uuid
+	 * @param uuid the uuid of the pass builder
+	 * @return A pointer to the pass builder
+	 */
+	std::unique_ptr<IPassBuilder> &getPassBuilder(std::string uuid);
 
   private:
 	std::unordered_map<std::string, std::unique_ptr<IPassBuilder>> builders;

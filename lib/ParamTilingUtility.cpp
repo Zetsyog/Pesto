@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <fstream>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -13,6 +14,7 @@
 
 #include <pesto/ParamTilingUtility.hpp>
 #include <pesto/clast/clast_support.h>
+#include <pesto/codegen/ParamTiling.hpp>
 #include <pesto/isl_support.h>
 
 pesto::ParamTilingUtility::ParamTilingUtility()
@@ -78,7 +80,7 @@ std::vector<pesto::StmtGroup> pesto::ParamTilingUtility::computeStmtGroups(struc
 	// this is a list of pointer of user statements in the clast
 	// they will be freed with the clast root so no need for memory management
 	// here
-	struct clast_stmt **stmt = clast_get_user_stmt_list((struct clast_stmt *)root, &stmt_count);
+	struct clast_user_stmt **stmt = clast_get_user_stmt_list((struct clast_stmt *)root, &stmt_count);
 	std::vector<StmtGroup> stmtGroups;
 
 	std::cerr << "[param-tiling] Found " << stmt_count << " statements in clast" << std::endl;
@@ -88,7 +90,7 @@ std::vector<pesto::StmtGroup> pesto::ParamTilingUtility::computeStmtGroups(struc
 
 	// vector of all our statements
 	// we will remove them from this vector as we process them
-	std::vector<struct clast_stmt *> stmt_to_process;
+	std::vector<struct clast_user_stmt *> stmt_to_process;
 	for (int i = 0; i < stmt_count; i++) {
 		stmt_to_process.push_back(stmt[i]);
 	}
@@ -108,12 +110,13 @@ std::vector<pesto::StmtGroup> pesto::ParamTilingUtility::computeStmtGroups(struc
 	while (stmt_to_process.size() != 0) {
 		// list of statements that have the same parent for
 		// we pick a statement
-		struct clast_stmt *stmt = stmt_to_process.back();
+		struct clast_user_stmt *stmt = stmt_to_process.back();
 		// we mark it as processed
 		stmt_to_process.pop_back();
 
 		// get the parent for of the group
-		struct clast_for *parent_for = clast_get_parent_clast_for((struct clast_stmt *)root, stmt);
+		struct clast_for *parent_for = clast_get_parent_clast_for((struct clast_stmt *)root, (struct clast_stmt *)stmt);
+
 		// Check is this statement is inside a for loop
 		if (parent_for == NULL) {
 			// if not we skip it
@@ -125,10 +128,32 @@ std::vector<pesto::StmtGroup> pesto::ParamTilingUtility::computeStmtGroups(struc
 		group.stmts.push_back(stmt);
 		group.parent_for = parent_for;
 		group.id = stmtGroups.size();
+		group.first_tiling_for = NULL;
+
+		isl_set *parent_domain = isl_set_from_cloog_domain(parent_for->domain);
+
+		for (struct clast_for *tmp = parent_for; tmp != NULL;
+			 tmp = clast_get_parent_clast_for(&(root->stmt), &(tmp->stmt))) {
+			isl_size tmp_dim = isl_set_dim(isl_set_from_cloog_domain(tmp->domain), isl_dim_set) - 1;
+			if (isl_set_is_tiling_dim(parent_domain, tmp_dim) == isl_bool_true) {
+				group.first_tiling_for = tmp;
+				std::cerr << "for " << tmp->iterator << " is tiling for" << std::endl;
+				break;
+			}
+		}
 
 		// for each statement that has not been processed yet
-		for (std::vector<struct clast_stmt *>::iterator it = stmt_to_process.begin(); it != stmt_to_process.end();) {
+		for (std::vector<struct clast_user_stmt *>::iterator it = stmt_to_process.begin();
+			 it != stmt_to_process.end();) {
 			struct clast_for *tmp = clast_get_parent_clast_for((struct clast_stmt *)root, (struct clast_stmt *)*it);
+			for (struct clast_for *cfor = tmp; cfor != NULL;
+				 cfor = clast_get_parent_clast_for(&(root->stmt), &(cfor->stmt))) {
+				isl_size tmp_dim = isl_set_dim(isl_set_from_cloog_domain(cfor->domain), isl_dim_set) - 1;
+				if (isl_set_is_tiling_dim(parent_domain, tmp_dim) == isl_bool_true) {
+					std::cerr << " 2for " << tmp->iterator << " is tiling for" << std::endl;
+					break;
+				}
+			}
 			if (parent_for == tmp) {
 				group.stmts.push_back(*it);
 				it = stmt_to_process.erase(it);
@@ -153,6 +178,16 @@ std::vector<pesto::StmtGroup> pesto::ParamTilingUtility::computeStmtGroups(struc
 
 	this->insertedStmts = stmt_count;
 
+	for (auto &group : stmtGroups) {
+		std::cerr << "group " << group.id << "; parent for: " << group.parent_for->iterator;
+		std::cerr << "; first tiling for: "
+				  << (group.first_tiling_for != NULL ? group.first_tiling_for->iterator : "NULL") << "; stmts: ";
+		for (auto stmt : group.stmts) {
+			std::cerr << std::to_string(stmt->statement->number) << " ";
+		}
+		std::cerr << std::endl;
+	}
+
 	return stmtGroups;
 }
 
@@ -171,6 +206,11 @@ void pesto::ParamTilingUtility::tileGroup(CloogProgram *cloogProgram, CloogOptio
 	// First we need to associate for each tiled dimension its inner and outter
 	// for
 	this->associateTilingFor(root, group);
+
+	// compute tiling data bound expressions
+	for (auto &data : group.tilingData) {
+		this->computeTilingDataBoundExpr(cloogProgram, group, data);
+	}
 
 	for (auto &data : group.tilingData) {
 		std::cerr << "Found tiling for pair : " << data.outter_for->iterator
@@ -353,6 +393,15 @@ void pesto::ParamTilingUtility::generateStatements(CloogProgram *cloogProgram, S
 			this->statements.push_back(
 				std::make_pair(i == 0 ? data.head_stmt_id : data.body_stmt_id, std::string(oss.str())));
 		}
+
+		if (this->getTilingType(data.tiling_depth) == ParamTilingType::SCHEDULED &&
+			this->getTilingType(data.tiling_depth + 1) == ParamTilingType::SCHEDULED) {
+			codegen.setEndline("\n");
+			std::ofstream ofs;
+			ofs.open("schedule.h", std::ios::out);
+			codegen.genScheduleHeaderFile(ofs);
+			ofs.close();
+		}
 	}
 }
 
@@ -405,7 +454,7 @@ void pesto::ParamTilingUtility::declareGroupVariables(StmtGroup &group) {
 
 void pesto::ParamTilingUtility::updateOmpPragma(StmtGroup &group) {
 	// first find the parallel for
-	struct clast_for *parallel_for = NULL;
+	struct clast_for *parallel_for = nullptr;
 	int tiling_depth = -1;
 	for (auto &data : group.tilingData) {
 		struct clast_for *outter_for = data.outter_for;
@@ -417,7 +466,7 @@ void pesto::ParamTilingUtility::updateOmpPragma(StmtGroup &group) {
 	}
 
 	// we could be doing sequential tiling
-	if (parallel_for == NULL) {
+	if (parallel_for == nullptr) {
 		return;
 	}
 
@@ -437,11 +486,9 @@ void pesto::ParamTilingUtility::updateOmpPragma(StmtGroup &group) {
 	// private variables
 	std::string privateVarsStr = std::string(parallel_for->private_vars);
 
-	// TODO: tile scheduling
-
 	// now we can free old private vars
 	free(parallel_for->private_vars);
-	parallel_for->private_vars = NULL;
+	parallel_for->private_vars = nullptr;
 
 	if (privateVarsStr != "") {
 		privateVarsStr += ", ";
@@ -450,6 +497,13 @@ void pesto::ParamTilingUtility::updateOmpPragma(StmtGroup &group) {
 
 	privateVarsStr += nameHelper.innerForLBName();
 	privateVarsStr += ", " + nameHelper.innerForUBName();
+
+	if (this->getTilingType(tiling_depth) == ParamTilingType::SCHEDULED &&
+		this->getTilingType(tiling_depth - 1) == ParamTilingType::SCHEDULED) {
+		auto outterHelper = this->getNameHelper(group, group.tilingData[tiling_depth - 1]);
+		privateVarsStr += ", " + outterHelper.innerForLBName();
+		privateVarsStr += ", " + outterHelper.innerForUBName();
+	}
 
 	for (std::size_t i = tiling_depth + 1; i < group.tilingData.size(); i += 1) {
 		nameHelper = this->getNameHelper(group, group.tilingData[i]);
@@ -463,7 +517,6 @@ void pesto::ParamTilingUtility::updateOmpPragma(StmtGroup &group) {
 }
 
 void pesto::ParamTilingUtility::computeTrahrheDomain(CloogProgram *cloogProgram, StmtGroup &group) {
-
 	isl_set *domain = this->getInnerDomain(cloogProgram, group, group.tilingData.back());
 	// rename the dimension
 	for (std::size_t i = 0; i < group.tilingData.size(); i += 1) {
@@ -541,7 +594,6 @@ int pesto::ParamTilingUtility::getTileSizeTarget() { return this->tilesizeTarget
 
 __isl_give isl_set *pesto::ParamTilingUtility::moveNonTiledDimensionsToParameters(__isl_take isl_set *set,
 																				  StmtGroup &group) {
-
 	isl_set *domain = isl_set_copy(set);
 	isl_set_free(set);
 
@@ -620,8 +672,7 @@ void pesto::ParamTilingUtility::setVolumeCheckStrategy(pesto::ptile::codegen::Vo
 
 pesto::ptile::codegen::ParamTilingCodegen pesto::ParamTilingUtility::getCodegen(CloogProgram *cloogProgram,
 																				StmtGroup &group, TilingData &data) {
-	ptile::codegen::ParamTilingCodegen codegen(group, *data.outter_for, *data.inner_for, data.tiling_depth, this->id,
-											   this->getInnerDomain(cloogProgram, group, data));
+	ptile::codegen::ParamTilingCodegen codegen(group, data, this->id, this->getInnerDomain(cloogProgram, group, data));
 	codegen.setBoundComputeMethod(this->boundComputeMethod);
 	codegen.setBoundCorrectionStrategy(this->boundCorrectionStrategy);
 	codegen.setTilingType(this->getTilingType(data.tiling_depth));
@@ -678,3 +729,78 @@ size_t pesto::ParamTilingUtility::movedDimensionsCount(CloogProgram *cloogProgra
 }
 
 void pesto::ParamTilingUtility::clearTilingTypes() { this->tilingTypes.clear(); }
+
+std::optional<std::filesystem::path> pesto::ParamTilingUtility::getGeneratedScheduleHeaderFile() {
+	if (!(this->getTilingType(0) == ParamTilingType::SCHEDULED &&
+		  this->getTilingType(1) == ParamTilingType::SCHEDULED)) {
+		return std::nullopt;
+	}
+	return std::filesystem::path("schedule.h");
+}
+
+pesto::TilingData pesto::ParamTilingUtility::computeTilingDataBoundExpr(CloogProgram *cloogProgram, StmtGroup &group,
+																		TilingData &data) {
+	using ptile::NameHelper;
+
+	// compute loop bound expr
+	std::string innerForIt = std::string(data.inner_for->iterator);
+	std::string outterForIt = std::string(data.outter_for->iterator);
+	isl_set *innerDomain = this->getInnerDomain(cloogProgram, group, data);
+
+	// [0] is for lower bound, [1] is for upper bound
+	CloogOptions *cloogOptions = cloog_options_malloc(nullptr);
+	CloogNames *namesList[2] = {nullptr, nullptr};
+	isl_size npar = isl_set_dim(innerDomain, isl_dim_param);
+	for (std::size_t i = 0; i < 2; ++i) {
+		namesList[i] = cloog_names_malloc();
+		if (namesList[i] == NULL) {
+			std::cerr << "[param-tiling] Error: cannot allocate memory for cloog names" << std::endl;
+			break;
+		}
+		CloogNames *names = namesList[i];
+		names->nb_parameters = npar;
+		names->parameters = (char **)calloc(npar, sizeof(char *));
+		for (isl_size j = 0; j < npar; j += 1) {
+			names->parameters[j] = strdup(isl_set_get_dim_name(innerDomain, isl_dim_param, j));
+		}
+		names->nb_scattering = group.tilingData.size();
+		names->scattering = (char **)calloc(names->nb_scattering, sizeof(char *));
+		for (isl_size j = 0; j < names->nb_scattering; j += 1) {
+			auto &data = group.tilingData[j];
+			NameHelper helper = NameHelper(data.tiling_depth, data.outter_for->iterator, data.inner_for->iterator);
+			helper.setPrefix("g" + std::to_string(group.id));
+			helper.setSeparator("_");
+			std::string bound = i == 0 ? helper.innerForLBName() : helper.innerForUBName();
+			names->scattering[j] = strdup(bound.c_str());
+		}
+	}
+
+	char *buffer = (char *)calloc(512, sizeof(char));
+	FILE *fd = fmemopen(buffer, 512, "w");
+	for (std::size_t i = 0; i < 2; ++i) {
+		struct clast_expr *expr = clast_bound_from_isl_set(namesList[i], innerDomain, i, data.tiling_depth);
+		if (expr != NULL) {
+			memset(buffer, 0, 512);
+			rewind(fd);
+			clast_pprint_expr(cloogOptions, fd, expr);
+			fflush(fd);
+			if (i == 0) {
+				data.innerForLBExpr = std::string(buffer);
+			} else {
+				data.innerForUBExpr = std::string(buffer);
+			}
+		}
+		free_clast_expr(expr);
+	}
+	fclose(fd);
+	free(buffer);
+
+	for (std::size_t i = 0; i < 2; ++i) {
+		cloog_names_free(namesList[i]);
+	}
+	cloog_options_free(cloogOptions);
+
+	isl_set_free(innerDomain);
+
+	return data;
+}

@@ -1,7 +1,9 @@
 #ifndef PESTO_PARAM_TILING_H
 #define PESTO_PARAM_TILING_H
 
+#include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -35,12 +37,16 @@ struct TilingData {
 	int tiling_depth;
 	unsigned int head_stmt_id;
 	unsigned int body_stmt_id;
+	std::string innerForLBExpr;
+	std::string innerForUBExpr;
 };
 
 struct StmtGroup {
 	int id;
-	std::vector<struct clast_stmt *> stmts;
+	std::vector<struct clast_user_stmt *> stmts;
 	struct clast_for *parent_for;
+
+	struct clast_for *first_tiling_for;
 
 	/**
 	 * A vector of TilingData
@@ -113,6 +119,8 @@ class ParamTilingUtility {
 	void setTileSizeTarget(int tilesize);
 	int getTileSizeTarget();
 
+	std::optional<std::filesystem::path> getGeneratedScheduleHeaderFile();
+
   private:
 	/* polyhedral stuff */
 	isl_ctx *ctx; /* isl context */
@@ -183,6 +191,8 @@ class ParamTilingUtility {
 	ptile::NameHelper getTrahrheNameHelper(StmtGroup &group, TilingData &data);
 
 	ptile::codegen::ParamTilingCodegen getCodegen(CloogProgram *cloogProgram, StmtGroup &group, TilingData &data);
+
+	TilingData computeTilingDataBoundExpr(CloogProgram *cloogProgram, StmtGroup &group, TilingData &data);
 };
 
 } // namespace pesto

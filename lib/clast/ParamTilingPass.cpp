@@ -1,3 +1,4 @@
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -34,6 +35,8 @@ pesto::pass::ClastParamTilingPass::ClastParamTilingPass()
 	, outputFile(".")
 	, ptileUtil() {
 	this->gen_clast_pass = std::make_unique<GenClastPass>();
+	this->gen_clast_pass->cloogF = -1;
+	this->gen_clast_pass->cloogL = 1;
 	// TODO: WHY IS THIS HERE?
 	this->gen_clast_pass->codegenContext = 1;
 }
@@ -159,6 +162,29 @@ void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
 			trahrhe_context_free(trahrhe_ctx);
 		}
 	}
+	// Tile scheduling
+	if (ptileUtil.getGeneratedScheduleHeaderFile().has_value()) {
+		auto scheduleHeaderFile = ptileUtil.getGeneratedScheduleHeaderFile().value();
+
+		std::filesystem::path outputDir = ".";
+		std::string filename = "(null)";
+		if (!this->outputFile.stem().string().empty()) {
+			filename = this->outputFile.stem().string();
+		}
+		if (this->outputFile.has_parent_path()) {
+			outputDir = this->outputFile.parent_path();
+		}
+		std::string scheduleFilename = filename + ".trahrhe.schedule.n" + std::to_string(scop.getId()) + ".h";
+		std::filesystem::path scheduleFile = outputDir / scheduleFilename;
+
+		std::filesystem::copy(scheduleHeaderFile, scheduleFile, std::filesystem::copy_options::overwrite_existing);
+		std::filesystem::remove(scheduleHeaderFile);
+
+		std::string macro = "#include \"" + scheduleFilename + "\"";
+		macroData->list.push_back(macro);
+
+		log(std::cerr) << "Generated schedule file: " << scheduleFilename << std::endl;
+	}
 }
 
 void pesto::pass::ClastParamTilingPass::pushTilingType(ParamTilingType type) { this->tiling_types.push_back(type); }
@@ -200,75 +226,76 @@ void pesto::pass::ClastParamTilingPass::setVolumeCheckThreshold(std::string thre
 }
 
 bool pesto::pass::ClastParamTilingPass::areTileSkewed(pesto::OslScop &scop) {
-	return this->getSkewedTilingDimensions(scop).has_value();
+	for (osl_statement_p stmt = scop.c_scop()->statement; stmt != nullptr; stmt = stmt->next) {
+		if (this->getSkewedTilingDimensions(stmt).has_value()) {
+			return true;
+		}
+	}
+	return false;
 }
 
-std::optional<std::pair<int, int>> pesto::pass::ClastParamTilingPass::getSkewedTilingDimensions(pesto::OslScop &scop) {
-	osl_scop_p cscop = scop.c_scop();
+std::optional<std::pair<int, int>> pesto::pass::ClastParamTilingPass::getSkewedTilingDimensions(osl_statement_p stmt) {
 
-	osl_statement_p stmt = cscop->statement;
-	while (stmt != NULL) {
-		osl_relation_p domain = stmt->domain;
-		osl_relation_p scat = stmt->scattering;
+	osl_relation_p domain = stmt->domain;
+	osl_relation_p scat = stmt->scattering;
 
-		std::vector<int> tilingDims;
-		int ndim = domain->nb_output_dims;
+	std::vector<int> tilingDims;
+	int ndim = domain->nb_output_dims;
 
-		for (int i = 0; i < ndim; i++) {
-			// ignore equalities
-			if (osl_relation_is_row_equality(domain, i)) {
-				continue;
-			}
-			if (osl_relation_is_tiling_dim(domain, i)) {
-				tilingDims.push_back(i);
-			}
-		}
-
-		int d1 = -1;
-		for (int i = 0; i < scat->nb_rows; i++) {
-			int involvedTiledDims = 0;
-			for (auto &dim : tilingDims) {
-				int dimIdx = 1 + scat->nb_input_dims + dim;
-				if (!osl_int_zero(scat->precision, scat->m[i][dimIdx])) {
-					involvedTiledDims++;
-				}
-			}
-			if (involvedTiledDims == 2) {
-				d1 = i;
-				break;
-			}
-		}
-		if (d1 == -1) {
-			stmt = stmt->next;
+	for (int i = 0; i < ndim; i++) {
+		// ignore equalities
+		if (osl_relation_is_row_equality(domain, i)) {
 			continue;
 		}
-		for (int i = 0; i < scat->nb_rows; i++) {
-			if (i == d1) {
-				continue;
-			}
-			for (auto &dim : tilingDims) {
-				if (osl_int_eq(scat->precision, scat->m[d1][1 + scat->nb_input_dims + dim],
-							   scat->m[i][1 + scat->nb_input_dims + dim])) {
-					return std::make_pair(d1, i);
-				}
+		if (osl_relation_is_tiling_dim(domain, i)) {
+			tilingDims.push_back(i);
+		}
+	}
+
+	int d1 = -1;
+	for (int i = 0; i < scat->nb_rows; i++) {
+		int involvedTiledDims = 0;
+		for (auto &dim : tilingDims) {
+			int dimIdx = 1 + scat->nb_output_dims + dim;
+			if (!osl_int_zero(scat->precision, scat->m[i][dimIdx])) {
+				involvedTiledDims++;
 			}
 		}
+		if (involvedTiledDims == 2) {
+			d1 = i;
+			break;
+		}
+	}
 
-		stmt = stmt->next;
+	if (d1 == -1) {
+		return std::nullopt;
+	}
+
+	for (int i = 0; i < scat->nb_rows; i++) {
+		if (i == d1) {
+			continue;
+		}
+		for (auto &dim : tilingDims) {
+			if (osl_int_eq(scat->precision, scat->m[d1][1 + scat->nb_input_dims + dim],
+						   scat->m[i][1 + scat->nb_output_dims + dim])) {
+				return std::make_pair(d1, i);
+			}
+		}
 	}
 
 	return std::nullopt;
 }
 
 void pesto::pass::ClastParamTilingPass::undoTileSkewing(pesto::OslScop &scop) {
-	auto skewedDims = this->getSkewedTilingDimensions(scop);
-	if (!skewedDims.has_value()) {
-		return;
-	}
-	log(std::cerr) << "Undoing tile skewing of dim " << skewedDims->first << " and " << skewedDims->second << std::endl;
-	osl_scop_p cscop = scop.c_scop();
-	osl_statement_p stmt = cscop->statement;
-	while (stmt != nullptr) {
+
+	for (osl_statement_p stmt = scop.c_scop()->statement; stmt != nullptr; stmt = stmt->next) {
+		auto skewedDims = this->getSkewedTilingDimensions(stmt);
+		if (!skewedDims.has_value()) {
+			continue;
+		}
+
+		log(std::cerr) << "Undoing tile skewing of dim " << skewedDims->first << " and " << skewedDims->second
+					   << std::endl;
 		osl_relation_p scat = stmt->scattering;
 
 		osl_int_t one;
@@ -296,7 +323,5 @@ void pesto::pass::ClastParamTilingPass::undoTileSkewing(pesto::OslScop &scop) {
 
 		osl_int_clear(scat->precision, &tmp);
 		osl_int_clear(scat->precision, &one);
-
-		stmt = stmt->next;
 	}
 }
