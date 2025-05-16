@@ -52,7 +52,7 @@ BENCHMARKS=(
 
 DYNSCHEDULE_BENCHMARKS=(
     "stencils/adi"
-    "stencils/fdtd-2d"
+    # "stencils/fdtd-2d" # fdtd-2d is not supported yet
     "stencils/jacobi-1d"
     "stencils/jacobi-2d"
     "stencils/seidel-2d"
