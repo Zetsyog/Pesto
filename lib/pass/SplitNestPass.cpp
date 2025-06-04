@@ -11,7 +11,7 @@ SplitNestedLoopsPass::SplitNestedLoopsPass() : IPass("pass-split-nest") {}
 
 SplitNestedLoopsPass::~SplitNestedLoopsPass() {}
 
-void SplitNestedLoopsPass::hookBegin(Program &prog) {
+void SplitNestedLoopsPass::apply(Program &prog) {
 	std::vector<OslScop *> original_nests = prog.getScopNests();
 
 	std::vector<OslScop *> new_nests;

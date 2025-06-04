@@ -84,7 +84,7 @@ void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
 
 	auto macroData = scop.metadata.getOrCreate<MacroMetadata>().lock();
 	for (auto &pair : ptileUtil.getStatements()) {
-		macroData->list.push_back("#define S" + std::to_string(pair.first) + "() " + pair.second);
+		macroData->defineFunc("S" + std::to_string(pair.first), "", pair.second);
 	}
 
 	auto varDeclData = scop.metadata.getOrCreate<VarDeclMetadata>().lock();
@@ -200,10 +200,13 @@ pesto::ParamTilingType pesto::pass::ClastParamTilingPass::getTilingType(size_t d
 	return this->tiling_types[this->tiling_types.size() - 1];
 }
 
-void pesto::pass::ClastParamTilingPass::hookBegin(pesto::Program &prog) {
+void pesto::pass::ClastParamTilingPass::apply(pesto::Program &prog) {
 	if (!prog.getOutputFile().string().empty()) {
 		this->outputFile = prog.getOutputFile();
 	}
+
+	// default behaviour, call applyScop on each OslScop
+	IPass::IPass::apply(prog);
 }
 
 void pesto::pass::ClastParamTilingPass::setTileSizeHint(int size) { this->ptileUtil.setTileSizeTarget(size); }

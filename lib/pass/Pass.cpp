@@ -21,18 +21,10 @@ std::ostream &IPass::log(std::ostream &os) { return os << "[" << name << "] "; }
  * @param prog the Program to run the pass on
  */
 void IPass::apply(pesto::Program &prog) {
-	this->hookBegin(prog);
-
 	std::vector<OslScop *> nests = prog.getScopNests();
 	for (auto &nest : nests) {
 		this->applyScop(*nest);
 	}
-
-	this->hookEnd(prog);
 }
-
-void IPass::hookBegin(pesto::Program &prog) { (void)prog; }
-
-void IPass::hookEnd(pesto::Program &prog) { (void)prog; }
 
 void IPass::applyScop(pesto::OslScop &nest) { (void)nest; }

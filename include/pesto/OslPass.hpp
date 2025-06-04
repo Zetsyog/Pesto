@@ -46,7 +46,7 @@ class SplitNestedLoopsPass : public IPass {
 	SplitNestedLoopsPass();
 	virtual ~SplitNestedLoopsPass();
 
-	virtual void hookBegin(Program &prog) override;
+	virtual void apply(Program &prog) override;
 };
 
 /**

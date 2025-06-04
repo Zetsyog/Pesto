@@ -42,7 +42,7 @@ class ClastParamTilingPass : public IPass {
 	virtual ~ClastParamTilingPass();
 
 	virtual void applyScop(pesto::OslScop &nest) override;
-	virtual void hookBegin(pesto::Program &prog) override;
+	virtual void apply(pesto::Program &prog) override;
 
 	/**
 	 * @brief given a depth, return the tiling type

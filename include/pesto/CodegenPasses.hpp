@@ -3,6 +3,7 @@
 
 #include <filesystem>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <pesto/OslScop.hpp>
@@ -37,6 +38,17 @@ class VarDeclMetadata {
 class MacroMetadata {
   public:
 	std::vector<std::string> list;
+
+	MacroMetadata();
+	virtual ~MacroMetadata();
+
+	void define(std::string name, std::string value);
+	void defineFunc(std::string name, std::string args, std::string value);
+
+	std::vector<std::string> getDefines() { return this->defines; }
+
+  private:
+	std::vector<std::string> defines;
 };
 
 } // namespace metadata
@@ -52,7 +64,7 @@ class CloogCodegenPass : public IPass {
 	CloogCodegenPass();
 	virtual ~CloogCodegenPass();
 
-	virtual void hookBegin(Program &prog) override;
+	virtual void apply(Program &prog) override;
 	virtual void applyScop(OslScop &nest) override;
 
 	void setGenClastPass(std::unique_ptr<pass::GenClastPass> pass);
