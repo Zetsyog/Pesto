@@ -239,3 +239,10 @@ cmake --build . --target pesto-unit-tests
 # polybench
 cmake --build . --target test-polybench
 ```
+
+## Build for development
+
+```bash
+cmake .. -DPESTO_BUILD_JOBS=16 -DPESTO_TEST_POLYBENCH_DATASET=MEDIUM_DATASET -DPESTO_TEST_POLYBENCH_TILE_DIVIDER_MAX=16 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+cmake --build . -j
+```
