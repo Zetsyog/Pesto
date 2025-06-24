@@ -151,7 +151,7 @@ class ParamTilingUtility {
 	VolumeCheckTrigger volumeCheckTrigger;
 	std::string volumeCheckThreshold;
 
-	std::vector<StmtGroup> computeStmtGroups(struct clast_root *root);
+	std::vector<StmtGroup> computeStmtGroups(CloogProgram *cloogProgram, struct clast_root *root);
 
 	void tileGroup(CloogProgram *cloogProgram, CloogOptions *cloogOptions, struct clast_root *root, StmtGroup &group);
 

@@ -19,74 +19,6 @@
 
 #include <pesto/isl_support.h>
 
-void osl_scop_to_isl(osl_scop_p scop, isl_ctx *ctx, isl_union_map **schedules, isl_union_map **reads,
-					 isl_union_map **writes) {
-	if (scop == NULL) {
-		return;
-	}
-	*reads = NULL;
-	*writes = NULL;
-
-	int n_param = osl_scop_get_nb_parameters(scop);
-
-	isl_union_set *domains = isl_union_set_empty_ctx(ctx);
-	isl_union_map *_schedules = isl_union_map_empty_ctx(ctx);
-	isl_union_map *_reads = isl_union_map_empty_ctx(ctx);
-	isl_union_map *_writes = isl_union_map_empty_ctx(ctx);
-	osl_strings_p names = (osl_strings_p)scop->parameters->data;
-
-	int i = 0;
-	for (osl_statement_p stmt = scop->statement; stmt != NULL; stmt = stmt->next, i += 1) {
-
-		char stmt_name[100] = {0};
-		sprintf(stmt_name, "S_%d", i);
-
-		isl_set *set = isl_set_from_osl_relation(stmt->domain, ctx);
-
-		for (int i = 0; i < n_param; i++) {
-			set = isl_set_set_dim_name(set, isl_dim_param, i, names->string[i]);
-		}
-		domains = isl_union_set_add_set(domains, set);
-
-		isl_map *map = isl_map_from_osl_relation(stmt->scattering, ctx);
-		for (int i = 0; i < n_param; i++) {
-			map = isl_map_set_dim_name(map, isl_dim_param, i, names->string[i]);
-		}
-		_schedules = isl_union_map_add_map(_schedules, map);
-
-		for (osl_relation_list_p node = stmt->access; node != NULL; node = node->next) {
-			osl_relation_p rel = node->elt;
-			if (rel->type == OSL_TYPE_READ) {
-				map = isl_map_from_osl_relation(rel, ctx);
-				_reads = isl_union_map_add_map(_reads, map);
-			}
-			if (rel->type == OSL_TYPE_WRITE) {
-				map = isl_map_from_osl_relation(rel, ctx);
-				_writes = isl_union_map_add_map(_writes, map);
-			}
-		}
-	}
-	_schedules = isl_union_map_intersect_domain(_schedules, domains);
-
-	*schedules = _schedules;
-	*reads = _reads;
-	*writes = _writes;
-}
-__isl_give isl_set *isl_set_from_osl_relation(osl_relation_p relation, isl_ctx *ctx) {
-	char *str = osl_relation_spprint_polylib(relation, NULL);
-	isl_set *set = isl_set_read_from_str(ctx, str);
-	free(str);
-
-	return set;
-}
-
-__isl_give isl_map *isl_map_from_osl_relation(osl_relation_p relation, isl_ctx *ctx) {
-	char *str = osl_relation_spprint_polylib(relation, NULL);
-	isl_map *map = isl_map_read_from_str(ctx, str);
-	free(str);
-	return map;
-}
-
 __isl_give isl_constraint *isl_basic_set_dim_lb_cst(__isl_keep isl_basic_set *bset, int pos) {
 	// retrieve constraint list
 	isl_constraint_list *cst_list = isl_basic_set_get_constraint_list(bset);
@@ -203,56 +135,6 @@ __isl_give isl_basic_set *isl_basic_set_minmax_union(__isl_take isl_basic_set *b
 	isl_basic_set_free(bset2);
 
 	return result;
-}
-
-__isl_give isl_set *isl_set_from_osl_stmt(isl_ctx *ctx, osl_statement_p stmt) {
-	isl_set *domain = isl_set_from_osl_relation(stmt->domain, ctx);
-	isl_map *scattering = isl_map_from_osl_relation(stmt->scattering, ctx);
-	domain = isl_set_apply(domain, scattering);
-
-	return domain;
-}
-
-__isl_give isl_basic_set *isl_basic_set_from_osl_scop(isl_ctx *ctx, osl_scop_p scop) {
-	osl_scop_p tmp_scop = osl_scop_remove_unions(scop);
-	osl_scop_normalize_scattering(tmp_scop);
-
-	isl_basic_set *result_bset = NULL;
-
-	for (osl_statement_p stmt = scop->statement; stmt != NULL; stmt = stmt->next) {
-		isl_set *domain = isl_set_from_osl_stmt(ctx, stmt);
-		isl_basic_set_list *bset_list = isl_set_get_basic_set_list(domain);
-		isl_size n_bset = isl_basic_set_list_n_basic_set(bset_list);
-
-		if (n_bset == 0) {
-			continue;
-		}
-		isl_basic_set *bset = isl_basic_set_list_get_at(bset_list, 0);
-
-		for (int i = 1; i < n_bset; i++) {
-			isl_basic_set *tmp_bset = isl_basic_set_list_get_at(bset_list, i);
-			bset = isl_basic_set_minmax_union(bset, tmp_bset);
-		}
-
-		isl_basic_set_list_free(bset_list);
-		isl_set_free(domain);
-
-		if (result_bset == NULL) {
-			result_bset = bset;
-		} else {
-			result_bset = isl_basic_set_minmax_union(result_bset, bset);
-		}
-	}
-
-	int npar = osl_scop_get_nb_parameters(tmp_scop);
-	osl_strings_p names = (osl_strings_p)tmp_scop->parameters->data;
-
-	for (int i = 0; i < npar; i++) {
-		result_bset = isl_basic_set_set_dim_name(result_bset, isl_dim_param, i, names->string[i]);
-	}
-
-	osl_scop_free(tmp_scop);
-	return result_bset;
 }
 
 __isl_give isl_set *isl_set_set_param_names_from_osl_scop(__isl_take isl_set *set, osl_scop_p scop) {

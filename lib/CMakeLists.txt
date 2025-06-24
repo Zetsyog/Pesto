@@ -15,25 +15,31 @@ set(PESTO_SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/codegen/CloogPass.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/codegen/VarDecls.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/codegen/ParamTiling.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/ir/Scop2Isl.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/ir/Isl2Scop.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/isl_support.c
 	${CMAKE_CURRENT_SOURCE_DIR}/osl_support.c
 	${CMAKE_CURRENT_SOURCE_DIR}/pass/DumpOslPass.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/pass/IslPass.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/pass/MatchCriteriaPass.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/pass/ParamContextPass.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/pass/Pass.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/pass/PlutoPass.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/pass/SplitNestPass.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/pass/SplitTilingPass.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/ClastCustomVecPragmaPB.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/ClastParamTilingPB.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/CloogCodegenPB.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/DumpOsl.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/GenClastPB.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/IslPB.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/MatchCriteriaPB.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/PMBuilder.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/ParamContextPB.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/PassBuilder.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/PlutoPB.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/SplitNestPB.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/SplitTilingPB.cpp
 )
 
 add_library(pesto STATIC ${PESTO_SOURCES})

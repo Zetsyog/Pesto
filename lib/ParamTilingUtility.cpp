@@ -33,6 +33,13 @@ pesto::ParamTilingUtility::~ParamTilingUtility() { isl_ctx_free(this->ctx); }
 
 // TODO: return status
 void pesto::ParamTilingUtility::apply(CloogProgram *cloogProgram, CloogOptions *cloogOptions, struct clast_root *root) {
+	this->names.clear();
+	this->statements.clear();
+	this->varList.clear();
+	this->insertedStmts = 0;
+	this->error = false;
+	this->errorMessage = "";
+	this->trahrheDomains.clear();
 	if (root == nullptr) {
 		this->error = true;
 		this->errorMessage = "Clast root is null";
@@ -42,17 +49,10 @@ void pesto::ParamTilingUtility::apply(CloogProgram *cloogProgram, CloogOptions *
 		return;
 	}
 
-	this->names.clear();
-	this->statements.clear();
-	this->varList.clear();
-	this->insertedStmts = 0;
-	this->error = false;
-	this->errorMessage = "";
-
 	// Then we must create group of statement that can be tiled together
 	// i.e tiling bands
 	std::cerr << "[param-tiling] Computing stmt groups..." << std::endl;
-	auto stmtGroups = this->computeStmtGroups(root);
+	auto stmtGroups = this->computeStmtGroups(cloogProgram, root);
 
 	std::cerr << "[param-tiling] Found " << stmtGroups.size() << " statements groups" << std::endl;
 
@@ -86,13 +86,22 @@ void pesto::ParamTilingUtility::apply(CloogProgram *cloogProgram, CloogOptions *
 	}
 }
 
-std::vector<pesto::StmtGroup> pesto::ParamTilingUtility::computeStmtGroups(struct clast_root *root) {
+std::vector<pesto::StmtGroup> pesto::ParamTilingUtility::computeStmtGroups(CloogProgram *cloogProgram,
+																		   struct clast_root *root) {
 	int stmt_count = 0;
 	// this is a list of pointer of user statements in the clast
 	// they will be freed with the clast root so no need for memory management
 	// here
 	struct clast_user_stmt **stmt = clast_get_user_stmt_list((struct clast_stmt *)root, &stmt_count);
 	std::vector<StmtGroup> stmtGroups;
+
+	for (CloogLoop *loop = cloogProgram->loop; loop != NULL; loop = loop->inner) {
+		isl_set *domain = isl_set_from_cloog_domain(loop->domain);
+		isl_set_dump(domain);
+		if (loop->block) {
+			std::cerr << "block!" << std::endl;
+		}
+	}
 
 	std::cerr << "[param-tiling] Found " << stmt_count << " statements in clast" << std::endl;
 	if (stmt_count == 0) {
@@ -113,7 +122,7 @@ std::vector<pesto::StmtGroup> pesto::ParamTilingUtility::computeStmtGroups(struc
 				  struct clast_for *a_parent_for = clast_get_parent_clast_for(&(root->stmt), &(a->stmt));
 				  struct clast_for *b_parent_for = clast_get_parent_clast_for(&(root->stmt), &(b->stmt));
 
-				  return clast_for_depth(&(root->stmt), b_parent_for) - clast_for_depth(&(root->stmt), a_parent_for);
+				  return clast_for_depth(&(root->stmt), a_parent_for) < clast_for_depth(&(root->stmt), b_parent_for);
 			  });
 
 	/*
@@ -184,6 +193,22 @@ std::vector<pesto::StmtGroup> pesto::ParamTilingUtility::computeStmtGroups(struc
 		}
 
 		isl_set *group_domain = isl_set_copy(isl_set_from_cloog_domain(group.parent_for->domain));
+		// define param names
+		for (int i = 0; i < cloogProgram->names->nb_parameters; i += 1) {
+			group_domain = isl_set_set_dim_name(group_domain, isl_dim_param, i, cloogProgram->names->parameters[i]);
+		}
+
+		for (isl_size i = 0; i < isl_set_n_dim(group_domain); i += 1) {
+			group_domain = isl_set_set_dim_name(group_domain, isl_dim_set, i, cloogProgram->names->scattering[i]);
+		}
+		group_domain = isl_set_coalesce(group_domain);
+
+		;
+		isl_set_dump(group_domain);
+		isl_printer *p = isl_printer_to_file(this->ctx, stderr);
+		p = isl_printer_set_output_format(p, ISL_FORMAT_EXT_POLYLIB);
+		p = isl_printer_print_set(p, group_domain);
+		isl_printer_free(p);
 		isl_bool empty = isl_set_is_empty(group_domain);
 		int tiling_dim_count = isl_set_count_tiling_dimensions(group_domain);
 		isl_set_free(group_domain);

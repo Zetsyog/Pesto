@@ -140,6 +140,23 @@ struct clast_expr *clast_bound_from_isl_set(CloogNames *names, __isl_keep isl_se
  */
 struct clast_for *clast_find_outter_tiling_for(struct clast_stmt *root, struct clast_for *inner_for);
 
+/**
+ * @brief insert a clast_for that encloses the given statement
+ * @param root the root of the clast tree
+ * @param stmt the statement to enclose
+ * @return the inserted clast_for
+ */
+struct clast_for *clast_insert_enclosing_for(struct clast_stmt *root, struct clast_stmt *stmt, CloogDomain *domain);
+
+/**
+ * @brief return the innermost clast_for in a given block
+ * @param root_for the outermost for loop
+ * @return the innermost clast_for in the given block
+ */
+struct clast_for *clast_get_innermost_for(struct clast_stmt *root_for);
+
+struct clast_stmt *clast_stmt_hard_copy(struct clast_stmt *stmt);
+
 #ifdef __cplusplus
 }
 #endif
