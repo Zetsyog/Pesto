@@ -350,6 +350,7 @@ void Scop2Isl::convert(osl_scop_t &scop) {
 	this->schedule = isl_union_map_empty_space(isl_space_copy(this->param_space));
 	this->reads = isl_union_map_empty_space(isl_space_copy(this->param_space));
 	this->writes = isl_union_map_empty_space(isl_space_copy(this->param_space));
+	this->may_writes = isl_union_map_empty_space(isl_space_copy(this->param_space));
 
 	osl_names_p names = get_scop_names(this->scop);
 
