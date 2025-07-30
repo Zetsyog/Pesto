@@ -20,7 +20,7 @@ set(PLUTO_PATCH_FUNC_DEF_FIX
 ExternalProject_Add(
 	pluto-src
 	GIT_REPOSITORY https://gitlab.inria.fr/crossett/pluto-openscop.git
-	GIT_TAG 1f6eed199b38526fc093b76638e50c6a3e12faed #
+	GIT_TAG 26aeb7b0017a6b4fd6bc351afea3005a45959355 #
 	GIT_SUBMODULES_RECURSE false
 	GIT_SUBMODULES isl openscop piplib candl #
 	PREFIX ${PLUTO_PREFIX}
