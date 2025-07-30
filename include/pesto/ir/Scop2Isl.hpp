@@ -25,13 +25,13 @@ class Scop2Isl {
 	 */
 	void convert(osl_scop_t &scop);
 
-	__isl_give isl_space *getParamSpace();
-	__isl_give isl_set *getContext();
-	__isl_give isl_union_set *getDomains();
-	__isl_give isl_union_map *getSchedules();
-	__isl_give isl_union_map *getReads();
-	__isl_give isl_union_map *getWrites();
-	__isl_give isl_union_map *getMayWrites();
+	__isl_give isl_space *getParamSpace() const;
+	__isl_give isl_set *getContext() const;
+	__isl_give isl_union_set *getDomains() const;
+	__isl_give isl_union_map *getSchedules() const;
+	__isl_give isl_union_map *getReads() const;
+	__isl_give isl_union_map *getWrites() const;
+	__isl_give isl_union_map *getMayWrites() const;
 
   private:
 	isl_ctx *ctx;

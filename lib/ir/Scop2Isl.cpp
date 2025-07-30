@@ -449,16 +449,16 @@ __isl_give isl_map *Scop2Isl::islScheduleFromStatement(osl_statement_p stmt) {
 }
 
 /* Getters */
-__isl_give isl_space *Scop2Isl::getParamSpace() { return isl_space_copy(this->param_space); }
+__isl_give isl_space *Scop2Isl::getParamSpace() const { return isl_space_copy(this->param_space); }
 
-__isl_give isl_set *Scop2Isl::getContext() { return isl_set_copy(this->context); }
+__isl_give isl_set *Scop2Isl::getContext() const { return isl_set_copy(this->context); }
 
-__isl_give isl_union_set *Scop2Isl::getDomains() { return isl_union_set_copy(this->domain); }
+__isl_give isl_union_set *Scop2Isl::getDomains() const { return isl_union_set_copy(this->domain); }
 
-__isl_give isl_union_map *Scop2Isl::getSchedules() { return isl_union_map_copy(this->schedule); }
+__isl_give isl_union_map *Scop2Isl::getSchedules() const { return isl_union_map_copy(this->schedule); }
 
-__isl_give isl_union_map *Scop2Isl::getReads() { return isl_union_map_copy(this->reads); }
+__isl_give isl_union_map *Scop2Isl::getReads() const { return isl_union_map_copy(this->reads); }
 
-__isl_give isl_union_map *Scop2Isl::getWrites() { return isl_union_map_copy(this->writes); }
+__isl_give isl_union_map *Scop2Isl::getWrites() const { return isl_union_map_copy(this->writes); }
 
-__isl_give isl_union_map *Scop2Isl::getMayWrites() { return isl_union_map_copy(this->may_writes); }
+__isl_give isl_union_map *Scop2Isl::getMayWrites() const { return isl_union_map_copy(this->may_writes); }
