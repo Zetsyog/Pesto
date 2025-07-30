@@ -26,11 +26,13 @@ class NameHelper {
 
 	void setSeparator(std::string sep);
 	void setPrefix(std::string prefix);
+	std::string getPrefixStr();
 
 	std::string &getSeparator();
 	std::string &getPrefix();
 
-	std::string outterForUBName();
+	std::string outerForLBName();
+	std::string outerForUBName();
 	std::string innerForLBName();
 	std::string innerForUBName();
 	std::string divName();

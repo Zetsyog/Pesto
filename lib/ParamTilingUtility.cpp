@@ -411,7 +411,7 @@ void pesto::ParamTilingUtility::replaceOutterForBounds(StmtGroup &group, TilingD
 
 	ptile::NameHelper nameHelper = this->getNameHelper(group, data);
 
-	auto ub_ptr = std::make_shared<std::string>(nameHelper.outterForUBName());
+	auto ub_ptr = std::make_shared<std::string>(nameHelper.outerForUBName());
 	outter_for->UB = (struct clast_expr *)new_clast_name(ub_ptr->c_str());
 	this->names.push_back(ub_ptr);
 }
@@ -483,7 +483,7 @@ void pesto::ParamTilingUtility::declareGroupVariables(StmtGroup &group) {
 
 		this->declareVariable(nameHelper.pcMaxName());
 		this->declareVariable(nameHelper.targetVolName());
-		this->declareVariable(nameHelper.outterForUBName());
+		this->declareVariable(nameHelper.outerForUBName());
 		this->declareVariable(nameHelper.innerForLBName());
 		this->declareVariable(nameHelper.innerForUBName());
 	}
@@ -514,7 +514,7 @@ void pesto::ParamTilingUtility::updateOmpPragma(StmtGroup &group) {
 	auto nameHelper = this->getNameHelper(group, group.tilingData[0]);
 
 	// omp firstprivate directive
-	userDirectiveStr += nameHelper.outterForUBName() + ", ";
+	userDirectiveStr += nameHelper.outerForUBName() + ", ";
 	userDirectiveStr += nameHelper.pcMaxName() + ", ";
 	userDirectiveStr += nameHelper.targetVolName() + ") \\\n";
 
@@ -544,7 +544,7 @@ void pesto::ParamTilingUtility::updateOmpPragma(StmtGroup &group) {
 
 	for (std::size_t i = tiling_depth + 1; i < group.tilingData.size(); i += 1) {
 		nameHelper = this->getNameHelper(group, group.tilingData[i]);
-		privateVarsStr += ", " + nameHelper.outterForUBName();
+		privateVarsStr += ", " + nameHelper.outerForUBName();
 		privateVarsStr += ", " + nameHelper.pcMaxName();
 		privateVarsStr += ", " + nameHelper.targetVolName();
 		privateVarsStr += ", " + nameHelper.innerForLBName();

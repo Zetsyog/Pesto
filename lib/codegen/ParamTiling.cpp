@@ -83,7 +83,7 @@ void ParamTilingCodegen::genHeaderStmt(std::ostream &os) {
 }
 
 void ParamTilingCodegen::genHeaderStmtRectangular(std::ostream &os) {
-	os << this->nameHelper.outterForUBName() << " = ceild(" << this->data.innerForUBExpr;
+	os << this->nameHelper.outerForUBName() << " = ceild(" << this->data.innerForUBExpr;
 	if (this->data.innerForLBExpr.length() > 0) {
 		os << " - (" << this->data.innerForLBExpr << ")";
 	}
@@ -92,7 +92,7 @@ void ParamTilingCodegen::genHeaderStmtRectangular(std::ostream &os) {
 
 void ParamTilingCodegen::genHeaderStmtAlgebraic(std::ostream &os) {
 	isl_size npar = isl_set_dim(this->innerDomain, isl_dim_param);
-	os << this->nameHelper.outterForUBName() << " = " << this->nameHelper.divName() << " - 1;" << this->endline;
+	os << this->nameHelper.outerForUBName() << " = " << this->nameHelper.divName() << " - 1;" << this->endline;
 	os << this->nameHelper.pcMaxName() << " = " << this->trahrheNameHelper.ehrhartFnName() << "(";
 	for (isl_size i = 0; i < npar; i += 1) {
 		if (i != 0) {
@@ -135,7 +135,7 @@ void ParamTilingCodegen::genHeaderStmtAlgebraic(std::ostream &os) {
 		} else if (this->volumeCheckStrategy == VolumeCheckStrategy::NO_TILE_UNTIL_THRESHOLD) {
 			os << "\t" << this->nameHelper.targetVolName() << " = " << this->nameHelper.pcMaxName() << ";"
 			   << this->endline;
-			os << "\t" << this->nameHelper.outterForUBName() << " = 0;" << this->endline;
+			os << "\t" << this->nameHelper.outerForUBName() << " = 0;" << this->endline;
 		} else if (this->volumeCheckStrategy == VolumeCheckStrategy::DYNAMIC_TILE_UNTIL_THRESHOLD) {
 			std::string dynDividerName = "dynamicDivider";
 			std::string minDividerName = "minDivider";
@@ -150,7 +150,7 @@ void ParamTilingCodegen::genHeaderStmtAlgebraic(std::ostream &os) {
 			os << "\t}" << this->endline;
 			os << "\t" << this->nameHelper.targetVolName() << " = " << this->nameHelper.pcMaxName() << " / "
 			   << dynDividerName << ";" << this->endline;
-			os << "\t" << this->nameHelper.outterForUBName() << " = " << dynDividerName << " - 1;" << this->endline;
+			os << "\t" << this->nameHelper.outerForUBName() << " = " << dynDividerName << " - 1;" << this->endline;
 		}
 		os << "}";
 	}
@@ -227,7 +227,7 @@ void ParamTilingCodegen::genBodyStmtAlgebraic(std::ostream &os) {
 	// last bound adjustment
 	if (this->boundComputeMethod == BoundComputeMethod::FILL_LAST) {
 		os << ";" << this->endline;
-		os << "if(" << this->outterFor.iterator << " == " << this->nameHelper.outterForUBName() << ") {"
+		os << "if(" << this->outterFor.iterator << " == " << this->nameHelper.outerForUBName() << ") {"
 		   << this->endline;
 		os << "\t" << this->nameHelper.innerForUBName() << " = " << this->data.innerForUBExpr << ";" << this->endline;
 		os << "}";
@@ -278,10 +278,10 @@ void ParamTilingCodegen::genHeaderStmtScheduled(std::ostream &os) {
 		}
 		os << ");" << this->endline;
 
-		os << this->nameHelper.outterForUBName() << " = " << scheduleName << ".len - 1;" << this->endline;
+		os << this->nameHelper.outerForUBName() << " = " << scheduleName << ".len - 1;" << this->endline;
 	}
 	if (this->tilingDepth == 1) {
-		os << this->nameHelper.outterForUBName() << " = " << scheduleName << ".fronts["
+		os << this->nameHelper.outerForUBName() << " = " << scheduleName << ".fronts["
 		   << this->group.tilingData[0].outter_for->iterator << "].len - 1;" << this->endline;
 	}
 }
@@ -494,27 +494,29 @@ NameHelper::~NameHelper() {}
 
 std::string &NameHelper::getSeparator() { return this->sep; }
 std::string &NameHelper::getPrefix() { return this->prefix; }
+std::string NameHelper::getPrefixStr() { return (this->prefix != "" ? this->prefix + this->sep : ""); }
 
 void NameHelper::setSeparator(std::string sep) { this->sep = sep; }
 void NameHelper::setPrefix(std::string prefix) { this->prefix = prefix; }
 
-std::string NameHelper::outterForUBName() { return this->prefix + this->sep + "ub" + this->outterForIt; }
-std::string NameHelper::innerForLBName() { return this->prefix + this->sep + "lb" + this->innerForIt; }
-std::string NameHelper::innerForUBName() { return this->prefix + this->sep + "ub" + this->innerForIt; }
+std::string NameHelper::outerForLBName() { return this->getPrefixStr() + "lb" + this->outterForIt; }
+std::string NameHelper::outerForUBName() { return this->getPrefixStr() + "ub" + this->outterForIt; }
+std::string NameHelper::innerForLBName() { return this->getPrefixStr() + "lb" + this->innerForIt; }
+std::string NameHelper::innerForUBName() { return this->getPrefixStr() + "ub" + this->innerForIt; }
 std::string NameHelper::divName() { return "DIV" + std::to_string(this->depth); }
 std::string NameHelper::targetVolName() {
-	return this->prefix + this->sep + "TARGET" + this->sep + "VOL" + this->sep + "L" + std::to_string(this->depth);
+	return this->getPrefixStr() + "TARGET" + this->sep + "VOL" + this->sep + "L" + std::to_string(this->depth);
 }
-std::string NameHelper::pcMaxName() { return this->prefix + this->sep + this->innerForIt + this->sep + "pcmax"; }
+std::string NameHelper::pcMaxName() { return this->getPrefixStr() + this->innerForIt + this->sep + "pcmax"; }
 std::string NameHelper::ehrhartFnName() {
-	std::string itName = this->prefix + this->sep + this->innerForIt;
+	std::string itName = this->getPrefixStr() + this->innerForIt;
 	return itName + this->sep + "Ehrhart";
 }
 std::string NameHelper::trahrheFnName() {
-	std::string itName = this->prefix + this->sep + this->innerForIt;
+	std::string itName = this->getPrefixStr() + this->innerForIt;
 	return itName + this->sep + "trahrhe" + this->sep + itName;
 }
-std::string NameHelper::trahrheIteratorName() { return this->prefix + this->sep + this->innerForIt; }
+std::string NameHelper::trahrheIteratorName() { return this->getPrefixStr() + this->innerForIt; }
 
-std::string NameHelper::scheduleName() { return this->prefix + this->sep + "schedule"; }
-std::string NameHelper::tileArrayName() { return this->prefix + this->sep + "tiles"; }
+std::string NameHelper::scheduleName() { return this->getPrefixStr() + "schedule"; }
+std::string NameHelper::tileArrayName() { return this->getPrefixStr() + "tiles"; }

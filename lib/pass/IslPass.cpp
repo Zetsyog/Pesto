@@ -205,39 +205,26 @@ void IslPass::applyScop(OslScop &scop) {
 	isl_union_access_info *access;
 	isl_union_flow *flow;
 
-	isl_union_map *dep_flow;  // potential flow dependences
-	isl_union_map *live_in;	  // reads with potenttailly no corresponding write
-	isl_union_map *live_out;  // live out accesses
-	isl_union_map *dep_false; // false dependences
-							  // compute live out
-	access = isl_union_access_info_from_sink(isl_union_map_copy(writes));
-	access = isl_union_access_info_set_may_source(access, isl_union_map_copy(mayWrites));
-	access = isl_union_access_info_set_schedule_map(access, isl_union_map_copy(schedules));
-	flow = isl_union_access_info_compute_flow(access);
-	isl_union_map *covering = isl_union_flow_get_full_may_dependence(flow);
-	isl_union_flow_free(flow);
-	live_out = isl_union_map_subtract(isl_union_map_copy(mayWrites), covering);
+	isl_union_map *dep_flow; // potential flow dependences
 
 	// compute live in
+	access = isl_union_access_info_from_sink(isl_union_map_copy(reads));
+	access = isl_union_access_info_set_must_source(access, isl_union_map_copy(writes));
+	access = isl_union_access_info_set_schedule_map(access, isl_union_map_copy(schedules));
+	flow = isl_union_access_info_compute_flow(access);
+
+	dep_flow = isl_union_flow_get_must_dependence(flow);
+
+	isl_union_flow_free(flow);
+
 	access = isl_union_access_info_from_sink(isl_union_map_copy(reads));
 	access = isl_union_access_info_set_kill(access, isl_union_map_copy(writes));
 	access = isl_union_access_info_set_may_source(access, isl_union_map_copy(mayWrites));
 	access = isl_union_access_info_set_schedule_map(access, isl_union_map_copy(schedules));
 	flow = isl_union_access_info_compute_flow(access);
 
-	dep_flow = isl_union_flow_get_may_dependence(flow);
-	live_in = isl_union_flow_get_may_no_source(flow);
+	isl_union_map *proximity = isl_union_flow_get_may_dependence(flow);
 
-	isl_union_flow_free(flow);
-
-	isl_union_map *may_source = isl_union_map_union(isl_union_map_copy(mayWrites), isl_union_map_copy(reads));
-	access = isl_union_access_info_from_sink(isl_union_map_copy(mayWrites));
-	access = isl_union_access_info_set_kill(access, isl_union_map_copy(writes));
-	access = isl_union_access_info_set_may_source(access, isl_union_map_copy(may_source));
-	access = isl_union_access_info_set_schedule_map(access, isl_union_map_copy(schedules));
-	flow = isl_union_access_info_compute_flow(access);
-	dep_false = isl_union_flow_get_may_dependence(flow);
-	dep_false = isl_union_map_coalesce(dep_false);
 	isl_union_flow_free(flow);
 
 	isl_options_set_ast_always_print_block(ctx, isl_bool_true);
@@ -258,42 +245,38 @@ void IslPass::applyScop(OslScop &scop) {
 	isl_schedule_constraints *sc = isl_schedule_constraints_on_domain(domains);
 	sc = isl_schedule_constraints_set_context(sc, isl_set_copy(context));
 
-	isl_union_map *validity;
-	isl_union_map *coincidence;
-
-	validity = isl_union_map_union(isl_union_map_copy(dep_flow), isl_union_map_copy(dep_false));
-	coincidence = isl_union_map_copy(validity);
+	isl_union_map *validity = isl_union_map_copy(dep_flow);
 
 	sc = isl_schedule_constraints_set_validity(sc, validity);
-	sc = isl_schedule_constraints_set_coincidence(sc, coincidence);
-	sc = isl_schedule_constraints_set_proximity(sc, isl_union_map_copy(dep_flow));
+	// sc = isl_schedule_constraints_set_coincidence(sc, coincidence);
+	// sc = isl_schedule_constraints_set_proximity(sc, proximity);
 
 	isl_schedule *schedule = isl_schedule_constraints_compute_schedule(sc);
+	/*
+		schedule = isl_schedule_map_schedule_node_bottom_up(
+			schedule,
+			[](__isl_take isl_schedule_node *node, void *user) -> __isl_give isl_schedule_node * {
+				if (isl_schedule_node_get_type(node) != isl_schedule_node_band) {
+					return node;
+				}
+				int n = isl_schedule_node_band_n_member(node);
+				if (n <= 1) {
+					return node;
+				}
+				isl_space *space = isl_schedule_node_band_get_space(node);
+				isl_multi_val *sizes = ppcg_multi_val_from_int(space, 32);
 
-	schedule = isl_schedule_map_schedule_node_bottom_up(
-		schedule,
-		[](__isl_take isl_schedule_node *node, void *user) -> __isl_give isl_schedule_node * {
-			if (isl_schedule_node_get_type(node) != isl_schedule_node_band) {
+				isl_schedule_node_dump(node);
+				node = scale_down_and_shift_to_origin(node);
+				node = isl_schedule_node_band_tile(node, sizes);
+				n = isl_schedule_node_band_n_member(node);
+				for (int i = 0; i < n; ++i)
+					node = isl_schedule_node_band_member_set_ast_loop_type(node, i, isl_ast_loop_atomic);
+
 				return node;
-			}
-			int n = isl_schedule_node_band_n_member(node);
-			if (n <= 1) {
-				return node;
-			}
-			isl_space *space = isl_schedule_node_band_get_space(node);
-			isl_multi_val *sizes = ppcg_multi_val_from_int(space, 32);
-
-			isl_schedule_node_dump(node);
-			node = scale_down_and_shift_to_origin(node);
-			node = isl_schedule_node_band_tile(node, sizes);
-			n = isl_schedule_node_band_n_member(node);
-			for (int i = 0; i < n; ++i)
-				node = isl_schedule_node_band_member_set_ast_loop_type(node, i, isl_ast_loop_atomic);
-
-			return node;
-		},
-		nullptr);
-
+			},
+			nullptr);
+	*/
 	p = isl_printer_print_schedule(p, schedule);
 
 	isl_ast_build *build = isl_ast_build_alloc(this->ctx);

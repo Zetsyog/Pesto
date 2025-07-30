@@ -261,6 +261,10 @@ struct clast_user_stmt **clast_get_user_stmt_list(struct clast_stmt *root, int *
 			struct clast_user_stmt **branch_stmts =
 				clast_get_user_stmt_list(clast_branch_deeper_next(root), &branch_size);
 
+			if (branch_size == 0) {
+				continue;
+			}
+
 			stmts = realloc(stmts, (*size + branch_size) * sizeof(struct clast_user_stmt *));
 
 			for (int i = 0; i < branch_size; i += 1) {
@@ -755,7 +759,6 @@ static struct clast_assignment *clast_assignment_hard_copy(struct clast_assignme
 }
 
 struct clast_stmt *clast_stmt_hard_copy(struct clast_stmt *stmt) {
-	fprintf(stderr, "PTR %p\n", stmt);
 	assert(stmt != NULL);
 
 	struct clast_stmt *result_root = NULL;
@@ -764,22 +767,16 @@ struct clast_stmt *clast_stmt_hard_copy(struct clast_stmt *stmt) {
 	for (struct clast_stmt *stmt_it = stmt; stmt_it != NULL; stmt_it = stmt_it->next) {
 		struct clast_stmt *copy = NULL;
 		if (CLAST_STMT_IS_A(stmt_it, stmt_root)) {
-			fprintf(stderr, "Copying root\n");
 			copy = &(clast_root_hard_copy((struct clast_root *)stmt_it)->stmt);
 		} else if (CLAST_STMT_IS_A(stmt_it, stmt_ass)) {
-			fprintf(stderr, "Copying ass\n");
 			copy = &(clast_assignment_hard_copy((struct clast_assignment *)stmt_it)->stmt);
 		} else if (CLAST_STMT_IS_A(stmt_it, stmt_user)) {
-			fprintf(stderr, "Copying user\n");
 			copy = &(clast_user_stmt_hard_copy((struct clast_user_stmt *)stmt_it)->stmt);
 		} else if (CLAST_STMT_IS_A(stmt_it, stmt_block)) {
-			fprintf(stderr, "Copying block\n");
 			copy = &(clast_block_hard_copy((struct clast_block *)stmt_it)->stmt);
 		} else if (CLAST_STMT_IS_A(stmt_it, stmt_for)) {
-			fprintf(stderr, "Copying for\n");
 			copy = &(clast_for_hard_copy((struct clast_for *)stmt_it)->stmt);
 		} else if (CLAST_STMT_IS_A(stmt_it, stmt_guard)) {
-			fprintf(stderr, "Copying guard\n");
 			copy = &(clast_guard_hard_copy((struct clast_guard *)stmt_it)->stmt);
 		}
 
