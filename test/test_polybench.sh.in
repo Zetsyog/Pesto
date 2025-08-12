@@ -6,6 +6,7 @@ DATASET_SIZE=@PESTO_TEST_POLYBENCH_DATASET@
 MIN_TILE_SIZE=@PESTO_TEST_POLYBENCH_TILE_DIVIDER_MIN@
 MAX_TILE_SIZE=@PESTO_TEST_POLYBENCH_TILE_DIVIDER_MAX@
 
+# for cleanup only
 ALL_BENCHMARKS=(
     "datamining/correlation"
     "datamining/covariance"
@@ -25,7 +26,7 @@ ALL_BENCHMARKS=(
     "linear-algebra/solvers/cholesky"
     "linear-algebra/solvers/gramschmidt"
     "linear-algebra/solvers/lu"
-    "stencils/adi"
+    # "stencils/adi"
     "stencils/fdtd-2d"
     "stencils/jacobi-1d"
     "stencils/jacobi-2d"
@@ -51,12 +52,14 @@ BENCHMARKS=(
 )
 
 DYNSCHEDULE_BENCHMARKS=(
-    "stencils/adi"
+    # "stencils/adi"
     # "stencils/fdtd-2d" # fdtd-2d is not supported yet
     "stencils/jacobi-1d"
     "stencils/jacobi-2d"
     "stencils/seidel-2d"
 )
+
+# TODO: trapezoidal tiling
 
 CONFIGS=(
     "config/ptile.json"
