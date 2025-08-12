@@ -235,6 +235,12 @@ class FTOptions:
         self.log_output = ns.log_output
         self.outputs = ns.outputs
 
+        if not ns.sources or len(self.sources) == 0:
+            logger.error(
+                "No source files specified. Please provide at least one source."
+            )
+            sys.exit(1)
+
         for param in ns.param_ranges:
             name, min_value, max_value = param
             try:
