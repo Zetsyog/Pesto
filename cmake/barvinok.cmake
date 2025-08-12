@@ -18,9 +18,10 @@ set(BARVINOK_INSTALL_DIR
 # Locate the Barvinok library
 ExternalProject_Add(
 	barvinok-src
-	URL ${BARVINOK_URL} DOWNLOAD_EXTRACT_TIMESTAMP true
+	URL ${BARVINOK_URL}
 	PREFIX ${CMAKE_CURRENT_BINARY_DIR}/barvinok
 	BUILD_IN_SOURCE true
+	DOWNLOAD_EXTRACT_TIMESTAMP true
 	CONFIGURE_COMMAND
 		./configure --prefix=${BARVINOK_INSTALL_DIR} #
 		--with-isl=build --with-isl-builddir=${PLUTO_SRC_DIR}/isl/ #
