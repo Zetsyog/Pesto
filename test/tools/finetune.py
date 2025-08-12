@@ -286,7 +286,7 @@ class FTOptions:
                 self.compiler_extra_flags.extend(["-I", f"{include_dir.absolute()}"])
 
         if ns.compiler_extra_flags:
-            self.compiler_extra_flags.extend(ns.compile_extra_flags)
+            self.compiler_extra_flags.extend(ns.compiler_extra_flags)
 
         self.output_dump_baseline_sources.extend(ns.output_dump_baseline)
         # check all output dump baseline sources exist
