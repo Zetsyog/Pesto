@@ -309,7 +309,8 @@ class FTOptions:
                 self.compiler_extra_flags.extend(["-I", f"{include_dir.absolute()}"])
 
         if ns.compiler_extra_flags:
-            self.compiler_extra_flags.extend(ns.compiler_extra_flags)
+            for flag in ns.compiler_extra_flags:
+                self.compiler_extra_flags.extend(flag.split())
 
         self.output_dump_baseline_sources.extend(ns.output_dump_baseline)
         # check all output dump baseline sources exist
@@ -376,11 +377,6 @@ class FTOptions:
         if ns.pluto_flags:
             self.pluto_flags = []
             for flag in ns.pluto_flags:
-                if not flag.startswith("--"):
-                    logger.error(
-                        "Pluto flags must start with '--'. Invalid flag: '%s'", flag
-                    )
-                    sys.exit(1)
                 self.pluto_flags.extend(flag.split())
 
         if ns.pluto_custom_vec_pragma:
@@ -506,6 +502,8 @@ class FTRun:
         ]
         if extra_flags is not None:
             self.compile_cmd.extend(extra_flags)
+        # link libmath
+        self.compile_cmd.extend(["-lm"])
         self.binary = (sources[-1].parent / (sources[-1].stem + ".bin")).absolute()
 
     def _compile_step(self) -> None:
