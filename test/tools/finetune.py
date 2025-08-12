@@ -91,6 +91,7 @@ class FTOptions:
         self.pluto_enabled: bool = False
         self.pluto_bin: Optional[Path] = None
         self.pluto_flags: list[str] = ["--tile", "--nounrolljam", "--parallel"]
+        self.pluto_custom_vec_pragma: Optional[str] = None
         self.parameters: list[FTParameter] = []
         self.compiler_binary: Optional[Path] = None
         self.compiler_extra_flags: list[str] = []
@@ -144,6 +145,28 @@ class FTOptions:
             metavar="PLUTO_CMD",
             dest="pluto",
             help="Finetuning is done using Pluto.",
+        )
+
+        parser.add_argument(
+            "--pluto-flags",
+            action="extend",
+            nargs="+",
+            default=[],
+            type=str,
+            metavar="FLAG",
+            dest="pluto_flags",
+            help="Additional flags to pass to the Pluto compiler. "
+            "Can be specified multiple times.",
+        )
+
+        parser.add_argument(
+            "--pluto-custom-vec-pragma",
+            default=None,
+            type=str,
+            dest="pluto_custom_vec_pragma",
+            metavar="PRAGMA",
+            help="Custom vectorization pragma to use with Pluto. "
+            "If not specified, the default pragma will be used. ",
         )
 
         parser.add_argument(
@@ -349,6 +372,19 @@ class FTOptions:
                 )
                 sys.exit(1)
             self.pluto_bin = Path(shutil.which(ns.pluto))
+
+        if ns.pluto_flags:
+            self.pluto_flags = []
+            for flag in ns.pluto_flags:
+                if not flag.startswith("--"):
+                    logger.error(
+                        "Pluto flags must start with '--'. Invalid flag: '%s'", flag
+                    )
+                    sys.exit(1)
+                self.pluto_flags.extend(flag.split())
+
+        if ns.pluto_custom_vec_pragma:
+            self.pluto_custom_vec_pragma = ns.pluto_custom_vec_pragma
 
         if self.pluto_enabled:
             # check if pluto is available
@@ -669,7 +705,7 @@ class FTExperiment:
                 "-o",
                 str(output_file.absolute()),
             ]
-            # TODO: custom pluto flags
+
             pluto_cmd.extend(options.pluto_flags)
 
             tile_parameters_len = len(
@@ -713,6 +749,20 @@ class FTExperiment:
                     src,
                 )
                 continue
+
+            if options.pluto_custom_vec_pragma:
+                # find the #pragma ivdep and #pragma vector always lines in generated file
+                # and replace them with the custom pragma
+                with open(output_file, "r+", encoding="utf-8") as f:
+                    content = f.read()
+                    content = content.replace("#pragma ivdep", "")
+                    content = content.replace(
+                        "#pragma vector always", options.pluto_custom_vec_pragma
+                    )
+                    f.seek(0)
+                    f.write(content)
+                    f.truncate()
+
             gen_sources.append(output_file)
 
             logger.debug(
