@@ -29,10 +29,10 @@ class ClastTilingPair {
 };
 } // namespace ptile
 
-class SplitTilingPass : public IPass {
+class TpzTilingPass : public IPass {
   public:
-	SplitTilingPass();
-	virtual ~SplitTilingPass();
+	TpzTilingPass();
+	virtual ~TpzTilingPass();
 
 	virtual void apply(Program &prog) override;
 	virtual void applyScop(OslScop &nest) override;

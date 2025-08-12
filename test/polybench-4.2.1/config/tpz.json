@@ -21,7 +21,7 @@
             }
         },
         {
-            "uuid": "isl-split-tiling"
+            "uuid": "isl-tpz-tiling"
         },
         {
             "uuid": "codegen-cloog",

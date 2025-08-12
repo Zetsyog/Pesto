@@ -27,25 +27,25 @@
 #include <pesto/ir/Scop2Isl.hpp>
 #include <pesto/macros.h>
 #include <pesto/maths/Maths.hpp>
-#include <pesto/pass/SplitTilingPass.hpp>
+#include <pesto/pass/TpzTilingPass.hpp>
 
 // TODO: rename this pass to TrapezoidalTilingPass
 
-using pesto::pass::SplitTilingPass;
+using pesto::pass::TpzTilingPass;
 
-SplitTilingPass::SplitTilingPass() : IPass("split-tiling"), outputFile(".") {
+TpzTilingPass::TpzTilingPass() : IPass("split-tiling"), outputFile(".") {
 	this->ctx = isl_ctx_alloc();
 	this->printer = isl_printer_to_str(this->ctx);
 }
 
-SplitTilingPass::~SplitTilingPass() {
+TpzTilingPass::~TpzTilingPass() {
 	isl_printer_free(this->printer);
 	isl_ctx_free(this->ctx);
 }
 
 namespace pesto::pass {} // namespace pesto::pass
 
-void SplitTilingPass::applyScop(OslScop &scop) {
+void TpzTilingPass::applyScop(OslScop &scop) {
 	std::optional<pesto::maths::Vec2i> slope = this->computeDepDistanceVector(scop);
 
 	if (!slope.has_value()) {
@@ -65,7 +65,7 @@ void SplitTilingPass::applyScop(OslScop &scop) {
 	genClastPass.applyScop(scop);
 
 	if (!scop.metadata.has<metadata::ClastHolder>()) {
-		std::cerr << "[SplitTilingPass] Clast generation failed. Could not apply Trapezoidal Tiling" << std::endl;
+		std::cerr << "[TpzTilingPass] Clast generation failed. Could not apply Trapezoidal Tiling" << std::endl;
 		return;
 	}
 
@@ -90,8 +90,8 @@ void SplitTilingPass::applyScop(OslScop &scop) {
 	}
 }
 
-void SplitTilingPass::tileClastFor(OslScop &scop, CloogProgram *cloogProgram, CloogOptions *cloogOptions,
-								   struct clast_root *root, struct clast_for *clastFor, pesto::maths::Vec2i slope) {
+void TpzTilingPass::tileClastFor(OslScop &scop, CloogProgram *cloogProgram, CloogOptions *cloogOptions,
+								 struct clast_root *root, struct clast_for *clastFor, pesto::maths::Vec2i slope) {
 
 	using pesto::pass::ptile::ClastTilingPair;
 
@@ -134,7 +134,7 @@ void SplitTilingPass::tileClastFor(OslScop &scop, CloogProgram *cloogProgram, Cl
 			}
 		}
 		if (targetStmt == nullptr) {
-			std::cerr << "[SplitTilingPass] Error: could not find duplicated user statement for number "
+			std::cerr << "[TpzTilingPass] Error: could not find duplicated user statement for number "
 					  << targetStmtNumber << std::endl;
 			continue;
 		}
@@ -159,8 +159,8 @@ void SplitTilingPass::tileClastFor(OslScop &scop, CloogProgram *cloogProgram, Cl
 }
 
 std::vector<pesto::pass::ptile::ClastTilingPair>
-SplitTilingPass::computeTilingPairs(OslScop &scop, CloogProgram *cloogProgram, CloogOptions *cloogOptions,
-									struct clast_root *root, struct clast_for *clastFor) {
+TpzTilingPass::computeTilingPairs(OslScop &scop, CloogProgram *cloogProgram, CloogOptions *cloogOptions,
+								  struct clast_root *root, struct clast_for *clastFor) {
 	using pesto::pass::ptile::ClastTilingPair;
 
 	(void)scop;			// Unused parameter
@@ -190,9 +190,9 @@ SplitTilingPass::computeTilingPairs(OslScop &scop, CloogProgram *cloogProgram, C
 	return clastTilingPairs;
 }
 
-void SplitTilingPass::insertOuterForLoop(OslScop &scop, struct clast_root *root,
-										 std::vector<ptile::ClastTilingPair> &clastTilingPairs,
-										 CloogProgram *cloogProgram, CloogOptions *cloogOptions) {
+void TpzTilingPass::insertOuterForLoop(OslScop &scop, struct clast_root *root,
+									   std::vector<ptile::ClastTilingPair> &clastTilingPairs,
+									   CloogProgram *cloogProgram, CloogOptions *cloogOptions) {
 	using pesto::pass::metadata::VarDeclMetadata;
 	using pesto::ptile::NameHelper;
 
@@ -255,9 +255,9 @@ void SplitTilingPass::insertOuterForLoop(OslScop &scop, struct clast_root *root,
 	cloog_domain_free(enclosingDomain);
 }
 
-void SplitTilingPass::codegen(OslScop &scop, CloogProgram *cloogProgram, CloogOptions *cloogOptions,
-							  struct clast_root *root, std::vector<ptile::ClastTilingPair> &clastTilingPairs,
-							  isl_set *innerDomain, pesto::maths::Vec2i slope) {
+void TpzTilingPass::codegen(OslScop &scop, CloogProgram *cloogProgram, CloogOptions *cloogOptions,
+							struct clast_root *root, std::vector<ptile::ClastTilingPair> &clastTilingPairs,
+							isl_set *innerDomain, pesto::maths::Vec2i slope) {
 	using pesto::pass::metadata::MacroMetadata;
 	using pesto::pass::metadata::VarDeclMetadata;
 	using pesto::ptile::NameHelper;
@@ -480,9 +480,9 @@ void SplitTilingPass::codegen(OslScop &scop, CloogProgram *cloogProgram, CloogOp
 	}
 }
 
-__isl_give isl_set *SplitTilingPass::computeInnerDomain(OslScop &scop, CloogProgram *cloogProgram,
-														CloogOptions *cloogOptions,
-														std::vector<ptile::ClastTilingPair> &clastTilingPairs) {
+__isl_give isl_set *TpzTilingPass::computeInnerDomain(OslScop &scop, CloogProgram *cloogProgram,
+													  CloogOptions *cloogOptions,
+													  std::vector<ptile::ClastTilingPair> &clastTilingPairs) {
 	(void)scop;			// Unused parameter
 	(void)cloogProgram; // Unused parameter
 	(void)cloogOptions; // Unused parameter
@@ -531,10 +531,10 @@ __isl_give isl_set *SplitTilingPass::computeInnerDomain(OslScop &scop, CloogProg
 	return set;
 }
 
-void SplitTilingPass::generateTrahrheHeaders(OslScop &scop, CloogProgram *cloogProgram, CloogOptions *cloogOptions,
-											 struct clast_root *root,
-											 std::vector<ptile::ClastTilingPair> &clastTilingPairs,
-											 isl_set *innerDomain) {
+void TpzTilingPass::generateTrahrheHeaders(OslScop &scop, CloogProgram *cloogProgram, CloogOptions *cloogOptions,
+										   struct clast_root *root,
+										   std::vector<ptile::ClastTilingPair> &clastTilingPairs,
+										   isl_set *innerDomain) {
 	using pesto::pass::metadata::MacroMetadata;
 
 	(void)cloogProgram;		// Unused parameter
@@ -598,7 +598,7 @@ error:
 	free(trahrhe_expr);
 }
 
-void SplitTilingPass::apply(pesto::Program &prog) {
+void TpzTilingPass::apply(pesto::Program &prog) {
 	if (!prog.getOutputFile().string().empty()) {
 		this->outputFile = prog.getOutputFile();
 	}
@@ -606,8 +606,8 @@ void SplitTilingPass::apply(pesto::Program &prog) {
 	IPass::apply(prog);
 }
 
-void SplitTilingPass::insertInnerLoopBounds(OslScop &scop, CloogProgram *cloogProgram,
-											std::vector<ptile::ClastTilingPair> &clastTilingPairs) {
+void TpzTilingPass::insertInnerLoopBounds(OslScop &scop, CloogProgram *cloogProgram,
+										  std::vector<ptile::ClastTilingPair> &clastTilingPairs) {
 	using pesto::pass::metadata::VarDeclMetadata;
 	using pesto::ptile::NameHelper;
 
@@ -678,8 +678,8 @@ void SplitTilingPass::insertInnerLoopBounds(OslScop &scop, CloogProgram *cloogPr
 	}
 }
 
-void SplitTilingPass::insertOmpPragmas(CloogProgram *cloogProgram,
-									   std::vector<ptile::ClastTilingPair> &clastTilingPairs) {
+void TpzTilingPass::insertOmpPragmas(CloogProgram *cloogProgram,
+									 std::vector<ptile::ClastTilingPair> &clastTilingPairs) {
 	using pesto::ptile::NameHelper;
 
 	(void)cloogProgram; // Unused parameter
@@ -781,7 +781,7 @@ void SplitTilingPass::insertOmpPragmas(CloogProgram *cloogProgram,
 	free(clastloops);
 }
 
-std::optional<pesto::maths::Vec2i> SplitTilingPass::computeDepDistanceVector(OslScop &scop) {
+std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(OslScop &scop) {
 	using pesto::ir::converter::Scop2Isl;
 
 	Scop2Isl irHelper(this->ctx);
@@ -937,8 +937,8 @@ std::optional<pesto::maths::Vec2i> SplitTilingPass::computeDepDistanceVector(Osl
 	return std::make_optional(bestVec); // return the best vector
 }
 
-std::pair<std::string, std::string>
-SplitTilingPass::computeInnerMinMaxStr(OslScop &scop, __isl_keep isl_set *innerDomain, unsigned dimIdx) {
+std::pair<std::string, std::string> TpzTilingPass::computeInnerMinMaxStr(OslScop &scop, __isl_keep isl_set *innerDomain,
+																		 unsigned dimIdx) {
 	using pesto::ptile::NameHelper;
 
 	(void)scop; // Unused parameter

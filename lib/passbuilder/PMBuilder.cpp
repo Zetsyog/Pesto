@@ -14,7 +14,7 @@
 #include <pesto/passbuilder/ParamContextPB.hpp>
 #include <pesto/passbuilder/PlutoPB.hpp>
 #include <pesto/passbuilder/SplitNestPB.hpp>
-#include <pesto/passbuilder/SplitTilingPB.hpp>
+#include <pesto/passbuilder/TpzTilingPB.hpp>
 
 using namespace pesto::builder;
 
@@ -36,7 +36,7 @@ std::unique_ptr<PassManagerBuilder> PassManagerBuilder::createDefault() {
 	pm->registerPassBuilder(PESTO_UUID_PASS_CLAST_CUSTOM_VEC_PRAGMA, std::make_unique<ClastCustomVecPragmaPB>());
 	pm->registerPassBuilder(PESTO_UUID_PASS_DUMP_OSL, std::make_unique<OslDumpPB>());
 	pm->registerPassBuilder(PESTO_UUID_PASS_ISL, std::make_unique<IslPB>());
-	pm->registerPassBuilder(PESTO_UUID_PASS_SPLIT_TILING, std::make_unique<SplitTilingPB>());
+	pm->registerPassBuilder(PESTO_UUID_PASS_SPLIT_TILING, std::make_unique<TpzTilingPB>());
 
 	return pm;
 }

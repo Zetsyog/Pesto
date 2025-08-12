@@ -9,10 +9,10 @@ namespace pesto {
 
 namespace builder {
 
-class SplitTilingPB : public IPassBuilder {
+class TpzTilingPB : public IPassBuilder {
   public:
-	SplitTilingPB();
-	virtual ~SplitTilingPB();
+	TpzTilingPB();
+	virtual ~TpzTilingPB();
 
 	virtual std::unique_ptr<pesto::pass::IPass> build(PassManagerBuilder &builder, const json &j);
 };

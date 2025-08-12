@@ -26,7 +26,7 @@ set(PESTO_SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/pass/Pass.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/pass/PlutoPass.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/pass/SplitNestPass.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/pass/SplitTilingPass.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/pass/TpzTilingPass.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/ClastCustomVecPragmaPB.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/ClastParamTilingPB.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/CloogCodegenPB.cpp
@@ -39,7 +39,7 @@ set(PESTO_SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/PassBuilder.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/PlutoPB.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/SplitNestPB.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/SplitTilingPB.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/TpzTilingPB.cpp
 )
 
 add_library(pesto STATIC ${PESTO_SOURCES})
