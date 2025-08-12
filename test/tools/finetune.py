@@ -436,6 +436,11 @@ class FTOptions:
         logger.log(level, "\tPluto: %s", self.pluto_enabled)
         logger.log(level, "\tPluto binary: %s", self.pluto_bin)
         logger.log(level, "\tPluto flags: %s", self.pluto_flags)
+        logger.log(
+            level,
+            "\tPluto custom vectorization pragma: %s",
+            self.pluto_custom_vec_pragma,
+        )
         logger.log(level, "\tCompiler binary: %s", self.compiler_binary)
         logger.log(level, "\tCompile extra flags: %s", self.compiler_extra_flags)
         logger.log(level, "\tParameters:")
