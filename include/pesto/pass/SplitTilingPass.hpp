@@ -3,12 +3,14 @@
 
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include <isl/ctx.h>
 
 #include <pesto/ParamTilingUtility.hpp>
 #include <pesto/Pass.hpp>
+#include <pesto/maths/Maths.hpp>
 
 namespace pesto::pass {
 
@@ -45,7 +47,7 @@ class SplitTilingPass : public IPass {
 	std::filesystem::path outputFile;
 
 	void tileClastFor(OslScop &scop, CloogProgram *cloogProgram, CloogOptions *cloogOptions, struct clast_root *root,
-					  struct clast_for *clastFor);
+					  struct clast_for *clastFor, pesto::maths::Vec2i slope);
 
 	std::vector<ptile::ClastTilingPair> computeTilingPairs(OslScop &scop, CloogProgram *cloogProgram,
 														   CloogOptions *cloogOptions, struct clast_root *root,
@@ -62,7 +64,8 @@ class SplitTilingPass : public IPass {
 								isl_set *innerDomain);
 
 	void codegen(OslScop &scop, CloogProgram *cloogProgram, CloogOptions *cloogOptions, struct clast_root *root,
-				 std::vector<ptile::ClastTilingPair> &clastTilingPairs, isl_set *innerDomain);
+				 std::vector<ptile::ClastTilingPair> &clastTilingPairs, isl_set *innerDomain,
+				 pesto::maths::Vec2i slope);
 
 	void insertInnerLoopBounds(OslScop &scop, CloogProgram *cloogProgram,
 							   std::vector<ptile::ClastTilingPair> &clastTilingPairs);
@@ -71,7 +74,7 @@ class SplitTilingPass : public IPass {
 
 	void insertOmpPragmas(CloogProgram *cloogProgram, std::vector<ptile::ClastTilingPair> &clastTilingPairs);
 
-	void computeDepDistanceVector(OslScop &scop);
+	std::optional<pesto::maths::Vec2i> computeDepDistanceVector(OslScop &scop);
 };
 
 } // namespace pesto::pass

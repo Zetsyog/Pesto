@@ -1,10 +1,9 @@
-#ifndef PESTO_METADATACONTAINER_H
-#define PESTO_METADATACONTAINER_H
+#ifndef PESTO_UTILS_H
+#define PESTO_UTILS_H
 
 #include <any>
 #include <memory>
 #include <stdexcept>
-#include <string>
 #include <typeindex>
 #include <unordered_map>
 
@@ -70,4 +69,4 @@ class MetadataContainer {
 
 } // namespace pesto
 
-#endif // PESTO_METADATACONTAINER_H
+#endif // PESTO_UTILS_H

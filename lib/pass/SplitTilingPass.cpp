@@ -26,6 +26,7 @@
 #include <pesto/ir/Isl2Scop.hpp>
 #include <pesto/ir/Scop2Isl.hpp>
 #include <pesto/macros.h>
+#include <pesto/maths/Maths.hpp>
 #include <pesto/pass/SplitTilingPass.hpp>
 
 // TODO: rename this pass to TrapezoidalTilingPass
@@ -45,7 +46,14 @@ SplitTilingPass::~SplitTilingPass() {
 namespace pesto::pass {} // namespace pesto::pass
 
 void SplitTilingPass::applyScop(OslScop &scop) {
-	this->computeDepDistanceVector(scop);
+	std::optional<pesto::maths::Vec2i> slope = this->computeDepDistanceVector(scop);
+
+	if (!slope.has_value()) {
+		log(std::cerr) << "Trapezoidal tiling cannot be performed on this scop." << std::endl;
+		return;
+	}
+
+	log(std::cerr) << "Trapezoidal tiling slope: " << slope->y / slope->x << std::endl;
 
 	// Generate a Cloog ast from the scop
 	GenClastPass genClastPass;
@@ -76,14 +84,14 @@ void SplitTilingPass::applyScop(OslScop &scop) {
 		if (CLAST_STMT_IS_A(stmt, stmt_for)) {
 			struct clast_for *clastFor = (struct clast_for *)stmt;
 
-			tileClastFor(scop, cloogProgram, cloogOptions, root, clastFor);
+			tileClastFor(scop, cloogProgram, cloogOptions, root, clastFor, slope.value());
 			break;
 		}
 	}
 }
 
 void SplitTilingPass::tileClastFor(OslScop &scop, CloogProgram *cloogProgram, CloogOptions *cloogOptions,
-								   struct clast_root *root, struct clast_for *clastFor) {
+								   struct clast_root *root, struct clast_for *clastFor, pesto::maths::Vec2i slope) {
 
 	using pesto::pass::ptile::ClastTilingPair;
 
@@ -141,7 +149,7 @@ void SplitTilingPass::tileClastFor(OslScop &scop, CloogProgram *cloogProgram, Cl
 	this->insertInnerLoopBounds(scop, cloogProgram, clastTilingPairs);
 	this->insertOmpPragmas(cloogProgram, clastTilingPairs);
 
-	this->codegen(scop, cloogProgram, cloogOptions, root, clastTilingPairs, innerDomain);
+	this->codegen(scop, cloogProgram, cloogOptions, root, clastTilingPairs, innerDomain, slope);
 
 	log(std::cerr) << "Starting trahrhe header generation " << std::endl;
 	this->generateTrahrheHeaders(scop, cloogProgram, cloogOptions, root, clastTilingPairs, innerDomain);
@@ -249,7 +257,7 @@ void SplitTilingPass::insertOuterForLoop(OslScop &scop, struct clast_root *root,
 
 void SplitTilingPass::codegen(OslScop &scop, CloogProgram *cloogProgram, CloogOptions *cloogOptions,
 							  struct clast_root *root, std::vector<ptile::ClastTilingPair> &clastTilingPairs,
-							  isl_set *innerDomain) {
+							  isl_set *innerDomain, pesto::maths::Vec2i slope) {
 	using pesto::pass::metadata::MacroMetadata;
 	using pesto::pass::metadata::VarDeclMetadata;
 	using pesto::ptile::NameHelper;
@@ -261,15 +269,18 @@ void SplitTilingPass::codegen(OslScop &scop, CloogProgram *cloogProgram, CloogOp
 	auto macroData = scop.metadata.getOrCreate<MacroMetadata>().lock();
 	auto varDeclData = scop.metadata.getOrCreate<VarDeclMetadata>().lock();
 
+	macroData->list.push_back("#include <omp.h>");
+
 	// TODO: remove (debug)
 	isl_set_dump(innerDomain);
 
 	// add var for front iterator
 	std::string nthreadsName = std::string("NTHREADS");
-	std::string targetVolName = std::string("BASE_VOL");
+	std::string targetVolName = std::string("D1_TARGET_VOL");
 	std::string offsetName = std::string("tile_offset");
 
-	// varDeclData->addVar(targetVolName);
+	varDeclData->addVar(nthreadsName);
+	varDeclData->addVar(targetVolName);
 	varDeclData->addVar(offsetName);
 
 	for (size_t i = 0; i < clastTilingPairs.size(); ++i) {
@@ -315,6 +326,7 @@ void SplitTilingPass::codegen(OslScop &scop, CloogProgram *cloogProgram, CloogOp
 			stmtStr += nameHelper.outerForUBName() + " = ";
 			stmtStr += std::string() + "ceild((" + max_str + ") - (" + min_str + ")";
 			stmtStr += ", " + nameHelper.divName() + ") - 1;";
+			stmtStr += nthreadsName + " = omp_get_num_threads();";
 
 			macroData->defineFunc("S" + std::to_string(pair.outerHeaderStmt->statement->number), "", stmtStr);
 
@@ -333,8 +345,9 @@ void SplitTilingPass::codegen(OslScop &scop, CloogProgram *cloogProgram, CloogOp
 			auto d1Bounds = this->computeInnerMinMaxStr(scop, innerDomain, 1);
 
 			stmtStr = trapezoidalLBName + " = max(max(" + d1Bounds.first + ", " + nextHelper.innerForLBName() +
-					  "), max(" + d1Bounds.first + ", " + nextHelper.innerForLBName() + ") + " + offsetName + " + (" +
-					  pair.innerFor->iterator + " - " + nameHelper.innerForLBName() + "));";
+					  "), max(" + d1Bounds.first + ", " + nextHelper.innerForLBName() + ") + " + offsetName //
+					  + " + floord(" + std::to_string(slope.y) + " * (" + pair.innerFor->iterator + " - " +
+					  nameHelper.innerForLBName() + "), " + std::to_string(slope.x) + "));";
 			stmtStr += trapezoidalUBName + " = min(" + d1Bounds.second + ", " + nextHelper.innerForUBName() + ");";
 
 			macroData->defineFunc(std::string("S") + std::to_string(pair.innerBodyStmt0->statement->number), "",
@@ -342,8 +355,9 @@ void SplitTilingPass::codegen(OslScop &scop, CloogProgram *cloogProgram, CloogOp
 			stmtStr = "";
 			stmtStr += trapezoidalLBName + " = max(" + d1Bounds.first + ", " + nextHelper.innerForLBName() + ");";
 			stmtStr += trapezoidalUBName + " = min(min(" + d1Bounds.second + ", " + nextHelper.innerForUBName() +
-					   "), max(" + d1Bounds.first + ", " + nextHelper.innerForLBName() + ") + " + offsetName + " + (" +
-					   pair.innerFor->iterator + " - " + nameHelper.innerForLBName() + ") - 1);";
+					   "), max(" + d1Bounds.first + ", " + nextHelper.innerForLBName() + ") + " + offsetName //
+					   + " + floord(" + std::to_string(slope.y) + " * (" + pair.innerFor->iterator + " - " +
+					   nameHelper.innerForLBName() + "), " + std::to_string(slope.x) + ") - 1);";
 
 			macroData->defineFunc(std::string("S") + std::to_string(pair.innerBodyStmt1->statement->number), "",
 								  stmtStr);
@@ -365,17 +379,25 @@ void SplitTilingPass::codegen(OslScop &scop, CloogProgram *cloogProgram, CloogOp
 
 			stmtStr += nameHelper.targetVolName() + " = " + nameHelper.pcMaxName() + " / " + nameHelper.divName() + ";";
 			stmtStr += nameHelper.outerForLBName() + " = 0;";
-			stmtStr += nameHelper.outerForUBName() + " = " + nameHelper.divName() + "- 1;";
-			stmtStr += "if(" + nameHelper.targetVolName() + " < D1_MIN_VOL) {";
-			stmtStr += nameHelper.outerForUBName() + " = max(floord(" + nameHelper.pcMaxName() + ", D1_MIN_VOL), 1);";
-			stmtStr +=
-				nameHelper.targetVolName() + " = " + nameHelper.pcMaxName() + " / " + nameHelper.outerForUBName() + ";";
-			stmtStr += "}" + std::string("");
+
+			stmtStr += std::string("long int NB = max(floord(") + nameHelper.pcMaxName() + ", D1_MIN_VOL), 1);";
+
+			stmtStr += std::string("if(NB < ") + nthreadsName + ") {";
+			stmtStr += nameHelper.outerForUBName() + " = NB - 1;";
+			stmtStr += nameHelper.targetVolName() + " = floord(" + nameHelper.pcMaxName() + ", NB);";
+			stmtStr += "} else {";
+			stmtStr += nameHelper.outerForUBName() + " = NB - (NB % " + nthreadsName + ") - 1;";
+			stmtStr += nameHelper.targetVolName() + " = floord(" + nameHelper.pcMaxName() + ", " +
+					   nameHelper.outerForUBName() + " + 1);";
+			stmtStr += "}";
 
 			macroData->defineFunc(std::string("S") + std::to_string(pair.outerHeaderStmt->statement->number), "",
 								  stmtStr);
 
 			// body stmt (inside the tiling for)
+
+			// compute bounds using trahrhe functions
+			// lower bound
 			stmtStr = nameHelper.innerForLBName() + " = " + nameHelper.trahrheFnName() + "(";
 			stmtStr += std::string("max(") + pair.outerFor->iterator + " * " + nameHelper.targetVolName() + ", 1)";
 			for (isl_size i = 0; i < npar; ++i) {
@@ -384,7 +406,7 @@ void SplitTilingPass::codegen(OslScop &scop, CloogProgram *cloogProgram, CloogOp
 			}
 			stmtStr += "," + rootHelper.innerForLBName() + ", " + rootHelper.innerForUBName();
 			stmtStr += ");";
-
+			// outer bound
 			stmtStr += nameHelper.innerForUBName() + " = " + nameHelper.trahrheFnName() + "(";
 			stmtStr += std::string("min((") + pair.outerFor->iterator + " + 1) * " + nameHelper.targetVolName() + ", " +
 					   nameHelper.pcMaxName() + ")";
@@ -396,9 +418,33 @@ void SplitTilingPass::codegen(OslScop &scop, CloogProgram *cloogProgram, CloogOp
 			stmtStr += "," + rootHelper.innerForLBName() + ", " + rootHelper.innerForUBName();
 			stmtStr += ") - 1;";
 
+			// last tile bound correction (to cover entire domain)
 			stmtStr += std::string("") + "if(" + pair.outerFor->iterator + " == " + nameHelper.outerForUBName() + ") {";
 			stmtStr += nameHelper.innerForUBName() + " = " + max_str + ";";
 			stmtStr += "}" + std::string("");
+
+			// volume check (fail if the target volume is too small)
+			stmtStr += "if(" + nameHelper.innerForUBName() + " - " + nameHelper.innerForLBName() + " + 1 < floord(" +
+					   std::to_string(slope.y) + " * " + rootHelper.divName() + ", " + std::to_string(slope.x) +
+					   ") && (" + pair.outerFor->iterator + " != " + nameHelper.outerForUBName() + ") && (" +
+					   nameHelper.outerForUBName() + " > 0)) {";
+			stmtStr += "fprintf(stderr, \"Error: Target volume too small.\\n(" + //
+					   nameHelper.targetVolName() + ", " +						 // target volume
+					   rootHelper.innerForLBName() + ", " +						 // d0 inner lower bound
+					   rootHelper.innerForUBName() + ", " +						 // d0 inner upper bound
+					   nameHelper.innerForLBName() + ", " +						 // d1 inner lower bound
+					   nameHelper.innerForUBName() +							 // d1 inner upper bound
+					   ") = (%ld, %ld, %ld, %ld, %ld)\\n\", " +					 //
+					   nameHelper.targetVolName() + ", " +						 // target volume
+					   rootHelper.innerForLBName() + ", " +						 // d0 inner lower bound
+					   rootHelper.innerForUBName() + ", " +						 // d0 inner upper bound
+					   nameHelper.innerForLBName() + ", " +						 // d1 inner lower bound
+					   nameHelper.innerForUBName() +							 // d1 inner upper bound
+					   ");";
+			stmtStr += "exit(1);";
+			stmtStr += "}" + std::string("");
+
+			// inner tile offset
 			stmtStr += offsetName + " = max(";
 			stmtStr += "floord((" + nameHelper.innerForUBName() + " - " + nameHelper.innerForLBName() + ") - " +
 					   "DIV0" + ", 2)";
@@ -508,6 +554,9 @@ void SplitTilingPass::generateTrahrheHeaders(OslScop &scop, CloogProgram *cloogP
 	}
 
 	std::string header_filename = filename + "trahrhe.n" + std::to_string(scop.getId()) + ".h";
+
+	log(std::cerr) << "trahrhe domain" << std::endl;
+	isl_set_dump(innerDomain);
 
 	trahrhe_context_t *trahrhe_ctx = trahrhe_context_alloc();
 	trahrhe_context_use_dichotomy(trahrhe_ctx, true);
@@ -695,7 +744,11 @@ void SplitTilingPass::insertOmpPragmas(CloogProgram *cloogProgram,
 		if (!privateVars.empty()) {
 			privateVars += ", ";
 		}
+		NameHelper nameHelper = NameHelper(pair.depth, pair.outerFor->iterator, pair.innerFor->iterator);
+
 		privateVars += pair.outerFor->iterator;
+		privateVars += "," + nameHelper.outerForLBName();
+		privateVars += ", " + nameHelper.outerForUBName();
 	}
 
 	// add inner for bounds
@@ -728,7 +781,7 @@ void SplitTilingPass::insertOmpPragmas(CloogProgram *cloogProgram,
 	free(clastloops);
 }
 
-void SplitTilingPass::computeDepDistanceVector(OslScop &scop) {
+std::optional<pesto::maths::Vec2i> SplitTilingPass::computeDepDistanceVector(OslScop &scop) {
 	using pesto::ir::converter::Scop2Isl;
 
 	Scop2Isl irHelper(this->ctx);
@@ -817,7 +870,31 @@ void SplitTilingPass::computeDepDistanceVector(OslScop &scop) {
 	set = isl_set_apply(set, proj);
 	set = isl_set_drop_constraints_involving_dims(set, isl_dim_param, 0, isl_set_dim(set, isl_dim_param));
 
-	isl_set_dump(set);
+	// isl_set_dump(set);
+
+	std::vector<pesto::maths::Vec2i> depDistanceVector;
+
+	// Helper function for isl_set_foreach_basic_set
+
+	isl_set_foreach_basic_set(
+		set,
+		[](__isl_take isl_basic_set *bset, void *user) -> isl_stat {
+			auto *depDistanceVector = static_cast<std::vector<pesto::maths::Vec2i> *>(user);
+			isl_point *point = isl_basic_set_sample_point(bset);
+
+			isl_val *x = isl_point_get_coordinate_val(point, isl_dim_set, 0);
+			isl_val *y = isl_point_get_coordinate_val(point, isl_dim_set, 1);
+
+			depDistanceVector->push_back(pesto::maths::Vec2i(isl_val_get_num_si(x), isl_val_get_num_si(y)));
+
+			isl_val_free(x);
+			isl_val_free(y);
+			isl_point_free(point);
+
+			return isl_stat_ok;
+		},
+		&depDistanceVector);
+
 	isl_set_free(set);
 
 	isl_union_map_free(sanitized_dep_flow);
@@ -831,6 +908,33 @@ void SplitTilingPass::computeDepDistanceVector(OslScop &scop) {
 	isl_union_map_free(reads);
 	isl_union_map_free(empty);
 	isl_union_set_free(domains);
+	// end of isl computations
+
+	if (depDistanceVector.empty()) {
+		return std::nullopt; // no dependences found
+	}
+
+	std::cerr << "Dep vector list: " << std::endl;
+	for (const auto &vec : depDistanceVector) {
+		std::cerr << "(" << vec.x << ", " << vec.y << ")" << std::endl;
+	}
+
+	// Now we must check that all the vectors are contained in the cone of the vectors (1, 0) and (1, 1)
+	for (auto &vec : depDistanceVector) {
+		// condition is vec.y >= 0 and (vec.x - vec.y) >= 0
+		if (!(vec.y >= 0 && (vec.x - vec.y) >= 0)) {
+			return std::nullopt; // can't perform trapezoidal tiling
+		}
+	}
+
+	// then we return the vector with the steepest slope
+	pesto::maths::Vec2i bestVec(1, 0);
+	for (const auto &vec : depDistanceVector) {
+		if (vec.x != 0 && vec.y / vec.x > bestVec.y / bestVec.x) {
+			bestVec = vec;
+		}
+	}
+	return std::make_optional(bestVec); // return the best vector
 }
 
 std::pair<std::string, std::string>
