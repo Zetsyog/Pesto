@@ -814,10 +814,10 @@ class FTExperiment:
         logger.info(
             "\t%s%s%s%s%s",
             " ".join(f"{p.name[:15]:<15}" for p in options.parameters),
-            f"{"score":<15}",
-            f"{"Trimmed Mean":<15}",
-            f"{"STD Dev":<15}",
-            f"{"STD Dev %":<15}",
+            f"{'score':<15}",
+            f"{'Trimmed Mean':<15}",
+            f"{'STD Dev':<15}",
+            f"{'STD Dev %':<15}",
         )
         self.trimmed_mean_results.clear()
 
