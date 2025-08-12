@@ -59,7 +59,13 @@ DYNSCHEDULE_BENCHMARKS=(
     "stencils/seidel-2d"
 )
 
-# TODO: trapezoidal tiling
+TPZ_BENCHMARKS=(
+    # "stencils/adi"
+    "stencils/fdtd-2d"
+    "stencils/jacobi-1d"
+    "stencils/jacobi-2d"
+    "stencils/seidel-2d"
+)
 
 CONFIGS=(
     "config/ptile.json"
@@ -96,7 +102,7 @@ cleanup_test() {
 cleanup_all() {
     echo ""
     echo -e "${BOLD}===========================================${RESET}"
-    echo -e "${BOLD}              Cleaning up${RESET}"
+    echo -e "${BOLD}              Cleaning up                  ${RESET}"
     echo -e "${BOLD}===========================================${RESET}"
     for benchmark in "${ALL_BENCHMARKS[@]}"; do
         cleanup_test "$benchmark"
@@ -107,7 +113,7 @@ trap cleanup_all EXIT
 
 # Print header
 echo -e "${BOLD}==========================================${RESET}"
-echo -e "${BOLD}     Pesto CLI Test Suite - Polybench${RESET}"
+echo -e "${BOLD}     Pesto CLI Test Suite - Polybench     ${RESET}"
 echo -e "${BOLD}==========================================${RESET}\n"
 
 # Test function
@@ -202,12 +208,13 @@ for config in "${CONFIGS[@]}"; do
     done
 done
 
+# Dynamic scheduling tests
+echo ""
+echo -e "${BOLD}==========================================================${RESET}"
+echo -e "${BOLD}         Running tests with dynamic scheduling            ${RESET}"
+echo -e "${BOLD}==========================================================${RESET}"
+config="config/ptile.json"
 for benchmark in "${DYNSCHEDULE_BENCHMARKS[@]}"; do
-    echo ""
-    echo -e "${BOLD}==========================================================${RESET}"
-    echo -e "${BOLD}  Running tests with dynamic scheduling: $benchmark${RESET}"
-    echo -e "${BOLD}==========================================================${RESET}"
-    config="config/ptile.json"
     if run_test "$benchmark" "$config"; then
         pass_count=$((pass_count + 1))
     else
@@ -215,6 +222,29 @@ for benchmark in "${DYNSCHEDULE_BENCHMARKS[@]}"; do
     fi
     cleanup_test "$benchmark"
 done
+
+# Trapezoidal tiling tests
+echo ""
+echo -e "${BOLD}==========================================================${RESET}"
+echo -e "${BOLD}          Running tests with trapezoidal tiling           ${RESET}"
+echo -e "${BOLD}==========================================================${RESET}"
+config="config/tpz.json"
+EXTRA_FLAGS_OLD="$EXTRA_FLAGS"
+EXTRA_FLAGS="$EXTRA_FLAGS -DD1_MIN_VOL=100000"
+for benchmark in "${TPZ_BENCHMARKS[@]}"; do
+    if run_test "$benchmark" "$config"; then
+        pass_count=$((pass_count + 1))
+    else
+        fail_count=$((fail_count + 1))
+    fi
+    cleanup_test "$benchmark"
+done
+# Restore original EXTRA_FLAGS
+EXTRA_FLAGS="$EXTRA_FLAGS_OLD"
+
+#########################################################################################
+# End tests
+#########################################################################################
 
 # Print summary
 echo ""
