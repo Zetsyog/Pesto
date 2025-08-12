@@ -15,8 +15,9 @@
 #include <pluto/pluto_internal.h>
 #include <pluto/program.h>
 
-#include <pesto/Pesto.hpp>
+#include <pesto/Pluto.hpp>
 #include <pesto/isl_support.h>
+#include <pesto/pass/PlutoPass.hpp>
 
 #define PLUTO_DEBUG 0
 #define PLUTO_QUIET 0
@@ -40,6 +41,13 @@ PlutoPass::PlutoPass() : IPass("pass-pluto"), pluto() {
 PlutoOptions &PlutoPass::getOptions() { return this->pluto.getOptions(); }
 
 void PlutoPass::applyScop(OslScop &nest) {
+	osl_scop_p c_scop = nest.c_scop();
+	if (osl_generic_lookup(c_scop->extension, OSL_URI_LOOP) != nullptr) {
+		osl_generic_remove(&c_scop->extension, OSL_URI_LOOP);
+	}
+	if (osl_generic_lookup(c_scop->extension, OSL_URI_PLUTO_UNROLL) != nullptr) {
+		osl_generic_remove(&c_scop->extension, OSL_URI_PLUTO_UNROLL);
+	}
 	log(std::cerr) << "Applying pluto on nest " << nest.getId() << std::endl;
 	// run the pass on each nest
 	this->pluto.run(nest);

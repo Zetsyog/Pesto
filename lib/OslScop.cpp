@@ -1,4 +1,4 @@
-#include <pesto/Pesto.hpp>
+#include <pesto/OslScop.hpp>
 
 using namespace pesto;
 

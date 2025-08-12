@@ -1,4 +1,5 @@
-#include <pesto/Pesto.hpp>
+#include <pesto/pass/OslPass.hpp>
+#include <pesto/passbuilder/SplitNestPB.hpp>
 
 using namespace pesto::builder;
 

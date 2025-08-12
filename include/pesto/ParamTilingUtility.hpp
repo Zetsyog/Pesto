@@ -1,7 +1,9 @@
 #ifndef PESTO_PARAM_TILING_H
 #define PESTO_PARAM_TILING_H
 
+#include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -35,12 +37,16 @@ struct TilingData {
 	int tiling_depth;
 	unsigned int head_stmt_id;
 	unsigned int body_stmt_id;
+	std::string innerForLBExpr;
+	std::string innerForUBExpr;
 };
 
 struct StmtGroup {
 	int id;
-	std::vector<struct clast_stmt *> stmts;
+	std::vector<struct clast_user_stmt *> stmts;
 	struct clast_for *parent_for;
+
+	struct clast_for *first_tiling_for;
 
 	/**
 	 * A vector of TilingData
@@ -88,6 +94,11 @@ class ParamTilingUtility {
 	 */
 	void pushTilingType(ParamTilingType type);
 
+	/**
+	 * @brief clear the list of tiling types
+	 */
+	void clearTilingTypes();
+
 	void setIdTrahrhePrefix(int id);
 
 	/* Codegen options */
@@ -106,6 +117,9 @@ class ParamTilingUtility {
 	std::vector<std::pair<int, std::string>> getTrahrheDomains();
 
 	void setTileSizeTarget(int tilesize);
+	int getTileSizeTarget();
+
+	std::optional<std::filesystem::path> getGeneratedScheduleHeaderFile();
 
   private:
 	/* polyhedral stuff */
@@ -137,7 +151,7 @@ class ParamTilingUtility {
 	VolumeCheckTrigger volumeCheckTrigger;
 	std::string volumeCheckThreshold;
 
-	std::vector<StmtGroup> computeStmtGroups(struct clast_root *root);
+	std::vector<StmtGroup> computeStmtGroups(CloogProgram *cloogProgram, struct clast_root *root);
 
 	void tileGroup(CloogProgram *cloogProgram, CloogOptions *cloogOptions, struct clast_root *root, StmtGroup &group);
 
@@ -155,8 +169,6 @@ class ParamTilingUtility {
 	void generateStatements(CloogProgram *cloogProgram, StmtGroup &group);
 
 	__isl_give isl_set *dropTilingConstraints(__isl_take isl_set *set, struct StmtGroup &group);
-
-	__isl_give isl_set *removeTilingDimensions(__isl_take isl_set *set, struct StmtGroup &group);
 
 	__isl_give isl_set *moveNonTiledDimensionsToParameters(__isl_take isl_set *set, struct StmtGroup &group);
 
@@ -179,6 +191,8 @@ class ParamTilingUtility {
 	ptile::NameHelper getTrahrheNameHelper(StmtGroup &group, TilingData &data);
 
 	ptile::codegen::ParamTilingCodegen getCodegen(CloogProgram *cloogProgram, StmtGroup &group, TilingData &data);
+
+	TilingData computeTilingDataBoundExpr(CloogProgram *cloogProgram, StmtGroup &group, TilingData &data);
 };
 
 } // namespace pesto

@@ -1,14 +1,22 @@
-#include "pesto/clast/GenClastPass.hpp"
 #include <iostream>
-#include <pesto/Pesto.hpp>
 
+#include <pesto/clast_support.h>
 #include <pesto/osl_support.h>
-
-#include <pesto/clast/clast_support.h>
+#include <pesto/pass/CodegenPasses.hpp>
+#include <pesto/pass/clast/GenClastPass.hpp>
 
 using namespace pesto::pass;
 
-GenClastPass::GenClastPass() : IPass("pass-clast-gen"), codegenContext(-1) {}
+GenClastPass::GenClastPass()
+	: IPass("pass-clast-gen")
+	, codegenContext(-1)
+	, cloogL(-1)
+	, cloogF(1)
+	, cloogStop(-1)
+	, cloogSh(0)
+	, cloogFirstUnroll(-1)
+	, cloogBacktrack(0)
+	, cloogNoSimplify(0) {}
 
 GenClastPass::~GenClastPass() {}
 
@@ -30,10 +38,19 @@ void GenClastPass::applyScop(OslScop &nest) {
 	data->cloogOptions = cloog_options_malloc(data->cloogState);
 	data->stmtsNb = osl_statement_number(scop->statement);
 
+	data->cloogOptions->l = cloogL;
+	data->cloogOptions->f = cloogF;
+	data->cloogOptions->stop = cloogStop;
+	data->cloogOptions->sh = cloogSh;
+	data->cloogOptions->first_unroll = cloogFirstUnroll;
+	data->cloogOptions->backtrack = cloogBacktrack;
+	data->cloogOptions->nosimplify = cloogNoSimplify;
+
 	// data.cloogOptions->override = 1;
 
 	data->cloogOptions->save_domains = 1;
 	data->cloogOptions->openscop = 1;
+	data->cloogOptions->language = CLOOG_LANGUAGE_C;
 
 	if (this->codegenContext != -1) {
 		for (int i = 0; i < scop->context->nb_parameters; i += 1) {
@@ -59,9 +76,6 @@ void GenClastPass::applyScop(OslScop &nest) {
 
 	program = cloog_program_alloc(input->context, input->ud, data->cloogOptions);
 	free(input);
-
-	data->cloogOptions->f = -1;
-	data->cloogOptions->l = program->nb_scattdims;
 
 	program = cloog_program_generate(program, data->cloogOptions);
 

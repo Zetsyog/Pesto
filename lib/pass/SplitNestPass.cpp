@@ -1,7 +1,9 @@
 #include <iostream>
-#include <pesto/Pesto.hpp>
+#include <string>
+#include <vector>
 
 #include <pesto/osl_support.h>
+#include <pesto/pass/OslPass.hpp>
 
 using namespace pesto::pass;
 
@@ -9,7 +11,7 @@ SplitNestedLoopsPass::SplitNestedLoopsPass() : IPass("pass-split-nest") {}
 
 SplitNestedLoopsPass::~SplitNestedLoopsPass() {}
 
-void SplitNestedLoopsPass::hookBegin(Program &prog) {
+void SplitNestedLoopsPass::apply(Program &prog) {
 	std::vector<OslScop *> original_nests = prog.getScopNests();
 
 	std::vector<OslScop *> new_nests;

@@ -1,7 +1,9 @@
-#include <pesto/osl_support.h>
-
 #include <assert.h>
 #include <stdlib.h>
+
+#include <osl/osl.h>
+
+#include <pesto/osl_support.h>
 
 osl_vector_p osl_relation_row_as_vector(osl_relation_p rel, int row) {
 	assert(row < rel->nb_rows);
@@ -175,4 +177,93 @@ int osl_relation_is_dim_scalar(osl_relation_p rel, int dim) {
 		}
 	}
 	return 0;
+}
+
+bool osl_relation_is_row_equality(osl_relation_p rel, int row) {
+	assert(rel != NULL);
+	assert(row >= 0 && row < rel->nb_rows);
+	return osl_int_zero(rel->precision, rel->m[row][0]);
+}
+
+bool osl_relation_is_row_inequality(osl_relation_p rel, int row) {
+	assert(rel != NULL);
+	assert(row >= 0 && row < rel->nb_rows);
+	return !osl_int_zero(rel->precision, rel->m[row][0]);
+}
+
+bool osl_relation_is_tiling_dim(osl_relation_p relation, int dim) {
+	assert(relation != NULL);
+	assert(relation->type == OSL_TYPE_DOMAIN);
+	assert(dim >= 0 && dim < relation->nb_output_dims);
+
+	int dimIdx = dim + 1;
+
+	for (int i = 0; i < relation->nb_rows; i += 1) {
+		if (osl_relation_is_row_equality(relation, i)) {
+			continue;
+		}
+		if (osl_int_zero(relation->precision, relation->m[i][dimIdx])) {
+			continue;
+		}
+		osl_vector_p ivec = osl_relation_row_as_vector(relation, i);
+		osl_int_set_si(ivec->precision, &(ivec->v[0]), 0);
+
+		// relation must involve at least two iterators
+		int involved_iterators = 0;
+		for (int j = 0; j < relation->nb_output_dims; j += 1) {
+			if (!osl_int_zero(relation->precision, ivec->v[1 + j])) {
+				involved_iterators += 1;
+			}
+		}
+		if (involved_iterators < 2) {
+			osl_vector_free(ivec);
+			continue;
+		}
+
+		for (int j = 0; j < relation->nb_rows; j += 1) {
+			if (i == j) {
+				continue;
+			}
+			osl_vector_p jvec = osl_relation_row_as_vector(relation, j);
+			osl_int_set_si(jvec->precision, &(jvec->v[0]), 0);
+			osl_vector_p sum = osl_vector_add(ivec, jvec);
+			osl_int_t sumCst;
+			osl_int_init_set(sum->precision, &sumCst, sum->v[sum->size - 1]);
+			// ignore scalar
+			osl_int_set_si(sum->precision, &(sum->v[sum->size - 1]), 0);
+			if (!osl_vector_is_scalar(sum)) {
+				osl_vector_free(sum);
+				osl_vector_free(jvec);
+				continue;
+			}
+			osl_int_t tilingFactor;
+			osl_int_t paddedTilingFactor;
+			osl_int_init(relation->precision, &tilingFactor);
+			osl_int_init(relation->precision, &paddedTilingFactor);
+
+			osl_int_abs(relation->precision, &tilingFactor, ivec->v[dimIdx]);
+			osl_int_add_si(relation->precision, &paddedTilingFactor, tilingFactor, -1);
+
+			if (!osl_int_zero(relation->precision, paddedTilingFactor)) {
+				if (osl_int_eq(relation->precision, paddedTilingFactor, sumCst)) {
+					osl_int_clear(relation->precision, &tilingFactor);
+					osl_int_clear(relation->precision, &paddedTilingFactor);
+					osl_vector_free(sum);
+					osl_vector_free(jvec);
+					osl_vector_free(ivec);
+					return true;
+				}
+			}
+
+			osl_int_clear(relation->precision, &tilingFactor);
+			osl_int_clear(relation->precision, &paddedTilingFactor);
+
+			osl_vector_free(sum);
+			osl_vector_free(jvec);
+		}
+
+		osl_vector_free(ivec);
+	}
+
+	return false;
 }

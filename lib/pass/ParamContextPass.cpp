@@ -1,7 +1,7 @@
-#include <iostream>
-#include <pesto/Pesto.hpp>
 
 #include <pesto/osl_support.h>
+#include <pesto/pass/OslPass.hpp>
+#include <pesto/pass/Pass.hpp>
 
 using namespace pesto::pass;
 

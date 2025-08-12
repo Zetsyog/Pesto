@@ -1,26 +1,24 @@
 #include <fstream>
 #include <iostream>
 
-#include <pesto/CodegenPasses.hpp>
-#include <pesto/Pesto.hpp>
-#include <pesto/clast/GenClastPass.hpp>
-#include <pesto/clast/clast_support.h>
+#include <pesto/clast_support.h>
+#include <pesto/pass/CodegenPasses.hpp>
+#include <pesto/pass/clast/GenClastPass.hpp>
 
 using namespace pesto::pass;
 
-CloogCodegenPass::CloogCodegenPass() : IPass("pass-gen-cloog"), output("") {}
+CloogCodegenPass::CloogCodegenPass() : IPass("pass-gen-cloog"), output(""), genClastPass() {}
 
 CloogCodegenPass::~CloogCodegenPass() {}
 
-void CloogCodegenPass::hookBegin(Program &prog) {
+void CloogCodegenPass::apply(Program &prog) {
 	using metadata::VarDeclMetadata;
 
 	this->output = prog.getOutputFile();
 
 	log(std::cerr) << "Starting Cloog codegen. Writing in '" << output.string() << "'" << std::endl;
 
-	GenClastPass genClast = GenClastPass();
-	genClast.apply(prog);
+	this->genClastPass->apply(prog);
 
 	// Check that all scops has a ClastHolder metadata
 	for (auto scop : prog.getScopNests()) {
@@ -48,12 +46,18 @@ void CloogCodegenPass::hookBegin(Program &prog) {
 	}
 
 	outFile.close();
+
+	// Apply the codegen on each scop
+	IPass::apply(prog);
 }
 
 void generateStmtMacro(FILE *fd, pesto::OslScop &nest) {
+	using metadata::MacroMetadata;
 	osl_scop_p scop = nest.c_scop();
 
 	osl_statement_p statement = scop->statement;
+
+	auto macrosData = nest.metadata.getOrCreate<MacroMetadata>().lock();
 
 	int idx = 0;
 	while (statement != NULL) {
@@ -63,15 +67,18 @@ void generateStmtMacro(FILE *fd, pesto::OslScop &nest) {
 		}
 		int it_size = osl_strings_size(body->iterators);
 		// osl statements are 1-indexed
-		fprintf(fd, "#define S%d(", idx + 1);
+		std::string args = std::string("");
 		for (int i = 0; i < it_size; i += 1) {
 			if (i != 0) {
-				fprintf(fd, ", ");
+				args += ", ";
 			}
-			fprintf(fd, "%s", body->iterators->string[i]);
+			args += body->iterators->string[i];
 		}
-		fprintf(fd, ") ");
-		osl_strings_print(fd, body->expression);
+		char *str = osl_strings_sprint(body->expression);
+		std::string stmtBody = std::string(str);
+		macrosData->defineFunc("S" + std::to_string(idx + 1), args, stmtBody);
+
+		free(str);
 
 		idx += 1;
 		statement = statement->next;
@@ -125,6 +132,14 @@ void CloogCodegenPass::applyScop(OslScop &nest) {
 
 	// then print cloog ast
 	clast_pprint(file, root, 0, options);
+
+	// undefine macros
+	if (macrosData) {
+		std::vector<std::string> macros = macrosData->getDefines();
+		for (auto &macro : macros) {
+			fprintf(file, "#undef %s\n", macro.c_str());
+		}
+	}
 	fclose(file);
 }
 
@@ -152,4 +167,22 @@ pesto::pass::metadata::VarDeclMetadata CloogCodegenPass::mergeVarDecls(Program &
 	}
 
 	return data;
+}
+
+void pesto::pass::CloogCodegenPass::setGenClastPass(std::unique_ptr<pesto::pass::GenClastPass> pass) {
+	this->genClastPass = std::move(pass);
+}
+
+pesto::pass::metadata::MacroMetadata::MacroMetadata() : list(), defines() {}
+pesto::pass::metadata::MacroMetadata::~MacroMetadata() {}
+
+void pesto::pass::metadata::MacroMetadata::define(std::string name, std::string value) {
+	std::string macro = "#define " + name + " " + value;
+	this->list.push_back(macro);
+	this->defines.push_back(name);
+}
+void pesto::pass::metadata::MacroMetadata::defineFunc(std::string name, std::string args, std::string value) {
+	std::string macro = "#define " + name + "(" + args + ") " + value;
+	this->list.push_back(macro);
+	this->defines.push_back(name);
 }

@@ -62,3 +62,6 @@ test/polybench-4.2.1/tmp/
 
 # clangd
 .cache/
+
+# valgrind
+vgcore.*

@@ -1,4 +1,5 @@
-#include <pesto/Pesto.hpp>
+#include <pesto/pass/OslPass.hpp>
+#include <pesto/passbuilder/ParamContextPB.hpp>
 
 using namespace pesto::builder;
 

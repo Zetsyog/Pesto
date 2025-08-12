@@ -1,7 +1,7 @@
-#include "pesto/Program.hpp"
 #include <memory>
-#include <pesto/Pesto.hpp>
 #include <utility>
+
+#include <pesto/Program.hpp>
 
 using namespace pesto;
 

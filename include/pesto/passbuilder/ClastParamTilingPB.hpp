@@ -1,7 +1,7 @@
 #ifndef PESTO_PB_CLAST_PARAM_TILING
 #define PESTO_PB_CLAST_PARAM_TILING
 
-#include <pesto/PassBuilder.hpp>
+#include <pesto/passbuilder/PassBuilder.hpp>
 
 #include <memory>
 

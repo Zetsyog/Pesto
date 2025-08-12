@@ -2,12 +2,13 @@
 #define PESTO_PARAM_TILING_PASS_H
 
 #include <filesystem>
+#include <optional>
 
 #include <pesto/ParamTilingUtility.hpp>
-#include <pesto/Pass.hpp>
-#include <pesto/PlutoPass.hpp>
 #include <pesto/Program.hpp>
-#include <pesto/clast/GenClastPass.hpp>
+#include <pesto/pass/Pass.hpp>
+#include <pesto/pass/PlutoPass.hpp>
+#include <pesto/pass/clast/GenClastPass.hpp>
 
 #include <isl/set.h>
 
@@ -41,7 +42,7 @@ class ClastParamTilingPass : public IPass {
 	virtual ~ClastParamTilingPass();
 
 	virtual void applyScop(pesto::OslScop &nest) override;
-	virtual void hookBegin(pesto::Program &prog) override;
+	virtual void apply(pesto::Program &prog) override;
 
 	/**
 	 * @brief given a depth, return the tiling type
@@ -64,11 +65,15 @@ class ClastParamTilingPass : public IPass {
 	void setVolumeCheckThreshold(std::string threshold);
 
   private:
-	bool is_stencil;
 	std::unique_ptr<GenClastPass> gen_clast_pass;
 	std::vector<pesto::ParamTilingType> tiling_types;
 	std::filesystem::path outputFile;
 	ParamTilingUtility ptileUtil;
+
+	bool areTileSkewed(pesto::OslScop &scop);
+	std::optional<std::pair<int, int>> getSkewedTilingDimensions(osl_statement_p stmt);
+
+	void undoTileSkewing(pesto::OslScop &scop);
 };
 
 } // namespace pass

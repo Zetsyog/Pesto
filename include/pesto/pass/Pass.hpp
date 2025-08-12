@@ -3,7 +3,6 @@
 
 #include <iostream>
 #include <string>
-#include <vector>
 
 #include <pluto/pluto.h>
 
@@ -29,21 +28,7 @@ class IPass {
 	 * @brief apply the pass on the program
 	 * @param prog the program to apply the pass on
 	 */
-	void apply(pesto::Program &prog);
-
-	/**
-	 * @brief hook if some computation must be done on the entire program
-	 * Called before the applyScop method
-	 * @param prog the program to apply the pass on
-	 */
-	virtual void hookBegin(pesto::Program &prog);
-
-	/**
-	 * @brief hook if some computation must be done on the entire program
-	 * Called after the applyScop method
-	 * @param prog the program to apply the pass on
-	 */
-	virtual void hookEnd(pesto::Program &prog);
+	virtual void apply(pesto::Program &prog);
 
 	/**
 	 * @brief apply the pass on a single scop

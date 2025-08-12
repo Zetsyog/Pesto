@@ -118,9 +118,7 @@ Pesto passes are very simple. There is one pass base class: `pesto::pass::IPass`
 
 A pass is very simple, it has a name, and will perform transformations over a `pesto::Program`.
 The `pesto::pass::IPass::apply(pesto::Program &prog)` will be called to apply those transformations. This method cannot be override. But it will call three ineteral methods that you can modify at your ease.
-The `pesto::pass::IPass::hookBegin(pesto::Program &prog)` will be called first, before any computation.
 Then for each `pesto::OslScop` of the program the `pesto::pass::IPass::applyScop(pesto::OslScop &nest);` will be called.
-Finally the `pesto::pass::IPass::hookEnd(pesto::Program &prog)` method is called.
 
 Below is an example of a pass:
 

@@ -2,9 +2,9 @@
 #define PESTO_PASS_PLUTO_H
 
 #include <pesto/OslScop.hpp>
-#include <pesto/Pass.hpp>
 #include <pesto/Pluto.hpp>
 #include <pesto/Program.hpp>
+#include <pesto/pass/Pass.hpp>
 
 #include <pluto/pluto.h>
 

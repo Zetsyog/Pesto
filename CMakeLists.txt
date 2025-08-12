@@ -17,6 +17,9 @@ set(PESTO_VERSION_MINOR 1)
 set(PESTO_VERSION_PATCH 0-dev)
 set(PESTO_VERSION ${PESTO_VERSION_MAJOR}.${PESTO_VERSION_MINOR}.${PESTO_VERSION_PATCH})
 
+set(PESTO_SOURCE_HEADER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
+set(PESTO_BINARY_HEADER_DIR ${CMAKE_CURRENT_BINARY_DIR}/include)
+
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 # Number of parallel builds to run (default: 1)
@@ -149,16 +152,31 @@ add_subdirectory(test EXCLUDE_FROM_ALL)
 # Installation
 # ##################################################################################################
 
-# Install targets
+# Install libpesto
 install(
-	TARGETS pesto pestobin
+	TARGETS pesto
+	EXPORT pestoTargets
+	LIBRARY DESTINATION lib
+	PUBLIC_HEADER DESTINATION include/
+)
+
+# Install pestobin
+install(
+	TARGETS pestobin
 	RUNTIME DESTINATION bin
 	LIBRARY DESTINATION lib
 	ARCHIVE DESTINATION lib
 )
 # Install headers
 install(
-	DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
+	DIRECTORY ${PESTO_SOURCE_HEADER_DIR}/
+	DESTINATION include
+	FILES_MATCHING
+	PATTERN "*.h"
+	PATTERN "*.hpp"
+)
+install(
+	DIRECTORY ${PESTO_BINARY_HEADER_DIR}/
 	DESTINATION include
 	FILES_MATCHING
 	PATTERN "*.h"
@@ -166,9 +184,13 @@ install(
 )
 
 # install scripts
-install(PROGRAMS ${CMAKE_BINARY_DIR}/pesto ${CMAKE_BINARY_DIR}/trahrhe_wrapper.sh
-				 ${CMAKE_BINARY_DIR}/extract_scop.sh ${CMAKE_BINARY_DIR}/replace_scop.sh
-		DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
+install(
+	PROGRAMS #
+			 ${PESTO_CLI_BIN} #
+			 ${CMAKE_BINARY_DIR}/trahrhe_wrapper.sh #
+			 ${EXTRACT_SCOP_BIN} #
+			 ${REPLACE_SCOP_BIN}
+	DESTINATION bin
 )
 
 # Print configuration summary

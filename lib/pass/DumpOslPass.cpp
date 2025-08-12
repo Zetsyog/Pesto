@@ -1,7 +1,8 @@
 #include <iostream>
-#include <pesto/Pesto.hpp>
 
 #include <pesto/osl_support.h>
+
+#include <pesto/pass/OslPass.hpp>
 
 using namespace pesto::pass;
 using pesto::pass::metadata::OpenScopMetadata;

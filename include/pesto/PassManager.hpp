@@ -7,8 +7,8 @@
 #include <osl/osl.h>
 
 #include <pesto/OslScop.hpp>
-#include <pesto/Pass.hpp>
 #include <pesto/Program.hpp>
+#include <pesto/pass/Pass.hpp>
 
 namespace pesto {
 

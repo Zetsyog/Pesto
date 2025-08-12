@@ -1,7 +1,7 @@
 #ifndef PESTO_PB_CLOOG_CODEGEN_H
 #define PESTO_PB_CLOOG_CODEGEN_H
 
-#include <pesto/PassBuilder.hpp>
+#include <pesto/passbuilder/PassBuilder.hpp>
 
 #include <memory>
 

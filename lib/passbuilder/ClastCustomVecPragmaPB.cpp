@@ -1,4 +1,5 @@
-#include <pesto/Pesto.hpp>
+#include <pesto/pass/clast/CustomVecPragma.hpp>
+#include <pesto/passbuilder/ClastCustomVecPragmaPB.hpp>
 
 using namespace pesto::builder;
 
