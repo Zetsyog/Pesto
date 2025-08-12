@@ -53,6 +53,7 @@ void TpzTilingPass::applyScop(OslScop &scop) {
 		return;
 	}
 
+	log(std::cerr) << "Steepest dependency vector: (" << slope->x << ", " << slope->y << ")" << std::endl;
 	log(std::cerr) << "Trapezoidal tiling slope: " << slope->y / slope->x << std::endl;
 
 	// Generate a Cloog ast from the scop
@@ -65,7 +66,7 @@ void TpzTilingPass::applyScop(OslScop &scop) {
 	genClastPass.applyScop(scop);
 
 	if (!scop.metadata.has<metadata::ClastHolder>()) {
-		std::cerr << "[TpzTilingPass] Clast generation failed. Could not apply Trapezoidal Tiling" << std::endl;
+		log(std::cerr) << "Error: clast generation failed. Could not apply Trapezoidal Tiling" << std::endl;
 		return;
 	}
 
@@ -117,7 +118,7 @@ void TpzTilingPass::tileClastFor(OslScop &scop, CloogProgram *cloogProgram, Cloo
 
 	int dupClastUserStmtListSize = 0;
 	clast_user_stmt **dupUserStmtList = clast_get_user_stmt_list(secondTileBand, &dupClastUserStmtListSize);
-	std::cerr << "Duplicated user statement list size: " << dupClastUserStmtListSize << std::endl;
+
 	for (size_t i = 0; i < clastTilingPairs.size(); ++i) {
 		ClastTilingPair &pair = clastTilingPairs[i];
 		if (pair.innerBodyStmt0 == nullptr) {
@@ -134,8 +135,8 @@ void TpzTilingPass::tileClastFor(OslScop &scop, CloogProgram *cloogProgram, Cloo
 			}
 		}
 		if (targetStmt == nullptr) {
-			std::cerr << "[TpzTilingPass] Error: could not find duplicated user statement for number "
-					  << targetStmtNumber << std::endl;
+			log(std::cerr) << "Error: could not find duplicated user statement for number " << targetStmtNumber
+						   << std::endl;
 			continue;
 		}
 		this->insertedStmts += 1;							 // Increment the inserted statement count
@@ -151,7 +152,8 @@ void TpzTilingPass::tileClastFor(OslScop &scop, CloogProgram *cloogProgram, Cloo
 
 	this->codegen(scop, cloogProgram, cloogOptions, root, clastTilingPairs, innerDomain, slope);
 
-	log(std::cerr) << "Starting trahrhe header generation " << std::endl;
+	log(std::cerr) << "Starting trahrhe header generation using domain: " << std::endl;
+	isl_set_dump(innerDomain);
 	this->generateTrahrheHeaders(scop, cloogProgram, cloogOptions, root, clastTilingPairs, innerDomain);
 	log(std::cerr) << "Trahrhe header generation done." << std::endl;
 
@@ -491,8 +493,8 @@ __isl_give isl_set *TpzTilingPass::computeInnerDomain(OslScop &scop, CloogProgra
 	int nstmts = 0;
 	clast_user_stmt **userStmts = clast_get_user_stmt_list(&(rootFor->stmt), &nstmts);
 
-	std::cerr << "Found " << nstmts
-			  << " user statements in the inner for loop: " << clastTilingPairs[0].innerFor->iterator << std::endl;
+	log(std::cerr) << "Found " << nstmts
+				   << " user statements in the inner for loop: " << clastTilingPairs[0].innerFor->iterator << std::endl;
 
 	isl_union_set *domain = nullptr;
 	for (int i = 0; i < nstmts; ++i) {
@@ -501,8 +503,8 @@ __isl_give isl_set *TpzTilingPass::computeInnerDomain(OslScop &scop, CloogProgra
 
 		assert(parentFor != nullptr && "Parent for loop should not be null");
 
-		std::cerr << "Processing user statement: " << userStmt->statement->number
-				  << " in parent for loop: " << parentFor->iterator << "(" << parentFor << ")" << std::endl;
+		log(std::cerr) << "Processing user statement: " << userStmt->statement->number
+					   << " in parent for loop: " << parentFor->iterator << "(" << parentFor << ")" << std::endl;
 
 		isl_set_dump(isl_set_from_cloog_domain(parentFor->domain));
 
@@ -554,9 +556,6 @@ void TpzTilingPass::generateTrahrheHeaders(OslScop &scop, CloogProgram *cloogPro
 	}
 
 	std::string header_filename = filename + "trahrhe.n" + std::to_string(scop.getId()) + ".h";
-
-	log(std::cerr) << "trahrhe domain" << std::endl;
-	isl_set_dump(innerDomain);
 
 	trahrhe_context_t *trahrhe_ctx = trahrhe_context_alloc();
 	trahrhe_context_use_dichotomy(trahrhe_ctx, true);
@@ -813,16 +812,17 @@ std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(OslSc
 	writes = isl_union_map_apply_domain(writes, isl_union_map_copy(named_schedules));
 	reads = isl_union_map_apply_domain(reads, isl_union_map_copy(named_schedules));
 
-	std::cerr << "Domains: " << std::endl;
-	isl_union_set_dump(domains);
-	std::cerr << "Schedule" << std::endl;
-	isl_union_map_dump(schedules);
-	std::cerr << "Named Schedules" << std::endl;
-	isl_union_map_dump(named_schedules);
-	std::cerr << "Writes: " << std::endl;
-	isl_union_map_dump(writes);
-	std::cerr << "Reads: " << std::endl;
-	isl_union_map_dump(reads);
+	// This is for debugging purposes
+	// std::cerr << "Domains: " << std::endl;
+	// isl_union_set_dump(domains);
+	// std::cerr << "Schedule" << std::endl;
+	// isl_union_map_dump(schedules);
+	// std::cerr << "Named Schedules" << std::endl;
+	// isl_union_map_dump(named_schedules);
+	// std::cerr << "Writes: " << std::endl;
+	// isl_union_map_dump(writes);
+	// std::cerr << "Reads: " << std::endl;
+	// isl_union_map_dump(reads);
 
 	// Dep := (last W before R under S);
 
@@ -835,8 +835,9 @@ std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(OslSc
 	dep_flow = isl_union_flow_get_must_dependence(flow);
 	isl_union_flow_free(flow);
 
-	std::cerr << "Dep Flow: " << std::endl;
-	isl_union_map_dump(dep_flow);
+	// DEBUG
+	// std::cerr << "Dep Flow: " << std::endl;
+	// isl_union_map_dump(dep_flow);
 	// dep_flow = isl_union_map_apply_range(dep_flow, isl_union_map_copy(named_schedules));
 	// dep_flow = isl_union_map_apply_domain(dep_flow, isl_union_map_copy(named_schedules));
 
@@ -914,10 +915,11 @@ std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(OslSc
 		return std::nullopt; // no dependences found
 	}
 
-	std::cerr << "Dep vector list: " << std::endl;
-	for (const auto &vec : depDistanceVector) {
-		std::cerr << "(" << vec.x << ", " << vec.y << ")" << std::endl;
-	}
+	// DEBUG
+	// std::cerr << "Dep vector list: " << std::endl;
+	// for (const auto &vec : depDistanceVector) {
+	// 	std::cerr << "(" << vec.x << ", " << vec.y << ")" << std::endl;
+	// }
 
 	// Now we must check that all the vectors are contained in the cone of the vectors (1, 0) and (1, 1)
 	for (auto &vec : depDistanceVector) {
