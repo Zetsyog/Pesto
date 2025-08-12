@@ -440,7 +440,7 @@ class FTRun:
 
         self.has_compile_step: bool = False
         self.compile_done: bool = False
-        self.compile_cmd: list[str] = "clang -march=native -O3 -fopenmp".split()
+        self.compile_cmd: list[str] = []
         self.compile_sources: list[Path] = []
         self.compile_extra_flags: list[str] = []
 
@@ -452,11 +452,17 @@ class FTRun:
         self.stderr_fd: Optional[int] = None
 
     def add_compile_step(
-        self, sources: Path, extra_flags: Optional[list[str]] = None
+        self, options: FTOptions, sources: Path, extra_flags: Optional[list[str]] = None
     ) -> None:
         """Set whether the run has a compile step"""
         self.has_compile_step = True
         self.compile_sources = sources
+        self.compile_cmd = [
+            str(options.compiler_binary.absolute()),
+            "-march=native",
+            "-O3",
+            "-fopenmp",
+        ]
         if extra_flags is not None:
             self.compile_cmd.extend(extra_flags)
         self.binary = (sources[-1].parent / (sources[-1].stem + ".bin")).absolute()
@@ -775,7 +781,7 @@ class FTExperiment:
             sources = self._get_program_sources(options, param_instance)
 
             ftrun = FTRun(param_instance)
-            ftrun.add_compile_step(sources, extra_flags=extra_flags)
+            ftrun.add_compile_step(options, sources, extra_flags=extra_flags)
             ftrun.exec(env=options.env)
             ftrun.cleanup()
 
@@ -832,6 +838,7 @@ class FTExperiment:
 
             ftrun = FTRun(param_instances)
             ftrun.add_compile_step(
+                options,
                 sources,
                 extra_flags=options.compile_extra_flags + ["-DPOLYBENCH_TIME"],
             )
@@ -900,6 +907,7 @@ class FTExperiment:
         # First, we need to run the baseline output to generate the expected output
         baseline_run = FTRun(tuple())
         baseline_run.add_compile_step(
+            options,
             options.output_dump_baseline_sources,
             extra_flags=options.compile_extra_flags
             + ["-DPOLYBENCH_TIME", "-DPOLYBENCH_DUMP_ARRAYS"],
@@ -945,7 +953,8 @@ class FTExperiment:
 
             ftrun = FTRun(param_instances)
             ftrun.add_compile_step(
-                options.sources,
+                options,
+                sources,
                 extra_flags=options.compile_extra_flags
                 + ["-DPOLYBENCH_TIME", "-DPOLYBENCH_DUMP_ARRAYS"],
             )
