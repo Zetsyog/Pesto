@@ -3,7 +3,7 @@
 
 #include <isl/ctx.h>
 
-#include <pesto/Pass.hpp>
+#include <pesto/pass/Pass.hpp>
 
 namespace pesto::pass {
 

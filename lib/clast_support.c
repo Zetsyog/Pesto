@@ -4,7 +4,7 @@
 
 #include <assert.h>
 
-#include <pesto/clast/clast_support.h>
+#include <pesto/clast_support.h>
 #include <pesto/isl_support.h>
 
 struct clast_stmt *clast_get_stmt_before(struct clast_stmt *root, struct clast_stmt *stmt) {

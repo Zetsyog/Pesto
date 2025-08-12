@@ -1,6 +1,6 @@
 #include <regex>
 
-#include <pesto/OslPass.hpp>
+#include <pesto/pass/OslPass.hpp>
 
 #include <pesto/osl_support.h>
 

@@ -1,6 +1,6 @@
 #include <string>
 
-#include <pesto/Pass.hpp>
+#include <pesto/pass/Pass.hpp>
 
 using namespace pesto::pass;
 

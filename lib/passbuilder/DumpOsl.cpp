@@ -1,4 +1,4 @@
-#include <pesto/OslPass.hpp>
+#include <pesto/pass/OslPass.hpp>
 #include <pesto/passbuilder/DumpOsl.hpp>
 
 using namespace pesto::builder;

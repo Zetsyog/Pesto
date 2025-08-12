@@ -9,8 +9,8 @@
 #include <isl/ctx.h>
 
 #include <pesto/ParamTilingUtility.hpp>
-#include <pesto/Pass.hpp>
 #include <pesto/maths/Maths.hpp>
+#include <pesto/pass/Pass.hpp>
 
 namespace pesto::pass {
 

@@ -1,7 +1,7 @@
 #ifndef PESTO_PB_PARAM_CONTEXT
 #define PESTO_PB_PARAM_CONTEXT
 
-#include <pesto/PassBuilder.hpp>
+#include <pesto/passbuilder/PassBuilder.hpp>
 
 #include <memory>
 #include <string>

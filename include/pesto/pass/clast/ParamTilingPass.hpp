@@ -5,10 +5,10 @@
 #include <optional>
 
 #include <pesto/ParamTilingUtility.hpp>
-#include <pesto/Pass.hpp>
-#include <pesto/PlutoPass.hpp>
 #include <pesto/Program.hpp>
-#include <pesto/clast/GenClastPass.hpp>
+#include <pesto/pass/Pass.hpp>
+#include <pesto/pass/PlutoPass.hpp>
+#include <pesto/pass/clast/GenClastPass.hpp>
 
 #include <isl/set.h>
 

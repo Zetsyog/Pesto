@@ -1,7 +1,7 @@
 #ifndef PESTO_PB_CLAST_CUSTOM_VEC_PRAGMA_H
 #define PESTO_PB_CLAST_CUSTOM_VEC_PRAGMA_H
 
-#include <pesto/PassBuilder.hpp>
+#include <pesto/passbuilder/PassBuilder.hpp>
 
 #include <memory>
 #include <string>

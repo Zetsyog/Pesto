@@ -1,4 +1,4 @@
-#include <pesto/PassBuilder.hpp>
+#include <pesto/passbuilder/PassBuilder.hpp>
 
 using namespace pesto::builder;
 

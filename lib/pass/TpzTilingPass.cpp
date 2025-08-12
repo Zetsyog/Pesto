@@ -17,16 +17,16 @@
 
 #include <trahrhe/trahrhe.h>
 
-#include <pesto/CodegenPasses.hpp>
-#include <pesto/OslPass.hpp>
 #include <pesto/Pluto.hpp>
-#include <pesto/PlutoPass.hpp>
-#include <pesto/clast/clast_support.h>
+#include <pesto/clast_support.h>
 #include <pesto/codegen/ParamTiling.hpp>
 #include <pesto/ir/Isl2Scop.hpp>
 #include <pesto/ir/Scop2Isl.hpp>
 #include <pesto/macros.h>
 #include <pesto/maths/Maths.hpp>
+#include <pesto/pass/CodegenPasses.hpp>
+#include <pesto/pass/OslPass.hpp>
+#include <pesto/pass/PlutoPass.hpp>
 #include <pesto/pass/TpzTilingPass.hpp>
 
 // TODO: rename this pass to TrapezoidalTilingPass

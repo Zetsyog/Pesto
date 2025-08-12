@@ -8,21 +8,21 @@ set(PESTO_SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/PassManager.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/PestoProgram.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/PlutoWrapper.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/clast/CustomVecPragma.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/clast/GenClastPass.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/clast/ParamTilingPass.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/clast/clast_support.c
 	${CMAKE_CURRENT_SOURCE_DIR}/codegen/CloogPass.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/codegen/VarDecls.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/codegen/ParamTiling.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/ir/Scop2Isl.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/ir/Isl2Scop.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/clast_support.c
 	${CMAKE_CURRENT_SOURCE_DIR}/isl_support.c
 	${CMAKE_CURRENT_SOURCE_DIR}/osl_support.c
+	${CMAKE_CURRENT_SOURCE_DIR}/pass/CustomVecPragma.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/pass/DumpOslPass.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/pass/GenClastPass.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/pass/IslPass.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/pass/MatchCriteriaPass.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/pass/ParamContextPass.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/pass/ParamTilingPass.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/pass/Pass.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/pass/PlutoPass.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/pass/SplitNestPass.cpp

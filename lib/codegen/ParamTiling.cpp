@@ -7,9 +7,9 @@
 #include <isl/aff.h>
 #include <isl/set.h>
 
-#include <pesto/clast/ParamTilingPass.hpp>
-#include <pesto/clast/clast_support.h>
+#include <pesto/clast_support.h>
 #include <pesto/codegen/ParamTiling.hpp>
+#include <pesto/pass/clast/ParamTilingPass.hpp>
 
 #define INDENT_TABS(os, n)                                                                                             \
 	for (int i = 0; i < n; ++i)                                                                                        \

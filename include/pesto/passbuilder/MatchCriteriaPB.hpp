@@ -1,7 +1,7 @@
 #ifndef PESTO_PB_CONDITIONAL_PASS_H
 #define PESTO_PB_CONDITIONAL_PASS_H
 
-#include <pesto/PassBuilder.hpp>
+#include <pesto/passbuilder/PassBuilder.hpp>
 
 namespace pesto {
 

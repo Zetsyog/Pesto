@@ -1,4 +1,4 @@
-#include <pesto/PlutoPass.hpp>
+#include <pesto/pass/PlutoPass.hpp>
 #include <pesto/passbuilder/PlutoPB.hpp>
 
 using namespace pesto::builder;

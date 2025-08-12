@@ -6,7 +6,7 @@
 #include <vector>
 
 #include <cloog/cloog.h>
-#include <pesto/Pass.hpp>
+#include <pesto/pass/Pass.hpp>
 
 namespace pesto {
 

@@ -1,5 +1,5 @@
-#include <pesto/CodegenPasses.hpp>
 #include <pesto/macros.h>
+#include <pesto/pass/CodegenPasses.hpp>
 #include <pesto/passbuilder/CloogCodegenPB.hpp>
 
 using namespace pesto::builder;

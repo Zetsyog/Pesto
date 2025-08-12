@@ -17,24 +17,23 @@
 /*
 	Pesto passes
 */
-#include <pesto/CodegenPasses.hpp>
-#include <pesto/OslPass.hpp>
-#include <pesto/Pass.hpp>
 #include <pesto/PassManager.hpp>
-#include <pesto/PlutoPass.hpp>
+#include <pesto/pass/CodegenPasses.hpp>
 #include <pesto/pass/IslPass.hpp>
+#include <pesto/pass/OslPass.hpp>
+#include <pesto/pass/Pass.hpp>
+#include <pesto/pass/PlutoPass.hpp>
 
 /*
 	Pesto clast
 */
-#include <pesto/clast/CustomVecPragma.hpp>
-#include <pesto/clast/GenClastPass.hpp>
-#include <pesto/clast/ParamTilingPass.hpp>
+#include <pesto/pass/clast/CustomVecPragma.hpp>
+#include <pesto/pass/clast/GenClastPass.hpp>
+#include <pesto/pass/clast/ParamTilingPass.hpp>
 
 /*
 	Pesto Passbuilders
 */
-#include <pesto/PassBuilder.hpp>
 #include <pesto/passbuilder/ClastCustomVecPragmaPB.hpp>
 #include <pesto/passbuilder/ClastParamTilingPB.hpp>
 #include <pesto/passbuilder/CloogCodegenPB.hpp>
@@ -42,6 +41,7 @@
 #include <pesto/passbuilder/IslPB.hpp>
 #include <pesto/passbuilder/MatchCriteriaPB.hpp>
 #include <pesto/passbuilder/ParamContextPB.hpp>
+#include <pesto/passbuilder/PassBuilder.hpp>
 #include <pesto/passbuilder/PlutoPB.hpp>
 #include <pesto/passbuilder/SplitNestPB.hpp>
 

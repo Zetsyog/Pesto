@@ -1,9 +1,9 @@
 #include <fstream>
 #include <iostream>
 
-#include <pesto/CodegenPasses.hpp>
-#include <pesto/clast/GenClastPass.hpp>
-#include <pesto/clast/clast_support.h>
+#include <pesto/clast_support.h>
+#include <pesto/pass/CodegenPasses.hpp>
+#include <pesto/pass/clast/GenClastPass.hpp>
 
 using namespace pesto::pass;
 

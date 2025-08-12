@@ -1,6 +1,6 @@
-#include <pesto/clast/CustomVecPragma.hpp>
-#include <pesto/clast/GenClastPass.hpp>
-#include <pesto/clast/clast_support.h>
+#include <pesto/clast_support.h>
+#include <pesto/pass/clast/CustomVecPragma.hpp>
+#include <pesto/pass/clast/GenClastPass.hpp>
 
 #include <functional>
 

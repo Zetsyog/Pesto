@@ -13,15 +13,15 @@
 
 #include <trahrhe/trahrhe.h>
 
-#include <pesto/CodegenPasses.hpp>
 #include <pesto/ParamTilingUtility.hpp>
-#include <pesto/Pass.hpp>
-#include <pesto/PlutoPass.hpp>
 #include <pesto/Program.hpp>
-#include <pesto/clast/ParamTilingPass.hpp>
-#include <pesto/clast/clast_support.h>
+#include <pesto/clast_support.h>
 #include <pesto/isl_support.h>
 #include <pesto/osl_support.h>
+#include <pesto/pass/CodegenPasses.hpp>
+#include <pesto/pass/Pass.hpp>
+#include <pesto/pass/PlutoPass.hpp>
+#include <pesto/pass/clast/ParamTilingPass.hpp>
 
 using pesto::pass::metadata::ClastHolder;
 using pesto::pass::metadata::MacroMetadata;

@@ -7,9 +7,9 @@
 #include <vector>
 
 #include <pesto/OslScop.hpp>
-#include <pesto/Pass.hpp>
 #include <pesto/Program.hpp>
-#include <pesto/clast/GenClastPass.hpp>
+#include <pesto/pass/Pass.hpp>
+#include <pesto/pass/clast/GenClastPass.hpp>
 
 namespace pesto {
 

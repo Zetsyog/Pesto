@@ -2,8 +2,8 @@
 #include <string>
 #include <vector>
 
-#include <pesto/OslPass.hpp>
 #include <pesto/osl_support.h>
+#include <pesto/pass/OslPass.hpp>
 
 using namespace pesto::pass;
 

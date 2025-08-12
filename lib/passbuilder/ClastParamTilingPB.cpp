@@ -1,4 +1,4 @@
-#include <pesto/clast/ParamTilingPass.hpp>
+#include <pesto/pass/clast/ParamTilingPass.hpp>
 #include <pesto/passbuilder/ClastParamTilingPB.hpp>
 
 using namespace pesto::builder;

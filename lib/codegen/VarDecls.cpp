@@ -1,6 +1,6 @@
 #include <algorithm>
 
-#include <pesto/CodegenPasses.hpp>
+#include <pesto/pass/CodegenPasses.hpp>
 
 using namespace pesto::pass::metadata;
 

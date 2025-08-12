@@ -13,7 +13,7 @@
 #include <trahrhe/trahrhe.h>
 
 #include <pesto/ParamTilingUtility.hpp>
-#include <pesto/clast/clast_support.h>
+#include <pesto/clast_support.h>
 #include <pesto/codegen/ParamTiling.hpp>
 #include <pesto/isl_support.h>
 

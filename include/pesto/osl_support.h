@@ -1,13 +1,13 @@
 #ifndef PESTO_OSL_SUPPORT_H
 #define PESTO_OSL_SUPPORT_H
 
+#include <osl/osl.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #include <stdbool.h>
-
-#include <osl/osl.h>
 
 /**
  * @brief create a vector from the given row of relation

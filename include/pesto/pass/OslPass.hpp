@@ -1,7 +1,7 @@
 #ifndef PESTO_PASS_OSL_H
 #define PESTO_PASS_OSL_H
 
-#include <pesto/Pass.hpp>
+#include <pesto/pass/Pass.hpp>
 
 #include <map>
 #include <unordered_map>
