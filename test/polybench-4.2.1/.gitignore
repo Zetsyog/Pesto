@@ -1,5 +1,6 @@
 *.pluto.c
 *.pesto.c
+*.pesto.tpz.c
 *.cloog
 *.metrics.c
 *_pesto_metrics
