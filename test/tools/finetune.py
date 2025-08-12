@@ -93,7 +93,7 @@ class FTOptions:
         self.pluto_flags: list[str] = ["--tile", "--nounrolljam", "--parallel"]
         self.parameters: list[FTParameter] = []
         self.compiler_binary: Optional[Path] = None
-        self.compile_extra_flags: list[str] = []
+        self.compiler_extra_flags: list[str] = []
         self.top_n_runs: int = 20
         self.output_dump_baseline_sources: list[Path] = []
         self.env: dict[str, str] = {}
@@ -169,13 +169,13 @@ class FTOptions:
         )
 
         parser.add_argument(
-            "--compile-extra-flags",
+            "--compiler-extra-flags",
             action="extend",
             nargs="+",
             default=[],
             type=str,
             metavar="FLAG",
-            dest="compile_extra_flags",
+            dest="compiler_extra_flags",
             help="Extra flags to pass to the compiler when compiling the source file. ",
         )
 
@@ -283,10 +283,10 @@ class FTOptions:
                 if not include_dir.exists():
                     logger.error("Include directory '%s' does not exist.", include_dir)
                     sys.exit(1)
-                self.compile_extra_flags.extend(["-I", f"{include_dir.absolute()}"])
+                self.compiler_extra_flags.extend(["-I", f"{include_dir.absolute()}"])
 
-        if ns.compile_extra_flags:
-            self.compile_extra_flags.extend(ns.compile_extra_flags)
+        if ns.compiler_extra_flags:
+            self.compiler_extra_flags.extend(ns.compile_extra_flags)
 
         self.output_dump_baseline_sources.extend(ns.output_dump_baseline)
         # check all output dump baseline sources exist
@@ -401,7 +401,7 @@ class FTOptions:
         logger.log(level, "\tPluto binary: %s", self.pluto_bin)
         logger.log(level, "\tPluto flags: %s", self.pluto_flags)
         logger.log(level, "\tCompiler binary: %s", self.compiler_binary)
-        logger.log(level, "\tCompile extra flags: %s", self.compile_extra_flags)
+        logger.log(level, "\tCompile extra flags: %s", self.compiler_extra_flags)
         logger.log(level, "\tParameters:")
         for param in self.parameters:
             if isinstance(param, FTParameterRange):
@@ -747,7 +747,7 @@ class FTExperiment:
         """
 
         param_instance_list = self._gen_param_instances(options.parameters)
-        extra_flags = options.compile_extra_flags + ["-DPOLYBENCH_TIME"]
+        extra_flags = options.compiler_extra_flags + ["-DPOLYBENCH_TIME"]
 
         has_minimize = any(
             isinstance(param, FTParameterMinimize) for param in options.parameters
@@ -840,7 +840,7 @@ class FTExperiment:
             ftrun.add_compile_step(
                 options,
                 sources,
-                extra_flags=options.compile_extra_flags + ["-DPOLYBENCH_TIME"],
+                extra_flags=options.compiler_extra_flags + ["-DPOLYBENCH_TIME"],
             )
 
             # run the best runs multiple times to get a better average
@@ -909,7 +909,7 @@ class FTExperiment:
         baseline_run.add_compile_step(
             options,
             options.output_dump_baseline_sources,
-            extra_flags=options.compile_extra_flags
+            extra_flags=options.compiler_extra_flags
             + ["-DPOLYBENCH_TIME", "-DPOLYBENCH_DUMP_ARRAYS"],
         )
 
@@ -955,7 +955,7 @@ class FTExperiment:
             ftrun.add_compile_step(
                 options,
                 sources,
-                extra_flags=options.compile_extra_flags
+                extra_flags=options.compiler_extra_flags
                 + ["-DPOLYBENCH_TIME", "-DPOLYBENCH_DUMP_ARRAYS"],
             )
 
