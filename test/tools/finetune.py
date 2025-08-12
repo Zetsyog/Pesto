@@ -496,14 +496,15 @@ class FTRun:
         self.compile_sources = sources
         self.compile_cmd = [
             str(options.compiler_binary.absolute()),
+            # this should be customizable
             "-march=native",
             "-O3",
             "-fopenmp",
         ]
-        if extra_flags is not None:
-            self.compile_cmd.extend(extra_flags)
         # link libmath
-        self.compile_cmd.extend(["-lm"])
+        self.compile_extra_flags = ["-lm"]
+        if extra_flags is not None:
+            self.compile_extra_flags.extend(extra_flags)
         self.binary = (sources[-1].parent / (sources[-1].stem + ".bin")).absolute()
 
     def _compile_step(self) -> None:
