@@ -96,8 +96,8 @@ class FTOptions:
         self.parameters: list[FTParameter] = []
         self.compiler_binary: Optional[Path] = None
         self.compiler_cflags: list[str] = [
-            "-O3",
             "-march=native",
+            "-O3",
             "-fopenmp",
         ]
         self.compiler_extra_flags: list[str] = []
