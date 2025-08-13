@@ -11,8 +11,9 @@ import os
 import statistics
 
 from pathlib import Path
-from typing import Optional, Generic, TypeVar
 from collections.abc import Iterator
+
+from typing import Optional, Generic, TypeVar, NamedTuple
 
 logger = logging.getLogger("finetune")
 
@@ -91,12 +92,19 @@ class FTOptions:
         self.pluto_enabled: bool = False
         self.pluto_bin: Optional[Path] = None
         self.pluto_flags: list[str] = ["--tile", "--nounrolljam", "--parallel"]
+        self.pluto_custom_vec_pragma: Optional[str] = None
         self.parameters: list[FTParameter] = []
         self.compiler_binary: Optional[Path] = None
-        self.compile_extra_flags: list[str] = []
+        self.compiler_cflags: list[str] = [
+            "-march=native",
+            "-O3",
+            "-fopenmp",
+        ]
+        self.compiler_extra_flags: list[str] = []
         self.top_n_runs: int = 20
         self.output_dump_baseline_sources: list[Path] = []
         self.env: dict[str, str] = {}
+        self.save_incorrect_sources: Optional[Path] = None
 
     def _init_parser(self) -> argparse.ArgumentParser:
         parser = argparse.ArgumentParser(
@@ -147,6 +155,28 @@ class FTOptions:
         )
 
         parser.add_argument(
+            "--pluto-flags",
+            action="extend",
+            nargs="+",
+            default=[],
+            type=str,
+            metavar="FLAG",
+            dest="pluto_flags",
+            help="Additional flags to pass to the Pluto compiler. "
+            "Can be specified multiple times.",
+        )
+
+        parser.add_argument(
+            "--pluto-custom-vec-pragma",
+            default=None,
+            type=str,
+            dest="pluto_custom_vec_pragma",
+            metavar="PRAGMA",
+            help="Custom vectorization pragma to use with Pluto. "
+            "If not specified, the default pragma will be used. ",
+        )
+
+        parser.add_argument(
             "--param-range",
             action="append",
             nargs=3,
@@ -169,13 +199,13 @@ class FTOptions:
         )
 
         parser.add_argument(
-            "--compile-extra-flags",
+            "--compiler-extra-flags",
             action="extend",
             nargs="+",
             default=[],
             type=str,
             metavar="FLAG",
-            dest="compile_extra_flags",
+            dest="compiler_extra_flags",
             help="Extra flags to pass to the compiler when compiling the source file. ",
         )
 
@@ -222,6 +252,18 @@ class FTOptions:
             dest="env",
             help="Path to a file containing environment variables to load "
             "before running the benchmark. ",
+        )
+
+        parser.add_argument(
+            "--save-incorrect-sources",
+            nargs="?",
+            const=True,
+            default=None,
+            type=Path,
+            metavar="DIR",
+            dest="save_incorrect_sources",
+            help="If specified, the sources that produce incorrect results "
+            "will be saved in the given directory. ",
         )
 
         return parser
@@ -283,10 +325,11 @@ class FTOptions:
                 if not include_dir.exists():
                     logger.error("Include directory '%s' does not exist.", include_dir)
                     sys.exit(1)
-                self.compile_extra_flags.extend(["-I", f"{include_dir.absolute()}"])
+                self.compiler_extra_flags.extend(["-I", f"{include_dir.absolute()}"])
 
-        if ns.compile_extra_flags:
-            self.compile_extra_flags.extend(ns.compile_extra_flags)
+        if ns.compiler_extra_flags:
+            for flag in ns.compiler_extra_flags:
+                self.compiler_extra_flags.extend(flag.split())
 
         self.output_dump_baseline_sources.extend(ns.output_dump_baseline)
         # check all output dump baseline sources exist
@@ -350,6 +393,14 @@ class FTOptions:
                 sys.exit(1)
             self.pluto_bin = Path(shutil.which(ns.pluto))
 
+        if ns.pluto_flags:
+            self.pluto_flags = []
+            for flag in ns.pluto_flags:
+                self.pluto_flags.extend(flag.split())
+
+        if ns.pluto_custom_vec_pragma:
+            self.pluto_custom_vec_pragma = ns.pluto_custom_vec_pragma
+
         if self.pluto_enabled:
             # check if pluto is available
             try:
@@ -391,17 +442,52 @@ class FTOptions:
                         continue
                     self.env[key] = value.strip('"').strip("'")
 
+        if ns.save_incorrect_sources:
+            if ns.save_incorrect_sources is True:
+                self.save_incorrect_sources = Path("incorrect_sources")
+            else:
+                self.save_incorrect_sources = ns.save_incorrect_sources
+
+            if not self.save_incorrect_sources.exists():
+                try:
+                    self.save_incorrect_sources.mkdir(parents=True, exist_ok=True)
+                except OSError as e:
+                    logger.error(
+                        "Failed to create directory '%s' for saving incorrect sources: %s",
+                        self.save_incorrect_sources,
+                        e,
+                    )
+                    sys.exit(1)
+
     def dump(self, level: int = logging.INFO) -> None:
         """Dump the parsed options to the logger."""
         logger.log(level, "Parsed options:")
         logger.log(level, "\tSources: %s", self.sources)
         logger.log(level, "\tOutputs: %s", self.outputs)
         logger.log(level, "\tLog output: %s", self.log_output)
-        logger.log(level, "\tPluto: %s", self.pluto_enabled)
-        logger.log(level, "\tPluto binary: %s", self.pluto_bin)
-        logger.log(level, "\tPluto flags: %s", self.pluto_flags)
+
         logger.log(level, "\tCompiler binary: %s", self.compiler_binary)
-        logger.log(level, "\tCompile extra flags: %s", self.compile_extra_flags)
+        logger.log(level, "\tCompiler version:")
+        try:
+            result = subprocess.run(
+                [str(self.compiler_binary.absolute()), "--version"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=False,
+            )
+            if result.returncode == 0:
+                for line in result.stdout.splitlines():
+                    logger.log(level, "\t\t%s", line.strip())
+            else:
+                for line in result.stderr.splitlines():
+                    logger.error("\t\t%s", line.strip())
+        except FileNotFoundError:
+            logger.error("Compiler binary '%s' not found.", self.compiler_binary)
+        except subprocess.CalledProcessError as e:
+            logger.error("Failed to get compiler version: %s", e)
+        logger.log(level, "\tCompiler cflags: %s", self.compiler_cflags)
+        logger.log(level, "\tCompile extra flags: %s", self.compiler_extra_flags)
         logger.log(level, "\tParameters:")
         for param in self.parameters:
             if isinstance(param, FTParameterRange):
@@ -416,6 +502,34 @@ class FTOptions:
                 logger.log(level, "\t\t%s:\t<%d", param.name, param.init_value)
             else:
                 logger.log(level, "\t\t%s", param.name)
+
+        logger.log(level, "\tPluto: %s", self.pluto_enabled)
+        logger.log(level, "\tPluto binary: %s", self.pluto_bin)
+        if self.pluto_enabled:
+            logger.log(level, "\tPluto version:")
+            try:
+                result = subprocess.run(
+                    [str(self.pluto_bin.absolute()), "--version"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    check=False,
+                )
+
+                for line in result.stdout.splitlines():
+                    logger.log(level, "\t\t%s", line.strip())
+
+            except FileNotFoundError:
+                logger.error("Pluto binary '%s' not found.", self.pluto_bin)
+            except subprocess.CalledProcessError as e:
+                logger.error("Failed to get Pluto version: %s", e)
+
+        logger.log(level, "\tPluto flags: %s", self.pluto_flags)
+        logger.log(
+            level,
+            "\tPluto custom vectorization pragma: %s",
+            self.pluto_custom_vec_pragma,
+        )
         logger.log(level, "\tTop N runs: %d", self.top_n_runs)
         logger.log(
             level,
@@ -435,86 +549,27 @@ class FTRun:
     Else they should be moved to the FTExperiment class.
     """
 
-    def __init__(self, params: tuple[FTParamInstance, ...]):
+    def __init__(self, params: tuple[FTParamInstance, ...], command: str):
         self.params: tuple[FTParamInstance, ...] = params
 
-        self.has_compile_step: bool = False
-        self.compile_done: bool = False
-        self.compile_cmd: list[str] = "clang -march=native -O3 -fopenmp".split()
-        self.compile_sources: list[Path] = []
-        self.compile_extra_flags: list[str] = []
-
-        self.binary: Optional[Path] = None
+        self.command: str = command
 
         self.exit_code: Optional[int] = None
         self.kernel_execution_time: Optional[float] = None
 
         self.stderr_fd: Optional[int] = None
 
-    def add_compile_step(
-        self, sources: Path, extra_flags: Optional[list[str]] = None
-    ) -> None:
-        """Set whether the run has a compile step"""
-        self.has_compile_step = True
-        self.compile_sources = sources
-        if extra_flags is not None:
-            self.compile_cmd.extend(extra_flags)
-        self.binary = (sources[-1].parent / (sources[-1].stem + ".bin")).absolute()
-
-    def _compile_step(self) -> None:
-        """Compile the benchmark with the given parameters"""
-
-        if self.compile_done:
-            logger.debug("Compile step already done. Skipping.")
-            return
-
-        cmd = self.compile_cmd.copy()
-        cmd.extend([str(s.absolute()) for s in self.compile_sources])
-        cmd.append("-o")
-        cmd.append(str(self.binary.absolute()))
-        cmd.extend(self.compile_extra_flags)
-        for param in self.params:
-            cmd.append(f"-D{param.name}={param.value}")
-        logger.debug("Compiling with command: %s", " ".join(cmd))
-        result = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            restore_signals=False,
-        )
-        try:
-            stdout, stderr = result.communicate()
-            if result.returncode != 0:
-                logger.error("Compilation failed:\n%s\n%s", stdout, stderr)
-                logger.error("Compile command: %s", " ".join(cmd))
-                return
-        except subprocess.SubprocessError as e:
-            logger.error("Failed to compile binary: %s", e)
-            logger.error("Compile command: %s", " ".join(cmd))
-            return
-        if not self.binary.exists():
-            logger.error("Compilation failed: Binary does not exist.")
-            logger.error("Compile command: %s", " ".join(cmd))
-
-        logger.debug("Compilation succeeded:\n%s", stdout)
+        self.cleanup_files: list[Path] = []
 
     def exec(self, env: Optional[dict[str, str]] = None) -> None:
         """Execute the run
         An FTRun is a single run of the benchmark with a given set of parameters
         """
-        if self.has_compile_step:
-            self._compile_step()
-
         self.exit_code = None
         self.kernel_execution_time = None
 
-        if not self.binary or not self.binary.exists():
-            logger.error("Binary does not exist. Cannot run the benchmark.")
-            return
-
         result = subprocess.Popen(
-            [str(self.binary.absolute())],
+            [self.command],
             stdout=subprocess.PIPE,
             stderr=self.stderr_fd,
             text=True,
@@ -540,14 +595,325 @@ class FTRun:
         """Cleanup the run
         This will remove any file generated by the run, such as output files.
         """
-        if self.binary.exists():
-            self.binary.unlink()
+        for file in self.cleanup_files:
+            if file.exists():
+                try:
+                    file.unlink()
+                except OSError as e:
+                    logger.warning("Failed to remove file '%s': %s", file, e)
 
     def has_error(self) -> bool:
         """Check if an error occurred during the run."""
         return (
             self.exit_code is not None and self.exit_code != 0
         ) or self.kernel_execution_time is None
+
+
+class FTTransformSourceBundle(NamedTuple):
+    """Bundle of sources and generated files for transformations."""
+
+    sources: list[Path]
+    generated_files: list[Path]
+    cleanup_files: list[Path]
+
+
+class FTRunBuilderTransform:
+    """Base class for FTRunBuilder steps.
+    This is used to define the steps in the builder pattern for FTRun.
+    """
+
+    def __init__(self):
+        pass
+
+    def apply(self, input_bundle: FTTransformSourceBundle) -> FTTransformSourceBundle:
+        """Apply a transformation on the sources."""
+        raise NotImplementedError("Subclasses must implement this method.")
+
+
+class FTRunBuilderStepCompile(FTRunBuilderTransform):
+    """Step for compiling the sources in the FTRunBuilder."""
+
+    def __init__(self, compiler_bin: Path, cflags: list[str], extra_flags: list[str]):
+        super().__init__()
+        self.compiler_bin = compiler_bin
+        self.cflags = cflags
+        self.extra_flags = extra_flags
+
+    def _build_compile_cmd(self, sources: list[Path], output: Path) -> list[str]:
+        """Build the compile command for the sources."""
+        cmd = [str(self.compiler_bin.absolute())]
+        cmd.extend(self.cflags)
+        cmd.extend([str(s.absolute()) for s in sources])
+        cmd.append("-o")
+        cmd.append(str(output.absolute()))
+        cmd.extend(self.extra_flags)
+        return cmd
+
+    def apply(self, input_bundle: FTTransformSourceBundle) -> FTTransformSourceBundle:
+        """Compile the sources with the given compiler and flags."""
+        if not isinstance(input_bundle, FTTransformSourceBundle):
+            logger.error("Compile step requires sources files as input")
+            raise TypeError("Input bundle must be a FTTransformSourceBundle.")
+
+        sources = input_bundle.sources
+        output_bundle = FTTransformSourceBundle([], [], [])
+
+        output = sources[-1].parent / (sources[-1].stem + ".bin")
+        cmd = self._build_compile_cmd(sources, output)
+        result = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            restore_signals=False,
+        )
+        try:
+            stdout, stderr = result.communicate()
+            if result.returncode != 0:
+                logger.error("Compilation failed:\n%s\n%s", stdout, stderr)
+                logger.error("Compile command: %s", " ".join(cmd))
+                return
+        except subprocess.SubprocessError as e:
+            logger.error("Failed to compile binary: %s", e)
+            logger.error("Compile command: %s", " ".join(cmd))
+            return
+        if not output.exists():
+            logger.error("Compilation failed: Binary does not exist.")
+            logger.error("Compile command: %s", " ".join(cmd))
+
+        logger.debug("Compilation succeeded:\n%s", stdout)
+
+        output_bundle.sources.append(output)
+        output_bundle.generated_files.append(output)
+        output_bundle.cleanup_files.append(output)
+
+        return output_bundle
+
+
+class FTRunBuilderStepPluto(FTRunBuilderTransform):
+    """Step for applying Pluto transformations on the sources in the FTRunBuilder."""
+
+    def __init__(
+        self,
+        pluto_bin: Path,
+        pluto_flags: list[str],
+        tile_sizes: Optional[list[int]] = None,
+        custom_vec_pragma: Optional[str] = None,
+    ):
+        super().__init__()
+        self._pluto_bin = pluto_bin
+        self._pluto_flags = pluto_flags
+        self._pluto_tile_sizes: list[int] = tile_sizes if tile_sizes else []
+        self._custom_vec_pragma: Optional[str] = custom_vec_pragma
+
+    def apply(self, input_bundle: FTTransformSourceBundle) -> FTTransformSourceBundle:
+        output_bundle = FTTransformSourceBundle([], [], [])
+
+        sources = input_bundle.sources
+        for src in sources:
+            if not src.is_file():
+                output_bundle.sources.append(src)
+                continue
+
+            # Check if the file contains at least one #pragma scop directive
+            has_scop = False
+            with open(src, "r", encoding="utf-8") as f:
+                for line in f:
+                    if "#pragma scop" in line:
+                        has_scop = True
+                        break
+            if not has_scop:
+                # no scop found, no transformation is done
+                # keep the source file as is
+                output_bundle.sources.append(src)
+                continue
+
+            output_file = src.with_suffix(".pluto.c")
+            tile_size_file = Path("tile.sizes")
+
+            if tile_size_file.exists():
+                tile_size_file.unlink()
+
+            # Apply pluto on this source file
+            pluto_cmd = [
+                self._pluto_bin,
+                str(src.absolute()),
+                "-o",
+                str(output_file.absolute()),
+            ]
+
+            pluto_cmd.extend(self._pluto_flags)
+
+            if len(self._pluto_tile_sizes) > 0:
+                with open(tile_size_file, "w", encoding="utf-8") as f:
+                    for size in self._pluto_tile_sizes:
+                        f.write(f"{size}\n")
+
+            # call pluto
+            res = subprocess.run(
+                pluto_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=False,
+            )
+
+            if tile_size_file.exists():
+                tile_size_file.unlink()
+
+            if res.returncode != 0:
+                logger.error(
+                    "Failed to call pluto '%s': %s",
+                    " ".join(pluto_cmd),
+                    res.stdout.strip() + "\n" + res.stderr.strip(),
+                )
+                continue
+
+            if not output_file.exists():
+                logger.error(
+                    "Pluto did not generate output file '%s' for source '%s'.",
+                    output_file,
+                    src,
+                )
+                continue
+
+            if self._custom_vec_pragma:
+                # find the #pragma ivdep and #pragma vector always lines in generated file
+                # and replace them with the custom pragma
+                with open(output_file, "r+", encoding="utf-8") as f:
+                    content = f.read()
+                    content = content.replace("#pragma ivdep", "")
+                    content = content.replace(
+                        "#pragma vector always", self._custom_vec_pragma
+                    )
+                    f.seek(0)
+                    f.write(content)
+                    f.truncate()
+
+            output_bundle.generated_files.append(output_file)
+            output_bundle.sources.append(output_file)
+            output_bundle.cleanup_files.append(output_file)
+            output_bundle.cleanup_files.append(output_file.with_suffix(".pluto.cloog"))
+
+            logger.debug(
+                "Generated pluto source file '%s' from '%s'.",
+                output_file.absolute(),
+                src,
+            )
+        return output_bundle
+
+
+class FTRunBuilder:
+    """Builder for FTRun instances.
+    This is used to build FTRun instances with a fluent interface.
+    """
+
+    def __init__(self):
+        self._sources: list[Path] = []
+
+        self._transforms: list[FTRunBuilderTransform] = []
+
+        self._generated_files: list[Path] = []
+
+        self._params: tuple[FTParamInstance, ...] = ()
+
+    def with_params(self, params: tuple[FTParamInstance, ...]) -> "FTRunBuilder":
+        """Set the parameters for the run."""
+        self._params = params
+        return self
+
+    def from_sources(self, sources: list[Path]) -> "FTRunBuilder":
+        """Set the sources for the run."""
+        if not sources:
+            logger.error("No sources provided for the run.")
+            raise ValueError("Sources cannot be empty.")
+        self._sources = [src.absolute() for src in sources]
+        return self
+
+    def pluto(
+        self, pluto_bin: Path, pluto_flags: list[str], custom_vec_pragma: Optional[str]
+    ) -> "FTRunBuilder":
+        """Apply pluto scheduler on the sources."""
+        # Retrieve tile sizes from the parameters
+        tiling_parameters = [
+            p for p in self._params if p.name.startswith("T") and p.name[1:].isdigit()
+        ]
+        tile_sizes = [32] * len(tiling_parameters)
+        # extract all parameters that have a name like "T[0-9]"
+        for param in tiling_parameters:
+            tile_sizes[int(param.name[1:])] = param.value
+
+        self._transforms.append(
+            FTRunBuilderStepPluto(
+                pluto_bin=pluto_bin,
+                pluto_flags=pluto_flags,
+                tile_sizes=tile_sizes,
+                custom_vec_pragma=custom_vec_pragma,
+            )
+        )
+
+        return self
+
+    def compile(
+        self,
+        compiler_bin: Path,
+        cflags: Optional[list[str]],
+        extra_flags: Optional[list[str]],
+        set_parameters_macro: bool = True,
+    ) -> "FTRunBuilder":
+        """Indicate that the binary should be compiled from the given sources"""
+        _extra_flags = extra_flags if extra_flags else []
+        if set_parameters_macro:
+            # Add a macro to the extra flags to set the parameters
+            _extra_flags.extend(
+                [f"-D{param.name}={param.value}" for param in self._params]
+            )
+
+        self._transforms.append(
+            FTRunBuilderStepCompile(
+                compiler_bin=compiler_bin,
+                cflags=cflags if cflags else [],
+                extra_flags=_extra_flags,
+            )
+        )
+        return self
+
+    def build(self) -> FTRun:
+        """Build the FTRun instance."""
+        sources = self._sources
+        cleanup_files = []
+
+        if not sources or len(sources) == 0:
+            logger.error("No sources provided for the run.")
+            raise ValueError("Sources cannot be empty.")
+
+        for transform in self._transforms:
+            output_bundle = transform.apply(
+                FTTransformSourceBundle(
+                    sources=sources,
+                    generated_files=self._generated_files,
+                    cleanup_files=cleanup_files,
+                )
+            )
+            sources = output_bundle.sources
+            cleanup_files.extend(output_bundle.cleanup_files)
+            self._generated_files.extend(output_bundle.generated_files)
+
+        if len(sources) != 1:
+            logger.error(
+                "FTRunBuilder requires exactly one output file after transformations. "
+                "Got %d sources: %s",
+                len(sources),
+                sources,
+            )
+
+        ftrun = FTRun(
+            params=self._params,
+            command=str(sources[0].absolute()),
+        )
+        ftrun.cleanup_files.extend(cleanup_files)
+
+        return ftrun
 
 
 class FTExperiment:
@@ -621,118 +987,27 @@ class FTExperiment:
 
         return itertools.product(*param_product_list)
 
-    def _gen_pluto_sources(
-        self, options: FTOptions, param_instances: tuple[FTParamInstance, ...]
-    ) -> list[Path]:
-        """
-        For each source file, apply pluto transformations and return the newly
-        generated source files.
-        This will create new source files with the given parameters.
-        The new source files will be named <original_name>.pluto.c.
-        If the source file is not a C file, it will be skipped.
-        If the source file does not contain any scops, it will be skipped.
-        """
+    def _ftrun_from_options(
+        self, options: FTOptions, params: tuple[FTParamInstance, ...]
+    ) -> FTRun:
+        """Create an FTRun instance from the given options."""
+        builder = FTRunBuilder().from_sources(options.sources).with_params(params)
 
-        gen_sources = []
-        for src in options.sources:
-            if not src.is_file():
-                logger.warning("Source file '%s' does not exist. Skipping.", src)
-                continue
-
-            # Check if the file contains at least one #pragma scop directive
-            has_scop = False
-            with open(src, "r", encoding="utf-8") as f:
-                for line in f:
-                    if "#pragma scop" in line:
-                        has_scop = True
-                        break
-            if not has_scop:
-                gen_sources.append(src)
-                continue
-
-            output_file = src.with_suffix(".pluto.c")
-            tile_size_file = Path("tile.sizes")
-
-            if tile_size_file.exists():
-                tile_size_file.unlink()
-
-            # Apply pluto on this source file
-            pluto_cmd = [
-                options.pluto_bin,
-                str(src.absolute()),
-                "-o",
-                str(output_file.absolute()),
-            ]
-            # TODO: custom pluto flags
-            pluto_cmd.extend(options.pluto_flags)
-
-            tile_parameters_len = len(
-                [p for p in param_instances if p.name.startswith("T")]
-            )
-            tile_sizes = [32] * tile_parameters_len
-            # extract all parameters that have a name like "T[0-9]"
-            for param in param_instances:
-                if param.name.startswith("T"):
-                    if param.name[1:].isdigit():
-                        tile_sizes[int(param.name[1:])] = param.value
-
-            with open(tile_size_file, "w", encoding="utf-8") as f:
-                for size in tile_sizes:
-                    f.write(f"{size}\n")
-
-            # call pluto
-            res = subprocess.run(
-                pluto_cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                check=False,
-            )
-
-            if tile_size_file.exists():
-                tile_size_file.unlink()
-
-            if res.returncode != 0:
-                logger.error(
-                    "Failed to call pluto '%s': %s",
-                    " ".join(pluto_cmd),
-                    res.stdout.strip() + "\n" + res.stderr.strip(),
-                )
-                continue
-
-            if not output_file.exists():
-                logger.error(
-                    "Pluto did not generate output file '%s' for source '%s'.",
-                    output_file,
-                    src,
-                )
-                continue
-            gen_sources.append(output_file)
-
-            logger.debug(
-                "Generated pluto source file '%s' from '%s'.",
-                output_file.absolute(),
-                src,
-            )
-
-        return gen_sources
-
-    def _get_program_sources(
-        self, options: FTOptions, param_instances: tuple[FTParamInstance, ...]
-    ) -> list[Path]:
         if options.pluto_enabled:
-            # If pluto is enabled, we need to generate the pluto sources
-            return self._gen_pluto_sources(options, param_instances)
-        return options.sources
+            builder.pluto(
+                pluto_bin=options.pluto_bin,
+                pluto_flags=options.pluto_flags,
+                custom_vec_pragma=options.pluto_custom_vec_pragma,
+            )
 
-    def _cleanup_pluto_sources(self, sources: list[Path]) -> None:
-        """Cleanup the pluto sources generated by the experiment."""
-        for src in sources:
-            if src.suffix == ".pluto.c":
-                try:
-                    src.unlink()
-                except OSError as e:
-                    logger.error("Failed to remove pluto source '%s': %s", src, e)
+        builder.compile(
+            compiler_bin=options.compiler_binary,
+            cflags=options.compiler_cflags,
+            extra_flags=options.compiler_extra_flags,
+            set_parameters_macro=True,
+        )
+
+        return builder.build()
 
     def _finetune(self, options: FTOptions) -> None:
         """
@@ -741,7 +1016,6 @@ class FTExperiment:
         """
 
         param_instance_list = self._gen_param_instances(options.parameters)
-        extra_flags = options.compile_extra_flags + ["-DPOLYBENCH_TIME"]
 
         has_minimize = any(
             isinstance(param, FTParameterMinimize) for param in options.parameters
@@ -772,15 +1046,9 @@ class FTExperiment:
                 )
                 print(params)
 
-            sources = self._get_program_sources(options, param_instance)
-
-            ftrun = FTRun(param_instance)
-            ftrun.add_compile_step(sources, extra_flags=extra_flags)
+            ftrun = self._ftrun_from_options(options, param_instance)
             ftrun.exec(env=options.env)
             ftrun.cleanup()
-
-            if options.pluto_enabled:
-                self._cleanup_pluto_sources(sources)
 
             score_str = ""
 
@@ -814,10 +1082,10 @@ class FTExperiment:
         logger.info(
             "\t%s%s%s%s%s",
             " ".join(f"{p.name[:15]:<15}" for p in options.parameters),
-            f"{"score":<15}",
-            f"{"Trimmed Mean":<15}",
-            f"{"STD Dev":<15}",
-            f"{"STD Dev %":<15}",
+            f"{'score':<15}",
+            f"{'Trimmed Mean':<15}",
+            f"{'STD Dev':<15}",
+            f"{'STD Dev %':<15}",
         )
         self.trimmed_mean_results.clear()
 
@@ -828,13 +1096,7 @@ class FTExperiment:
 
             score_list = []
 
-            sources = self._get_program_sources(options, param_instances)
-
-            ftrun = FTRun(param_instances)
-            ftrun.add_compile_step(
-                sources,
-                extra_flags=options.compile_extra_flags + ["-DPOLYBENCH_TIME"],
-            )
+            ftrun = self._ftrun_from_options(options, param_instances)
 
             # run the best runs multiple times to get a better average
             for _ in range(self._run_number):
@@ -851,9 +1113,6 @@ class FTExperiment:
                 score_list.append((ftrun.kernel_execution_time, ftrun.params))
 
             ftrun.cleanup()
-
-            if options.pluto_enabled:
-                self._cleanup_pluto_sources(sources)
 
             if len(score_list) < self._run_number:
                 logger.error(
@@ -898,11 +1157,15 @@ class FTExperiment:
             return
 
         # First, we need to run the baseline output to generate the expected output
-        baseline_run = FTRun(tuple())
-        baseline_run.add_compile_step(
-            options.output_dump_baseline_sources,
-            extra_flags=options.compile_extra_flags
-            + ["-DPOLYBENCH_TIME", "-DPOLYBENCH_DUMP_ARRAYS"],
+        baseline_run = (
+            FTRunBuilder()
+            .from_sources(options.output_dump_baseline_sources)
+            .compile(
+                options.compiler_binary,
+                cflags=options.compiler_cflags,
+                extra_flags=options.compiler_extra_flags + ["-DPOLYBENCH_DUMP_ARRAYS"],
+            )
+            .build()
         )
 
         # Redirect stderr to a file to capture the output
@@ -941,14 +1204,23 @@ class FTExperiment:
             if self.should_exit:
                 logger.warning("Experiment interrupted. Exiting...")
                 return
-            sources = self._get_program_sources(options, param_instances)
-
-            ftrun = FTRun(param_instances)
-            ftrun.add_compile_step(
-                options.sources,
-                extra_flags=options.compile_extra_flags
-                + ["-DPOLYBENCH_TIME", "-DPOLYBENCH_DUMP_ARRAYS"],
+            builder = (
+                FTRunBuilder()
+                .from_sources(options.sources)
+                .with_params(param_instances)
             )
+            if options.pluto_enabled:
+                builder.pluto(
+                    pluto_bin=options.pluto_bin,
+                    pluto_flags=options.pluto_flags,
+                    custom_vec_pragma=options.pluto_custom_vec_pragma,
+                )
+            builder = builder.compile(
+                compiler_bin=options.compiler_binary,
+                cflags=options.compiler_cflags,
+                extra_flags=options.compiler_extra_flags + ["-DPOLYBENCH_DUMP_ARRAYS"],
+            )
+            ftrun = builder.build()
 
             # Redirect stderr to a file to capture the output
             stderr_file = open("__stderr.dump", "w", encoding="utf-8")
@@ -962,23 +1234,60 @@ class FTExperiment:
 
             stderr_file.close()
 
+            # Check if the output file exists
+            if not os.path.exists("__stderr.dump"):
+                logger.error(
+                    "Run with parameters {%s} did not produce any output.",
+                    ", ".join(f"{p.name}={p.value}" for p in param_instances),
+                )
+                continue
+
             # Compute the hash of the output
             run_hash = None
             with open("__stderr.dump", "rb") as f:
                 run_hash = hashlib.sha256(f.read()).hexdigest()
 
             if not run_hash:
-                logger.error("Failed to compute hash of the run output.")
+                logger.error("Failed to compute hash of the optimized run output.")
                 continue
 
-            if os.path.exists("__stderr.dump"):
-                os.remove("__stderr.dump")
+            os.remove("__stderr.dump")
+
+            if ftrun.has_error():
+                logger.error(
+                    "Run with parameters {%s} failed with exit code: %d",
+                    ", ".join(f"{p.name}={p.value}" for p in param_instances),
+                    ftrun.exit_code,
+                )
+                logger.error("Weird, this should not happen...")
+                ftrun.cleanup()
+                continue
+
+            if options.save_incorrect_sources and run_hash != baseline_hash:
+                for file in ftrun.cleanup_files:
+                    if file.exists():
+                        try:
+                            # Save the incorrect source file
+                            param_instances_str = "_".join(
+                                f"{p.name}={p.value}" for p in param_instances
+                            )
+                            name = f"{file.stem}_({param_instances_str}){file.suffix}"
+                            dest = options.save_incorrect_sources / name
+                            shutil.copy(file, dest)
+                        except OSError as e:
+                            logger.error(
+                                "Failed to save incorrect source file '%s': %s",
+                                file,
+                                e,
+                            )
 
             ftrun.cleanup()
-            if options.pluto_enabled:
-                self._cleanup_pluto_sources(sources)
 
-            logger.info("Run output hash: %s", run_hash)
+            logger.info(
+                "Run {%s} output hash: %s",
+                ", ".join(f"{p.name}={p.value}" for p in param_instances),
+                run_hash,
+            )
 
             if run_hash == baseline_hash:
                 logger.info(
@@ -1031,7 +1340,18 @@ def main():
     options = FTOptions()
     options.parse()
     if options.log_output:
-        logger.addHandler(logging.FileHandler(options.log_output))
+        handler = logging.FileHandler(
+            filename=options.log_output, mode="a", encoding="utf-8"
+        )
+        handler.setLevel(logging.INFO)
+        handler.setFormatter(
+            logging.Formatter(
+                "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
+            )
+        )
+        logging.getLogger("").addHandler(handler)
+
     logger.info("Starting finetune script...")
 
     options.dump()

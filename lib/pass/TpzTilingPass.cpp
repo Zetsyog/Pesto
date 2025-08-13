@@ -328,7 +328,7 @@ void TpzTilingPass::codegen(OslScop &scop, CloogProgram *cloogProgram, CloogOpti
 			stmtStr += nameHelper.outerForUBName() + " = ";
 			stmtStr += std::string() + "ceild((" + max_str + ") - (" + min_str + ")";
 			stmtStr += ", " + nameHelper.divName() + ") - 1;";
-			stmtStr += nthreadsName + " = omp_get_num_threads();";
+			stmtStr += nthreadsName + " = omp_get_max_threads();";
 
 			macroData->defineFunc("S" + std::to_string(pair.outerHeaderStmt->statement->number), "", stmtStr);
 
