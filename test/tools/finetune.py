@@ -105,6 +105,7 @@ class FTOptions:
         self.output_dump_baseline_sources: list[Path] = []
         self.env: dict[str, str] = {}
         self.save_incorrect_sources: Optional[Path] = None
+        self.force_omp_schedule: Optional[str] = None
 
     def _init_parser(self) -> argparse.ArgumentParser:
         parser = argparse.ArgumentParser(
@@ -264,6 +265,16 @@ class FTOptions:
             dest="save_incorrect_sources",
             help="If specified, the sources that produce incorrect results "
             "will be saved in the given directory. ",
+        )
+
+        parser.add_argument(
+            "--force-omp-schedule",
+            default=False,
+            type=str,
+            metavar="OMP_SCHEDULE",
+            dest="force_omp_schedule",
+            help="Force the OpenMP schedule to be used for the benchmark. "
+            "This will override the OMP_SCHEDULE environment variable. ",
         )
 
         return parser
@@ -459,12 +470,24 @@ class FTOptions:
                     )
                     sys.exit(1)
 
+        if ns.force_omp_schedule:
+            if not ns.force_omp_schedule:
+                logger.error(
+                    "Force OpenMP schedule is specified but no value is provided."
+                )
+                sys.exit(1)
+            self.force_omp_schedule = ns.force_omp_schedule
+            # set the OMP_SCHEDULE environment variable to the given value
+            self.env["OMP_SCHEDULE"] = self.force_omp_schedule
+
     def dump(self, level: int = logging.INFO) -> None:
         """Dump the parsed options to the logger."""
         logger.log(level, "Parsed options:")
         logger.log(level, "\tSources: %s", self.sources)
         logger.log(level, "\tOutputs: %s", self.outputs)
         logger.log(level, "\tLog output: %s", self.log_output)
+        logger.log(level, "\tSave incorrect sources: %s", self.save_incorrect_sources)
+        logger.log(level, "\tForce OpenMP schedule: %s", self.force_omp_schedule)
 
         logger.log(level, "\tCompiler binary: %s", self.compiler_binary)
         logger.log(level, "\tCompiler version:")
@@ -803,6 +826,66 @@ class FTRunBuilderStepPluto(FTRunBuilderTransform):
         return output_bundle
 
 
+class FTRunBuilderStepOmpSchedule(FTRunBuilderTransform):
+    """Step for applying OpenMP schedule on the sources in the FTRunBuilder."""
+
+    def __init__(self, omp_schedule: str):
+        super().__init__()
+        self._omp_schedule = omp_schedule
+
+    def apply(self, input_bundle: FTTransformSourceBundle) -> FTTransformSourceBundle:
+        """Apply OpenMP schedule to the sources."""
+        output_bundle = FTTransformSourceBundle([], [], [])
+
+        for src in input_bundle.sources:
+            if not src.is_file():
+                output_bundle.sources.append(src)
+                continue
+
+            # Check if the file contains at least one #pragma omp directive
+            has_omp = False
+            with open(src, "r", encoding="utf-8") as f:
+                for line in f:
+                    if "#pragma omp" in line:
+                        has_omp = True
+                        break
+            if not has_omp:
+                # no OpenMP found, no transformation is done
+                # keep the source file as is
+                output_bundle.sources.append(src)
+                continue
+
+            # update all omp clauses in the source file
+            output_file = src.with_suffix(".omp.c")
+            with open(src, "r", encoding="utf-8") as fin, open(
+                output_file, "w", encoding="utf-8"
+            ) as fout:
+                for line in fin:
+                    if "#pragma omp" in line and "schedule(" not in line:
+                        # Insert schedule clause before any closing parenthesis in the pragma
+                        idx = line.find(")")
+                        if idx != -1:
+                            # Insert schedule clause before the closing parenthesis
+                            new_line = (
+                                line[: idx + 1]
+                                + f" schedule({self._omp_schedule})"
+                                + line[idx + 1 :]
+                            )
+                        else:
+                            # If no parenthesis, just append schedule clause at the end
+                            new_line = (
+                                line.rstrip() + f" schedule({self._omp_schedule})\n"
+                            )
+                        fout.write(new_line)
+                    else:
+                        fout.write(line)
+            output_bundle.generated_files.append(output_file)
+            output_bundle.sources.append(output_file)
+            output_bundle.cleanup_files.append(output_file)
+
+        return output_bundle
+
+
 class FTRunBuilder:
     """Builder for FTRun instances.
     This is used to build FTRun instances with a fluent interface.
@@ -852,6 +935,15 @@ class FTRunBuilder:
             )
         )
 
+        return self
+
+    def omp_schedule(self, omp_schedule: str) -> "FTRunBuilder":
+        """Apply OpenMP schedule on the sources."""
+        if not omp_schedule:
+            logger.error("OpenMP schedule is not specified.")
+            raise ValueError("OpenMP schedule cannot be empty.")
+
+        self._transforms.append(FTRunBuilderStepOmpSchedule(omp_schedule=omp_schedule))
         return self
 
     def compile(
@@ -999,6 +1091,8 @@ class FTExperiment:
                 pluto_flags=options.pluto_flags,
                 custom_vec_pragma=options.pluto_custom_vec_pragma,
             )
+        if options.force_omp_schedule:
+            builder.omp_schedule(omp_schedule=options.force_omp_schedule)
 
         builder.compile(
             compiler_bin=options.compiler_binary,
