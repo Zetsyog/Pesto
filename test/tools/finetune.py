@@ -14,10 +14,17 @@ from pathlib import Path
 from collections.abc import Iterator
 
 from typing import Optional, Generic, TypeVar, NamedTuple
+import threading
 
 logger = logging.getLogger("finetune")
 
 T = TypeVar("T")
+
+
+def preexec_function():
+    # Ignore the SIGINT signal by setting the handler to the standard
+    # signal handler SIG_IGN.
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 
 class FixedSizeSortedList(Generic[T]):
@@ -106,6 +113,7 @@ class FTOptions:
         self.env: dict[str, str] = {}
         self.save_incorrect_sources: Optional[Path] = None
         self.force_omp_schedule: Optional[str] = None
+        self.minimize_min_step: int = 500
 
     def _init_parser(self) -> argparse.ArgumentParser:
         parser = argparse.ArgumentParser(
@@ -597,6 +605,7 @@ class FTRun:
             stderr=self.stderr_fd,
             text=True,
             env=env,
+            restore_signals=False,
         )
         try:
             stdout, _ = result.communicate()
@@ -937,15 +946,6 @@ class FTRunBuilder:
 
         return self
 
-    def omp_schedule(self, omp_schedule: str) -> "FTRunBuilder":
-        """Apply OpenMP schedule on the sources."""
-        if not omp_schedule:
-            logger.error("OpenMP schedule is not specified.")
-            raise ValueError("OpenMP schedule cannot be empty.")
-
-        self._transforms.append(FTRunBuilderStepOmpSchedule(omp_schedule=omp_schedule))
-        return self
-
     def compile(
         self,
         compiler_bin: Path,
@@ -968,6 +968,11 @@ class FTRunBuilder:
                 extra_flags=_extra_flags,
             )
         )
+        return self
+
+    def add_transform(self, transform: FTRunBuilderTransform) -> "FTRunBuilder":
+        """Add a custom transformation step to the builder."""
+        self._transforms.append(transform)
         return self
 
     def build(self) -> FTRun:
@@ -1059,22 +1064,12 @@ class FTExperiment:
             )
             sys.exit(1)
         if len(minimize_params) == 1:
-            # For each combination, append the minimize param(s) with their initial value
-            # generate a list of all values that are smaller than minimize_params[0].value
-            # with a step of minimize_params[0].step
-
-            minimize_values = list(
-                range(
-                    minimize_params[0].init_value,
-                    minimize_params[0].init_value
-                    - minimize_params[0].step
-                    * (minimize_params[0].init_value // minimize_params[0].step),
-                    -minimize_params[0].step,
-                )
-            )
-
             param_product_list.append(
-                [FTParamInstance(minimize_params[0].name, v) for v in minimize_values]
+                [
+                    FTParamInstance(
+                        minimize_params[0].name, minimize_params[0].init_value
+                    )
+                ]
             )
 
         return itertools.product(*param_product_list)
@@ -1092,7 +1087,9 @@ class FTExperiment:
                 custom_vec_pragma=options.pluto_custom_vec_pragma,
             )
         if options.force_omp_schedule:
-            builder.omp_schedule(omp_schedule=options.force_omp_schedule)
+            builder.add_transform(
+                FTRunBuilderStepOmpSchedule(options.force_omp_schedule)
+            )
 
         builder.compile(
             compiler_bin=options.compiler_binary,
@@ -1102,6 +1099,59 @@ class FTExperiment:
         )
 
         return builder.build()
+
+    def _finetune_minimize(
+        self, options: FTOptions, init_param_instance: tuple[FTParameter, ...]
+    ) -> None:
+        if not isinstance(options.parameters[-1], FTParameterMinimize):
+            logger.error(
+                "Minimize parameter must be the last parameter in the list. Got %s",
+                init_param_instance[-1],
+            )
+            return
+
+        init_value = init_param_instance[-1].value
+
+        value = init_value
+        step = value // 2
+
+        while step > options.minimize_min_step:
+            param_instance = init_param_instance[:-1] + (
+                FTParamInstance(options.parameters[-1].name, value),
+            )
+
+            ftrun = self._ftrun_from_options(options, param_instance)
+            ftrun.exec(env=options.env)
+            ftrun.cleanup()
+
+            score_str = ""
+
+            # keep track of the best runs
+            if not ftrun.has_error():
+                self.best_runs.insert((ftrun.kernel_execution_time, ftrun.params))
+
+            if ftrun.has_error():
+                value = value + step
+            else:
+                value = value - step
+                step = step // 2
+
+            # Log the result
+            if ftrun.has_error():
+                # If the run has an error, we log it as N/A
+                score_str += "N/A"
+                if ftrun.exit_code is not None:
+                    # If there is an exit code, we log it
+                    score_str += f" (exit code: {ftrun.exit_code})"
+            else:  # valid run with execution time
+                # add execution time to log
+                score_str += f"{ftrun.kernel_execution_time:.6f}"
+
+            logger.info(
+                "\t%s%s",
+                " ".join(f"{str(p.value)[:15]:<15}" for p in ftrun.params),
+                score_str,
+            )
 
     def _finetune(self, options: FTOptions) -> None:
         """
@@ -1114,7 +1164,6 @@ class FTExperiment:
         has_minimize = any(
             isinstance(param, FTParameterMinimize) for param in options.parameters
         )
-        minimize_skip_list: list[tuple[FTParamInstance, ...]] = []
 
         logger.info(
             "\t%s%s",
@@ -1125,20 +1174,10 @@ class FTExperiment:
             if self.should_exit:
                 logger.warning("Experiment interrupted. Exiting...")
                 return
-            if has_minimize and len(minimize_skip_list) > 0:
-                # If we are minimizing, check if in the current should be skipped
-                # minimizing parameter should be the last one in the tuple
-                # instance should be skipped if there is a tuple in the skip list
-                # with the same values for all parameters except the last one
-                # and the last parameter is smaller than the last parameter in the skip list
 
-                # retrieve instances in the skip list that have the same values
-                # for all parameters except the last one
-                params = all(
-                    p.value == pi.value
-                    for p, pi in zip(param_instance[:-1], minimize_skip_list[-1][:-1])
-                )
-                print(params)
+            if has_minimize:
+                self._finetune_minimize(options, param_instance)
+                continue
 
             ftrun = self._ftrun_from_options(options, param_instance)
             ftrun.exec(env=options.env)
@@ -1149,10 +1188,6 @@ class FTExperiment:
             # keep track of the best runs
             if not ftrun.has_error():
                 self.best_runs.insert((ftrun.kernel_execution_time, ftrun.params))
-
-            if has_minimize and ftrun.has_error():
-                # If the run has an error, we skip it for minimization
-                minimize_skip_list.append(param_instance)
 
             # Log the result
             if ftrun.has_error():
@@ -1414,6 +1449,20 @@ class FTExperiment:
         logger.info("Measuring performance of the best runs...")
         self._measure_perf(options)
 
+        if len(self.trimmed_mean_results) > 0:
+            best_score, best_params = self.trimmed_mean_results[0]
+            logger.info("Best run (trimmed mean):")
+            logger.info(
+                "\t%s%s",
+                " ".join(f"{p.name[:15]:<15}" for p in options.parameters),
+                f"{'Trimmed Mean':<15}",
+            )
+            logger.info(
+                "\t%s%s",
+                " ".join(f"{str(p.value)[:15]:<15}" for p in best_params),
+                f"{best_score:<15.6f}",
+            )
+
         if self.should_exit:
             logger.warning("Experiment interrupted. Exiting...")
             return
@@ -1452,14 +1501,15 @@ def main():
 
     experiment = FTExperiment()
 
-    def handle_sigint(signum, frame):
-        """Handle SIGINT (Ctrl+C) to gracefully exit the experiment."""
-        logger.warning("Received SIGINT. Exiting...")
-        experiment.should_exit = True
-
-    signal.signal(signal.SIGINT, handle_sigint)
     logger.info("Starting experiment...")
-    experiment.start(options)
+    experiment_thread = threading.Thread(target=experiment.start, args=(options,))
+    experiment_thread.start()
+    try:
+        experiment_thread.join()
+    except KeyboardInterrupt:
+        logger.warning("Experiment interrupted by user. Stopping...")
+        experiment.should_exit = True
+        experiment_thread.join()
 
     logger.info("finetune done.")
 
