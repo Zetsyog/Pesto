@@ -15,8 +15,8 @@ message(STATUS "Using latest trahrhe from git")
 ExternalProject_Add(
 	trahrhe-src
 	GIT_REPOSITORY ${TRAHRHE_GIT_URL}
-	UPDATE_DISCONNECTED ON
-	GIT_TAG bee4e75ef06d271899263b5338361acdde421311
+	UPDATE_DISCONNECTED OFF
+	GIT_TAG cf2b6543905b792872f9c71cd3e484d96b1066e3
 	CMAKE_CACHE_ARGS
 		"-DBARVINOK_PATH:PATH=${BARVINOK_INSTALL_DIR}" #
 		"-DISL_INSTALL_PATH:PATH=${PLUTO_PREFIX}" #
@@ -30,6 +30,3 @@ add_dependencies(trahrhe-src barvinok-src)
 
 set(TRAHRHE_INCLUDE_DIRS ${TRAHRHE_PREFIX}/include)
 set(TRAHRHE_LIBRARIES ${BARVINOK_LIBRARIES} trahrhe m)
-
-dump_cmake_variables("TRAHRHE_.*")
-dump_cmake_variables("trahrhe_.*")

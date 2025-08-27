@@ -4,6 +4,8 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(GMP REQUIRED gmp)
 find_package(NTL REQUIRED)
 
+find_package(GLPK)
+
 if(NOT NTL_FOUND)
 	message(FATAL_ERROR "NTL library not found. Please install NTL.")
 endif()
@@ -25,6 +27,7 @@ ExternalProject_Add(
 	CONFIGURE_COMMAND
 		./configure --prefix=${BARVINOK_INSTALL_DIR} #
 		--with-isl=build --with-isl-builddir=${PLUTO_SRC_DIR}/isl/ #
+		--disable-shared-barvinok #
 		CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER} LD=${CMAKE_LINKER}
 	BUILD_COMMAND make
 	INSTALL_COMMAND make install
@@ -32,6 +35,6 @@ ExternalProject_Add(
 
 link_directories(${BARVINOK_INSTALL_DIR}/lib)
 
-set(BARVINOK_LIBRARIES barvinok ${NTL_LIBRARIES} ${GMP_LIBRARIES} polylibgmp)
+set(BARVINOK_LIBRARIES barvinok ${GLPK_LIBRARIES} ${NTL_LIBRARIES} ${GMP_LIBRARIES} polylibgmp)
 
 add_dependencies(barvinok-src pluto-src)
