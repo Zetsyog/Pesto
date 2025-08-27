@@ -1,6 +1,3 @@
-# From https://sources.debian.org/src/gnudatalanguage/0.9.9-10/CMakeModules/FindGLPK.cmake/
-#
-
 # Find GLPK header and library.
 #
 
@@ -25,7 +22,9 @@ if(GLPK_INCLUDE_DIR)
 		set(GLPK_LIBRARIES ${GLPK_LIBRARY})
 	endif(GLPK_LIBRARY)
 else(GLPK_INCLUDE_DIR)
-	message(FATAL_ERROR "FindGLPK: Could not find glpk.h")
+	message(WARNING "FindGLPK: Could not find glpk.h")
+	set(GLPK_LIBRIARIES "")
+	set(GLPK_INCLUDE_DIRS "")
 endif(GLPK_INCLUDE_DIR)
 
 if(GLPK_FOUND)
