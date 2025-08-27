@@ -1136,6 +1136,13 @@ class FTExperiment:
                 value = value - step
                 step = step // 2
 
+            # round value to the nearest hundred
+            if value >= 100:
+                value = (value + 50) // 100 * 100
+            # round step to the nearest hundred
+            if step >= 100:
+                step = (step + 50) // 100 * 100
+
             # Log the result
             if ftrun.has_error():
                 # If the run has an error, we log it as N/A
