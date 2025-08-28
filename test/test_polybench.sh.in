@@ -157,6 +157,9 @@ run_test() {
     fi
 
     # compile and run pesto program $RUN_NB times with random divider sizes
+    if [ "$MIN_TILE_SIZE" -eq "$MAX_TILE_SIZE" ]; then
+        div_list=$(yes "$MIN_TILE_SIZE" | head -n $((RUN_NB * 3)))
+    fi
     div_list=$(shuf -i "$MIN_TILE_SIZE-$MAX_TILE_SIZE" -n $((RUN_NB * 3)))
     for ((i = 0; i < RUN_NB; i++)); do
         D1=$(sed "$((i * 3 + 1))q;d" <<<"$div_list")
