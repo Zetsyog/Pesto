@@ -25,7 +25,11 @@ ExternalProject_Add(
 	GIT_SUBMODULES isl openscop piplib candl #
 	PREFIX ${PLUTO_PREFIX}
 	BUILD_IN_SOURCE true
-	CONFIGURE_COMMAND ./autogen.sh && ./configure --prefix=${PLUTO_PREFIX} --disable-polycc
+	CONFIGURE_COMMAND
+		./autogen.sh && #
+		./configure --prefix=${PLUTO_PREFIX} #
+		--disable-polycc # don't build cli
+		--disable-shared # static only
 	PATCH_COMMAND
 		${CMAKE_COMMAND} -E echo "Applying ${PLUTO_PATCH_COMPILE_FIX}" && #
 		patch -p1 < ${PLUTO_PATCH_COMPILE_FIX} && #

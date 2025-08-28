@@ -190,7 +190,7 @@ install(
 			 ${CMAKE_BINARY_DIR}/trahrhe_wrapper.sh #
 			 ${EXTRACT_SCOP_BIN} #
 			 ${REPLACE_SCOP_BIN}
-	DESTINATION bin
+	TYPE BIN
 )
 
 # Print configuration summary
