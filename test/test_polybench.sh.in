@@ -159,8 +159,9 @@ run_test() {
     # compile and run pesto program $RUN_NB times with random divider sizes
     if [ "$MIN_TILE_SIZE" -eq "$MAX_TILE_SIZE" ]; then
         div_list=$(yes "$MIN_TILE_SIZE" | head -n $((RUN_NB * 3)))
+    else
+        div_list=$(shuf -i "$MIN_TILE_SIZE-$MAX_TILE_SIZE" -n $((RUN_NB * 3)))
     fi
-    div_list=$(shuf -i "$MIN_TILE_SIZE-$MAX_TILE_SIZE" -n $((RUN_NB * 3)))
     for ((i = 0; i < RUN_NB; i++)); do
         D1=$(sed "$((i * 3 + 1))q;d" <<<"$div_list")
         D2=$(sed "$((i * 3 + 1))q;d" <<<"$div_list")
@@ -234,8 +235,10 @@ config="config/tpz.json"
 EXTRA_FLAGS_OLD="$EXTRA_FLAGS"
 EXTRA_FLAGS="$EXTRA_FLAGS -DD1_MIN_VOL=100000"
 BK_RUN_NB=$RUN_NB
-MIN_TILE_SIZE=16
-MAX_TILE_SIZE=16
+# Some magic here those values work well for trapezoidal tiling
+# on the tested benchmarks
+MIN_TILE_SIZE=5
+MAX_TILE_SIZE=5
 
 RUN_NB=1
 
