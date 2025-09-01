@@ -71,6 +71,14 @@ class FTParameterRange(FTParameter):
         self.step = step
 
 
+class FTParameterList(FTParameter):
+    """Parameter that has a list of discrete values to search for."""
+
+    def __init__(self, name: str, values: list[int]):
+        super().__init__(name)
+        self.values = values
+
+
 class FTParameterMinimize(FTParameter):
     """Parameter that the experiment will try to minimize."""
 
@@ -123,6 +131,7 @@ class FTOptions:
         self.save_incorrect_sources: Optional[Path] = None
         self.force_omp_schedule: Optional[str] = None
         self.minimize_min_step: int = 500
+        self.timeout: int = 0
 
     def _init_parser(self) -> argparse.ArgumentParser:
         parser = argparse.ArgumentParser(
@@ -294,49 +303,78 @@ class FTOptions:
             "This will override the OMP_SCHEDULE environment variable. ",
         )
 
+        parser.add_argument(
+            "--timeout",
+            default=0,
+            type=int,
+            metavar="SECONDS",
+            dest="timeout",
+            help="Timeout in seconds for each run. 0 means no timeout. ",
+        )
+
         return parser
 
     def _parse_experiment_param(self, name: str, expr: str) -> FTParameter | None:
         # for now we only support range parameters
 
         # check if string contains exactly one [ and one ]
-        if not (expr.count("[") == 1 and expr.count("]") == 1):
-            return None
 
-        if not (expr.startswith("[") and expr.endswith("]")):
-            return None
+        if expr.startswith("[") and expr.endswith("]"):
+            if not (expr.count("[") == 1 and expr.count("]") == 1):
+                return None
 
-        range_part = expr[1:-1].strip()
-        # check if the range part contains a comma
-        if "," not in range_part:
-            return None
-        range_parts = range_part.split(",")
-        if len(range_parts) < 2 or len(range_parts) > 3:
-            return None
+            range_part = expr[1:-1].strip()
+            # check if the range part contains a comma
+            if "," not in range_part:
+                return None
+            range_parts = range_part.split(",")
+            if len(range_parts) < 2 or len(range_parts) > 3:
+                return None
 
-        # strip whitespaces
-        range_parts = [part.strip() for part in range_parts]
-        pow2 = False
+            # strip whitespaces
+            range_parts = [part.strip() for part in range_parts]
+            pow2 = False
 
-        try:
-            min_value = int(range_parts[0])
-            max_value = int(range_parts[1])
-            if min_value >= max_value:
-                raise ValueError("min_value must be less than max_value")
-            step = 10
-            if len(range_parts) == 3:
-                if range_parts[2] == "pow2":
-                    step = -1
-                    pow2 = True
-                else:
-                    step = int(range_parts[2])
-                    if step <= 0:
-                        raise ValueError("step must be greater than 0")
-        except ValueError as e:
-            logger.error("Invalid parameter range: %s", e)
-            return None
+            try:
+                min_value = int(range_parts[0])
+                max_value = int(range_parts[1])
+                if min_value > max_value:
+                    raise ValueError("min_value must be less than max_value")
+                step = 10
+                if len(range_parts) == 3:
+                    if range_parts[2] == "pow2":
+                        step = -1
+                        pow2 = True
+                    else:
+                        step = int(range_parts[2])
+                        if step <= 0:
+                            raise ValueError("step must be greater than 0")
+            except ValueError as e:
+                logger.error("Invalid parameter range: %s", e)
+                return None
 
-        return FTParameterRange(name, min_value, max_value, pow2, step)
+            return FTParameterRange(name, min_value, max_value, pow2, step)
+        if expr.startswith("{") and expr.endswith("}"):
+            if not (expr.count("{") == 1 and expr.count("}") == 1):
+                return None
+
+            list_part = expr[1:-1].strip()
+            # check if the list part contains a comma
+            if "," not in list_part:
+                return None
+            list_parts = list_part.split(",")
+            if len(list_parts) < 1:
+                return None
+
+            # strip whitespaces and convert to int
+            try:
+                values = [int(part.strip()) for part in list_parts]
+            except ValueError as e:
+                logger.error("Invalid parameter list: %s", e)
+                return None
+
+            return FTParameterList(name, values)
+        return None
 
     def parse(self) -> None:
         """Parse the command line arguments and initialize the options."""
@@ -538,6 +576,8 @@ class FTOptions:
             # set the OMP_SCHEDULE environment variable to the given value
             self.env["OMP_SCHEDULE"] = self.force_omp_schedule
 
+        self.timeout = ns.timeout
+
     def dump(self, level: int = logging.INFO) -> None:
         """Dump the parsed options to the logger."""
         logger.log(level, "Parsed options:")
@@ -643,8 +683,11 @@ class FTRun:
         self.stderr_fd: Optional[int] = None
 
         self.cleanup_files: list[Path] = []
+        self.error_message: Optional[str] = None
 
-    def exec(self, env: Optional[dict[str, str]] = None) -> None:
+    def exec(
+        self, env: Optional[dict[str, str]] = None, timeout: int | None = None
+    ) -> None:
         """Execute the run
         An FTRun is a single run of the benchmark with a given set of parameters
         """
@@ -660,7 +703,7 @@ class FTRun:
             restore_signals=False,
         )
         try:
-            stdout, _ = result.communicate()
+            stdout, _ = result.communicate(timeout=timeout)
 
             self.exit_code = result.returncode
 
@@ -672,6 +715,9 @@ class FTRun:
                 except ValueError:
                     self.kernel_execution_time = None
 
+        except subprocess.TimeoutExpired:
+            self.exit_code = -1
+            self.error_message = "Timeout expired"
         except subprocess.SubprocessError as e:
             logger.error("Failed to run binary: %s", e)
 
@@ -1112,16 +1158,23 @@ class FTExperiment:
                 v <<= 1
 
         param_product_list = []
-        range_param_list = [p for p in param_list if isinstance(p, FTParameterRange)]
-        for param in range_param_list:
-            if param.pow2:
-                values = powers_of_two_in_range(param.min_value, param.max_value)
-            else:
-                values = range(param.min_value, param.max_value + 1, param.step)
-            instance_list = []
-            for value in values:
-                instance_list.append(FTParamInstance(param.name, value))
-            param_product_list.append(instance_list)
+
+        nonminimize_params = [
+            p for p in param_list if not isinstance(p, FTParameterMinimize)
+        ]
+        for param in nonminimize_params:
+            if isinstance(param, FTParameterRange):
+                if param.pow2:
+                    values = powers_of_two_in_range(param.min_value, param.max_value)
+                else:
+                    values = range(param.min_value, param.max_value + 1, param.step)
+                param_product_list.append(
+                    [FTParamInstance(param.name, v) for v in values]
+                )
+            if isinstance(param, FTParameterList):
+                param_product_list.append(
+                    [FTParamInstance(param.name, v) for v in param.values]
+                )
 
         minimize_params = [p for p in param_list if isinstance(p, FTParameterMinimize)]
         if len(minimize_params) > 1:
@@ -1235,28 +1288,38 @@ class FTExperiment:
         Perform an exhaustive search over the given parameters (essentially tiles sizes)
         """
 
-        param_instance_list = self._gen_param_instances(options.parameters)
+        param_instance_tuple_list = self._gen_param_instances(options.parameters)
 
         has_minimize = any(
             isinstance(param, FTParameterMinimize) for param in options.parameters
         )
 
+        param_name_list = [
+            p for p in options.parameters if not isinstance(p, FTParameterMinimize)
+        ]
+        param_name_list.extend(
+            [p for p in options.parameters if isinstance(p, FTParameterMinimize)]
+        )
+
         logger.info(
             "\t%s%s",
-            " ".join(f"{param.name[:15]:<15}" for param in options.parameters),
+            " ".join(f"{param.name[:15]:<15}" for param in param_name_list),
             "score",
         )
-        for param_instance in param_instance_list:
+        for param_instance_tuple in param_instance_tuple_list:
             if self.should_exit:
                 logger.warning("Experiment interrupted. Exiting...")
                 return
 
             if has_minimize:
-                self._finetune_minimize(options, param_instance)
+                self._finetune_minimize(options, param_instance_tuple)
                 continue
 
-            ftrun = self._ftrun_from_options(options, param_instance)
-            ftrun.exec(env=options.env)
+            ftrun = self._ftrun_from_options(options, param_instance_tuple)
+            ftrun.exec(
+                env=options.env,
+                timeout=options.timeout if options.timeout > 0 else None,
+            )
             ftrun.cleanup()
 
             score_str = ""
@@ -1269,7 +1332,9 @@ class FTExperiment:
             if ftrun.has_error():
                 # If the run has an error, we log it as N/A
                 score_str += "N/A"
-                if ftrun.exit_code is not None:
+                if ftrun.error_message:
+                    score_str += f" ({ftrun.error_message})"
+                elif ftrun.exit_code is not None:
                     # If there is an exit code, we log it
                     score_str += f" (exit code: {ftrun.exit_code})"
             else:  # valid run with execution time
@@ -1359,6 +1424,10 @@ class FTExperiment:
         """Compare the output of the runs with the baseline output."""
         if not options.output_dump_baseline_sources:
             logger.error("No baseline output specified for comparison.")
+            return
+
+        if len(self.trimmed_mean_results) == 0:
+            logger.error("No trimmed mean results available for comparison.")
             return
 
         # First, we need to run the baseline output to generate the expected output
