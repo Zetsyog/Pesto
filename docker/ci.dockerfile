@@ -7,19 +7,8 @@ RUN apt-get update && apt-get install -y \
     libyaml-dev libgmp3-dev \ 
     llvm-14 llvm-14-dev libclang-14-dev \
     bison libbison-dev libfl-dev mpc libmpc-dev \
-    libntl-dev bzip2 texinfo sbcl  &&\    
+    libntl-dev bzip2 texinfo sbcl libglpk-dev &&\    
     rm -rf /var/lib/apt/lists/*
-
-# install barvinok-0.41.8
-WORKDIR /build
-RUN wget "https://barvinok.sourceforge.io/barvinok-0.41.8.tar.gz" -O barvinok-0.41.8.tar.gz &&\
-    tar -xzvf barvinok-0.41.8.tar.gz &&\
-    cd barvinok-0.41.8 &&\
-    ./configure --prefix=/usr &&\
-    make -j &&\
-    make install &&\
-    cd .. &&\
-    rm barvinok-0.41.8.tar.gz
 
 
 # install maxima
