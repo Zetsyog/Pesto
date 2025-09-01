@@ -360,8 +360,6 @@ class FTOptions:
 
             list_part = expr[1:-1].strip()
             # check if the list part contains a comma
-            if "," not in list_part:
-                return None
             list_parts = list_part.split(",")
             if len(list_parts) < 1:
                 return None
