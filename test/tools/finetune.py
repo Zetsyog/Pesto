@@ -56,10 +56,19 @@ class FTParameter:
 class FTParameterRange(FTParameter):
     """Parameter that has a range of values to search for."""
 
-    def __init__(self, name: str, min_value: int, max_value: int):
+    def __init__(
+        self,
+        name: str,
+        min_value: int,
+        max_value: int,
+        pow2: bool = True,
+        step: int = 10,
+    ):
         super().__init__(name)
         self.min_value = min_value
         self.max_value = max_value
+        self.pow2 = pow2
+        self.step = step
 
 
 class FTParameterMinimize(FTParameter):
@@ -186,14 +195,14 @@ class FTOptions:
         )
 
         parser.add_argument(
-            "--param-range",
+            "--param",
             action="append",
-            nargs=3,
+            nargs=2,
             default=[],
             type=str,
-            metavar=("NAME", "MIN", "MAX"),
-            dest="param_ranges",
-            help="Range of tile sizes to search for. ",
+            metavar=("NAME", "EXPR"),
+            dest="experiment_params",
+            help="Experiment parameters that must be finetuned. ",
         )
 
         parser.add_argument(
@@ -287,6 +296,48 @@ class FTOptions:
 
         return parser
 
+    def _parse_experiment_param(self, name: str, expr: str) -> FTParameter | None:
+        # for now we only support range parameters
+
+        # check if string contains exactly one [ and one ]
+        if not (expr.count("[") == 1 and expr.count("]") == 1):
+            return None
+
+        if not (expr.startswith("[") and expr.endswith("]")):
+            return None
+
+        range_part = expr[1:-1].strip()
+        # check if the range part contains a comma
+        if "," not in range_part:
+            return None
+        range_parts = range_part.split(",")
+        if len(range_parts) < 2 or len(range_parts) > 3:
+            return None
+
+        # strip whitespaces
+        range_parts = [part.strip() for part in range_parts]
+        pow2 = False
+
+        try:
+            min_value = int(range_parts[0])
+            max_value = int(range_parts[1])
+            if min_value >= max_value:
+                raise ValueError("min_value must be less than max_value")
+            step = 10
+            if len(range_parts) == 3:
+                if range_parts[2] == "pow2":
+                    step = -1
+                    pow2 = True
+                else:
+                    step = int(range_parts[2])
+                    if step <= 0:
+                        raise ValueError("step must be greater than 0")
+        except ValueError as e:
+            logger.error("Invalid parameter range: %s", e)
+            return None
+
+        return FTParameterRange(name, min_value, max_value, pow2, step)
+
     def parse(self) -> None:
         """Parse the command line arguments and initialize the options."""
 
@@ -302,21 +353,20 @@ class FTOptions:
             )
             sys.exit(1)
 
-        for param in ns.param_ranges:
-            name, min_value, max_value = param
-            try:
-                min_value = int(min_value)
-                max_value = int(max_value)
-            except ValueError as e:
-                logger.error("Invalid parameter range: %s", e)
-                sys.exit(1)
+        for param in ns.experiment_params:
+            name, expr = param
 
-            # check if a parameter with the same name already exists
             if any(p.name == name for p in self.parameters):
                 logger.error("Parameter '%s' is already defined.", name)
                 sys.exit(1)
 
-            self.parameters.append(FTParameterRange(name, min_value, max_value))
+            parsed_param = self._parse_experiment_param(name, expr)
+            if not parsed_param:
+                logger.error(
+                    "Invalid parameter expression for parameter %s: '%s'", name, expr
+                )
+
+            self.parameters.append(parsed_param)
 
         if len(ns.param_minimize) > 1:
             logger.error(
@@ -524,10 +574,12 @@ class FTOptions:
             if isinstance(param, FTParameterRange):
                 logger.log(
                     level,
-                    "\t\t%s:\t[%d, %d]",
+                    "\t\t%s:\t%s[%d, %d]%s",
                     param.name,
+                    "pow2 " if param.pow2 else "",
                     param.min_value,
                     param.max_value,
+                    f" step {param.step}" if not param.pow2 else "",
                 )
             elif isinstance(param, FTParameterMinimize):
                 logger.log(level, "\t\t%s:\t<%d", param.name, param.init_value)
@@ -602,7 +654,7 @@ class FTRun:
         result = subprocess.Popen(
             [self.command],
             stdout=subprocess.PIPE,
-            stderr=self.stderr_fd,
+            stderr=self.stderr_fd if self.stderr_fd else subprocess.PIPE,
             text=True,
             env=env,
             restore_signals=False,
@@ -657,7 +709,9 @@ class FTRunBuilderTransform:
     def __init__(self):
         pass
 
-    def apply(self, input_bundle: FTTransformSourceBundle) -> FTTransformSourceBundle:
+    def apply(
+        self, input_bundle: FTTransformSourceBundle
+    ) -> FTTransformSourceBundle | None:
         """Apply a transformation on the sources."""
         raise NotImplementedError("Subclasses must implement this method.")
 
@@ -681,7 +735,9 @@ class FTRunBuilderStepCompile(FTRunBuilderTransform):
         cmd.extend(self.extra_flags)
         return cmd
 
-    def apply(self, input_bundle: FTTransformSourceBundle) -> FTTransformSourceBundle:
+    def apply(
+        self, input_bundle: FTTransformSourceBundle
+    ) -> FTTransformSourceBundle | None:
         """Compile the sources with the given compiler and flags."""
         if not isinstance(input_bundle, FTTransformSourceBundle):
             logger.error("Compile step requires sources files as input")
@@ -704,14 +760,15 @@ class FTRunBuilderStepCompile(FTRunBuilderTransform):
             if result.returncode != 0:
                 logger.error("Compilation failed:\n%s\n%s", stdout, stderr)
                 logger.error("Compile command: %s", " ".join(cmd))
-                return
+                return None
         except subprocess.SubprocessError as e:
             logger.error("Failed to compile binary: %s", e)
             logger.error("Compile command: %s", " ".join(cmd))
-            return
+            return None
         if not output.exists():
             logger.error("Compilation failed: Binary does not exist.")
             logger.error("Compile command: %s", " ".join(cmd))
+            return None
 
         logger.debug("Compilation succeeded:\n%s", stdout)
 
@@ -842,7 +899,9 @@ class FTRunBuilderStepOmpSchedule(FTRunBuilderTransform):
         super().__init__()
         self._omp_schedule = omp_schedule
 
-    def apply(self, input_bundle: FTTransformSourceBundle) -> FTTransformSourceBundle:
+    def apply(
+        self, input_bundle: FTTransformSourceBundle
+    ) -> FTTransformSourceBundle | None:
         """Apply OpenMP schedule to the sources."""
         output_bundle = FTTransformSourceBundle([], [], [])
 
@@ -992,6 +1051,11 @@ class FTRunBuilder:
                     cleanup_files=cleanup_files,
                 )
             )
+            if output_bundle is None:
+                logger.error(
+                    "Transformation step '%s' failed.", transform.__class__.__name__
+                )
+                continue
             sources = output_bundle.sources
             cleanup_files.extend(output_bundle.cleanup_files)
             self._generated_files.extend(output_bundle.generated_files)
@@ -1050,7 +1114,10 @@ class FTExperiment:
         param_product_list = []
         range_param_list = [p for p in param_list if isinstance(p, FTParameterRange)]
         for param in range_param_list:
-            values = powers_of_two_in_range(param.min_value, param.max_value)
+            if param.pow2:
+                values = powers_of_two_in_range(param.min_value, param.max_value)
+            else:
+                values = range(param.min_value, param.max_value + 1, param.step)
             instance_list = []
             for value in values:
                 instance_list.append(FTParamInstance(param.name, value))
@@ -1119,6 +1186,8 @@ class FTExperiment:
             param_instance = init_param_instance[:-1] + (
                 FTParamInstance(options.parameters[-1].name, value),
             )
+
+            print(f"{param_instance}")
 
             ftrun = self._ftrun_from_options(options, param_instance)
             ftrun.exec(env=options.env)
