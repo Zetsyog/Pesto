@@ -1238,8 +1238,6 @@ class FTExperiment:
                 FTParamInstance(options.parameters[-1].name, value),
             )
 
-            print(f"{param_instance}")
-
             ftrun = self._ftrun_from_options(options, param_instance)
             ftrun.exec(env=options.env)
             ftrun.cleanup()
