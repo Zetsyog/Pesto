@@ -1401,6 +1401,10 @@ class FTExperiment:
         value = last_run[0] - step
         error_count = 0
         while step > options.minimize_min_step:
+            # round value to the nearest hundred
+            if value >= 100:
+                value = (value + 50) // 100 * 100
+
             param_instance = init_param_instance[:-1] + (
                 FTParamInstance(options.parameters[-1].name, value),
             )
