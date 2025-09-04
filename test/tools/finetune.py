@@ -1,3 +1,5 @@
+"""Finetune parameters for a benchmark to find best performance."""
+
 import sys
 import argparse
 import bisect
@@ -750,7 +752,9 @@ class FTRun:
         if self.has_error():
             # If the run has an error, we log it as N/A
             score_str += "N/A"
-            if self.exit_code is not None:
+            if self.error_message:
+                score_str += f" ({self.error_message})"
+            elif self.exit_code is not None:
                 # If there is an exit code, we log it
                 score_str += f" (exit code: {self.exit_code})"
         else:  # valid run with execution time
@@ -1256,6 +1260,7 @@ class FTExperiment:
         init_value = param.init_value
 
         if init_value == 1:
+            nworking_runs = 0
             while True:
                 param_instance = init_param_instance[:-1] + (
                     FTParamInstance(options.parameters[-1].name, init_value),
@@ -1268,11 +1273,12 @@ class FTExperiment:
                 # keep track of the best runs
                 if not ftrun.has_error():
                     self.best_runs.insert((ftrun.kernel_execution_time, ftrun.params))
+                    nworking_runs += 1
 
                 # Log the result
                 ftrun.log_result(logger)
 
-                if not ftrun.has_error():
+                if nworking_runs >= 2:
                     break
 
                 init_value *= 10
