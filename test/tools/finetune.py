@@ -732,6 +732,7 @@ class FTRun:
             proc.kill()
             proc.wait()
             self.exit_code = -1
+            self.kernel_execution_time = float(timeout)
             self.error_message = "Timeout expired"
         except subprocess.SubprocessError as e:
             logger.error("Failed to run binary: %s", e)
@@ -761,6 +762,8 @@ class FTRun:
             # If the run has an error, we log it as N/A
             score_str += "N/A"
             if self.error_message:
+                if self.error_message == "Timeout expired":
+                    score_str = f"{self.kernel_execution_time:.2f}"
                 score_str += f" ({self.error_message})"
             elif self.exit_code is not None:
                 # If there is an exit code, we log it
