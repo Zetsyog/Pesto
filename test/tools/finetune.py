@@ -1,3 +1,4 @@
+# pylint: disable=too-many-lines
 """Finetune parameters for a benchmark to find best performance."""
 
 import sys
@@ -1345,7 +1346,7 @@ class FTExperiment:
         runs_without_error = []
 
         # first we want to find an volume where the program terminates correctly
-        while value <= max_run:
+        while len(runs_without_error) < 4:
             param_instance = init_param_instance[:-1] + (
                 FTParamInstance(options.parameters[-1].name, value),
             )
@@ -1360,8 +1361,6 @@ class FTExperiment:
             # keep track of the best runs
             if not ftrun.has_error():
                 self.best_runs.insert((ftrun.kernel_execution_time, ftrun.params))
-
-            if ftrun.kernel_execution_time is not None:
                 runs_without_error.append((value, ftrun.kernel_execution_time))
 
             value *= 10
@@ -1410,12 +1409,14 @@ class FTExperiment:
             )
 
             ftrun = self._ftrun_from_options(options, param_instance)
-            ftrun.exec(env=options.env)
+            ftrun.exec(env=options.env, timeout=options.timeout)
             ftrun.cleanup()
 
             # keep track of the best runs
             if not ftrun.has_error():
                 self.best_runs.insert((ftrun.kernel_execution_time, ftrun.params))
+
+            if ftrun.kernel_execution_time is not None:
                 step = step // 2
                 if ftrun.kernel_execution_time < last_run[1]:
                     last_run = (value, ftrun.kernel_execution_time)
