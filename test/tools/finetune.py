@@ -1352,7 +1352,10 @@ class FTExperiment:
             )
 
             ftrun = self._ftrun_from_options(options, param_instance)
-            ftrun.exec(env=options.env)
+            ftrun.exec(
+                env=options.env,
+                timeout=options.timeout if options.timeout > 0 else None,
+            )
             ftrun.cleanup()
 
             # keep track of the best runs
