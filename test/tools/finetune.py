@@ -1311,14 +1311,17 @@ class FTExperiment:
             )
 
             ftrun = self._ftrun_from_options(options, param_instance)
-            ftrun.exec(env=options.env)
+            ftrun.exec(
+                env=options.env,
+                timeout=options.timeout if options.timeout > 0 else None,
+            )
             ftrun.cleanup()
 
             # keep track of the best runs
             if not ftrun.has_error():
                 self.best_runs.insert((ftrun.kernel_execution_time, ftrun.params))
 
-            if ftrun.has_error():
+            if ftrun.kernel_execution_time is None:
                 value = value + step
             else:
                 value = value - step
