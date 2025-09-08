@@ -117,7 +117,7 @@ process_file() {
     ${extract_scop_bin} "$infile" >>"$scop_file"
     echo "#pragma endscop" >>"$scop_file"
 
-    pesto_outfile=$tmp_dir/$full_filename
+    pesto_outfile="$tmp_dir/$(basename "$output_file")"
 
     # run pesto tool on the extracted scop
     pesto_cmd="${pesto_bin} $scop_file ${forward_opts[*]} -o $pesto_outfile"
