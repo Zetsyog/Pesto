@@ -37,6 +37,8 @@ class TpzTilingPass : public IPass {
 	virtual void apply(Program &prog) override;
 	virtual void applyScop(OslScop &nest) override;
 
+	void setUseMinVolume(bool use) { this->useMinVolume = use; }
+
   private:
 	isl_ctx *ctx;
 	isl_printer *printer;
@@ -45,6 +47,10 @@ class TpzTilingPass : public IPass {
 	int insertedStmts;
 
 	std::filesystem::path outputFile;
+
+	/* options */
+	bool useMinVolume = false;
+	/* end options*/
 
 	void tileClastFor(OslScop &scop, CloogProgram *cloogProgram, CloogOptions *cloogOptions, struct clast_root *root,
 					  struct clast_for *clastFor, pesto::maths::Vec2i slope);

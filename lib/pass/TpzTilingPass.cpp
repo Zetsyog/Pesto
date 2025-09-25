@@ -29,11 +29,9 @@
 #include <pesto/pass/PlutoPass.hpp>
 #include <pesto/pass/TpzTilingPass.hpp>
 
-// TODO: rename this pass to TrapezoidalTilingPass
-
 using pesto::pass::TpzTilingPass;
 
-TpzTilingPass::TpzTilingPass() : IPass("split-tiling"), outputFile(".") {
+TpzTilingPass::TpzTilingPass() : IPass("tpz-tiling"), outputFile(".") {
 	this->ctx = isl_ctx_alloc();
 	this->printer = isl_printer_to_str(this->ctx);
 }
@@ -279,11 +277,10 @@ void TpzTilingPass::codegen(OslScop &scop, CloogProgram *cloogProgram, CloogOpti
 
 	// add var for front iterator
 	std::string nthreadsName = std::string("NTHREADS");
-	std::string targetVolName = std::string("D1_TARGET_VOL");
+	std::string minVolName = std::string("D1_MIN_VOL");
 	std::string offsetName = std::string("tile_offset");
 
 	varDeclData->addVar(nthreadsName);
-	varDeclData->addVar(targetVolName);
 	varDeclData->addVar(offsetName);
 
 	for (size_t i = 0; i < clastTilingPairs.size(); ++i) {
@@ -380,19 +377,26 @@ void TpzTilingPass::codegen(OslScop &scop, CloogProgram *cloogProgram, CloogOpti
 			stmtStr += rootHelper.innerForLBName() + ", " + rootHelper.innerForUBName();
 			stmtStr += ");";
 
-			stmtStr += nameHelper.targetVolName() + " = " + nameHelper.pcMaxName() + " / " + nameHelper.divName() + ";";
 			stmtStr += nameHelper.outerForLBName() + " = 0;";
 
-			stmtStr += std::string("long int NB = max(floord(") + nameHelper.pcMaxName() + ", D1_MIN_VOL), 1);";
+			if (this->useMinVolume) {
+				stmtStr +=
+					std::string("long int NB = max(floord(") + nameHelper.pcMaxName() + ", " + minVolName + "), 1);";
 
-			stmtStr += std::string("if(NB < ") + nthreadsName + ") {";
-			stmtStr += nameHelper.outerForUBName() + " = NB - 1;";
-			stmtStr += nameHelper.targetVolName() + " = floord(" + nameHelper.pcMaxName() + ", NB);";
-			stmtStr += "} else {";
-			stmtStr += nameHelper.outerForUBName() + " = NB - (NB % " + nthreadsName + ") - 1;";
-			stmtStr += nameHelper.targetVolName() + " = floord(" + nameHelper.pcMaxName() + ", " +
-					   nameHelper.outerForUBName() + " + 1);";
-			stmtStr += "}";
+				stmtStr += std::string("if(NB < ") + nthreadsName + ") {";
+				stmtStr += nameHelper.outerForUBName() + " = NB - 1;";
+				stmtStr += nameHelper.targetVolName() + " = floord(" + nameHelper.pcMaxName() + ", NB);";
+				stmtStr += "} else {";
+				stmtStr += nameHelper.outerForUBName() + " = NB - (NB % " + nthreadsName + ") - 1;";
+				stmtStr += nameHelper.targetVolName() + " = floord(" + nameHelper.pcMaxName() + ", " +
+						   nameHelper.outerForUBName() + " + 1);";
+				stmtStr += "}";
+			} else {
+				stmtStr +=
+					nameHelper.targetVolName() + " = " + nameHelper.pcMaxName() + " / " + nameHelper.divName() + ";";
+				stmtStr += nameHelper.outerForUBName() + " = max(floord(" + nameHelper.pcMaxName() + ", " +
+						   nameHelper.targetVolName() + "), 1) - 1;";
+			}
 
 			macroData->defineFunc(std::string("S") + std::to_string(pair.outerHeaderStmt->statement->number), "",
 								  stmtStr);
@@ -977,6 +981,7 @@ std::pair<std::string, std::string> TpzTilingPass::computeInnerMinMaxStr(OslScop
 	return minMaxPair;
 }
 void TpzTilingPass::developClastSubstitutions(CloogOptions *cloogOptions, struct clast_root *root) {
+	(void)cloogOptions; // Unused parameter
 	int nstmts;
 	auto stmts = clast_get_user_stmt_list(&(root->stmt), &nstmts);
 

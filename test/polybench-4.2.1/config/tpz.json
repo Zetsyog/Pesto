@@ -16,16 +16,17 @@
                     1,
                     1
                 ],
-                "find-tile-sizes": false,
                 "identity": false
             }
         },
         {
-            "uuid": "isl-tpz-tiling"
+            "uuid": "isl-tpz-tiling",
+            "useMinVolume": false
         },
         {
             "uuid": "codegen-cloog",
-            "optFirstLevel": 8
+            "optFirstLevel": 8,
+            "spreadEqualities": false
         }
     ]
 }

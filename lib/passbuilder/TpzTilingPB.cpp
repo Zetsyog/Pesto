@@ -14,5 +14,21 @@ std::unique_ptr<pesto::pass::IPass> TpzTilingPB::build(PassManagerBuilder &build
 
 	std::unique_ptr<TpzTilingPass> pass = std::make_unique<TpzTilingPass>();
 
+	for (auto &[key, val] : j.items()) {
+		// ignore uuid
+		if (key == "uuid") {
+			continue;
+		} else if (key == "useMinVolume") {
+			if (!val.is_boolean()) {
+				std::cerr << "Warning: " << key << " must be a boolean. Ignoring." << std::endl;
+				continue;
+			}
+			pass->setUseMinVolume(val.get<bool>());
+
+		} else {
+			std::cerr << "Warning: Unknown option " << key << ". Ignoring." << std::endl;
+		}
+	}
+
 	return pass;
 }
