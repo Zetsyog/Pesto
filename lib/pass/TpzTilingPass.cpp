@@ -149,6 +149,7 @@ void TpzTilingPass::tileClastFor(OslScop &scop, CloogProgram *cloogProgram, Cloo
 
 	this->insertInnerLoopBounds(scop, cloogProgram, clastTilingPairs);
 	this->insertOmpPragmas(cloogProgram, clastTilingPairs);
+	this->developClastSubstitutions(cloogOptions, root);
 
 	this->codegen(scop, cloogProgram, cloogOptions, root, clastTilingPairs, innerDomain, slope);
 
@@ -974,4 +975,34 @@ std::pair<std::string, std::string> TpzTilingPass::computeInnerMinMaxStr(OslScop
 	free(max_str);
 
 	return minMaxPair;
+}
+void TpzTilingPass::developClastSubstitutions(CloogOptions *cloogOptions, struct clast_root *root) {
+	int nstmts;
+	auto stmts = clast_get_user_stmt_list(&(root->stmt), &nstmts);
+
+	for (int i = 0; i < nstmts; ++i) {
+		clast_user_stmt *userStmt = stmts[i];
+
+		if (userStmt->substitutions == nullptr) {
+			continue;
+		}
+		// clast_pprint(stderr, userStmt->substitutions, 0, cloogOptions);
+
+		for (clast_stmt *stmt = userStmt->substitutions; stmt != nullptr; stmt = stmt->next) {
+			if (CLAST_STMT_IS_A(stmt, stmt_ass)) {
+				struct clast_assignment *ass = (struct clast_assignment *)stmt;
+
+				if (ass->RHS->type == clast_expr_bin) {
+					struct clast_binary *bin = (struct clast_binary *)ass->RHS;
+					if (bin->type == clast_bin_div) {
+						struct clast_expr *new_expr = clast_develop_fraction(bin);
+						free_clast_expr(ass->RHS);
+						ass->RHS = new_expr;
+					}
+				}
+			}
+		}
+	}
+
+	free(stmts);
 }

@@ -75,6 +75,19 @@ class TpzTilingPass : public IPass {
 	void insertOmpPragmas(CloogProgram *cloogProgram, std::vector<ptile::ClastTilingPair> &clastTilingPairs);
 
 	std::optional<pesto::maths::Vec2i> computeDepDistanceVector(OslScop &scop);
+
+	/**
+	 * @brief Develop clast substitutions for array accesses
+	 * The generated code with the applied schedule can lead to complex array accesses
+	 * like A[(-i+2*j-1)/2]
+	 * Compilers like gcc do not like such accesses and they can lead to inefficient code
+	 * This function will replace such accesses where all terms are developped
+	 * like A[-i/2+j-1/2]
+	 * compiler seems to like that better
+	 * @param cloogOptions
+	 * @param root
+	 */
+	void developClastSubstitutions(CloogOptions *cloogOptions, struct clast_root *root);
 };
 
 } // namespace pesto::pass

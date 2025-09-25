@@ -797,3 +797,50 @@ struct clast_stmt *clast_stmt_hard_copy(struct clast_stmt *stmt) {
 
 	return result_root;
 }
+
+struct clast_expr *clast_develop_fraction(struct clast_binary *bin) {
+	assert(bin != NULL);
+	assert(bin->type == clast_bin_div);
+
+	// case denominator is 1
+	// we can just return the numerator
+	if (cloog_int_is_one(bin->RHS)) {
+		struct clast_expr *copy = clast_expr_hard_copy(bin->LHS);
+		return copy;
+	}
+
+	// case numerator is not a reduction
+	// we cannot develop the fraction
+	if (bin->LHS->type != clast_expr_red) {
+		return &(bin->expr);
+	}
+
+	struct clast_reduction *red = (struct clast_reduction *)bin->LHS;
+	// only support sum reduction for now
+	if (red->type != clast_red_sum) {
+		return &(bin->expr);
+	}
+	cloog_int_t rhs;
+	cloog_int_init(rhs);
+	cloog_int_set(rhs, bin->RHS);
+
+	cloog_int_t one;
+	cloog_int_init(one);
+	cloog_int_set_si(one, 1);
+
+	struct clast_reduction *result = new_clast_reduction(clast_red_sum, red->n);
+	for (int i = 0; i < red->n; i += 1) {
+		if (red->elts[i]->type == clast_expr_term) {
+			struct clast_term *term = (struct clast_term *)red->elts[i];
+			if (cloog_int_eq(term->val, rhs)) {
+				result->elts[i] = &(new_clast_term(one, clast_expr_hard_copy(term->var))->expr);
+				continue;
+			}
+		}
+
+		struct clast_binary *term_bin = new_clast_binary(clast_bin_div, clast_expr_hard_copy(red->elts[i]), rhs);
+		result->elts[i] = &(new_clast_term(one, &(term_bin->expr))->expr);
+	}
+
+	return &(result->expr);
+}
