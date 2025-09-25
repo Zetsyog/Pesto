@@ -153,7 +153,7 @@ run_test() {
     expected_output=$(sha256sum "$benchmark/${benchmark_name}.dump" | cut -d' ' -f1)
     echo -e "${INFO} Expected output hash: $expected_output"
 
-    command=("${MAKE}" -C "$benchmark" "${benchmark_name}" -B PESTO="$PESTO" PESTO_CONFIG="$pesto_config" EXTRA_FLAGS="$EXTRA_FLAGS")
+    command=("${MAKE}" -C "$benchmark" "${benchmark_name}" -B CC="$CC" PESTO="$PESTO" PESTO_CONFIG="$pesto_config" EXTRA_FLAGS="$EXTRA_FLAGS")
     echo -e "${INFO} Generate pesto program"
     if ! "${command[@]}" >/dev/null 2>&1; then
         echo -e "[ ${RED}  FAIL  ${RESET} ] Pesto failed: ${command[*]}"
@@ -172,7 +172,7 @@ run_test() {
         D3=$(sed "$((i * 3 + 2))q;d" <<<"$div_list")
 
         rm -f "$benchmark/$make_target"
-        command=("${MAKE}" -C "$benchmark" "${make_target}" PESTO_CONFIG="$pesto_config" EXTRA_FLAGS="$EXTRA_FLAGS -DDIV0=$D1 -DDIV1=$D2 -DDIV2=$D3")
+        command=("${MAKE}" -C "$benchmark" "${make_target}" CC="$CC" PESTO="$PESTO" PESTO_CONFIG="$pesto_config" EXTRA_FLAGS="$EXTRA_FLAGS -DDIV0=$D1 -DDIV1=$D2 -DDIV2=$D3")
         echo -e "${INFO} Compile pesto program ${D1}x${D2}x${D3}"
         if ! "${command[@]}" >/dev/null 2>&1; then
             echo -e "[ ${RED}  FAIL  ${RESET} ] Compilation failed: ${command[*]}"
