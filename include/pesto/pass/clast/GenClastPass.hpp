@@ -47,6 +47,7 @@ class GenClastPass : public IPass {
 	int cloogFirstUnroll; // The first dimension to unroll
 	int cloogBacktrack;	  // 1 to use backtrack
 	int cloogNoSimplify;  // 1 to not simplify the polyhedra
+	int cloogEsp;
 
 	GenClastPass();
 	virtual ~GenClastPass();

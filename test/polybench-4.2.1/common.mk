@@ -17,6 +17,7 @@ CLEANFILES=\
 	$(SRC).pluto.c \
 	$(SRC).pesto.c \
 	$(SRC).pesto.tpz.c \
+	$(SRC)_tpz \
 	header.*.h \
 	trahrhe_header.*.h \
 	$(SRC).trahrhe.* \

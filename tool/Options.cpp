@@ -19,7 +19,7 @@ void print_usage() {
 	std::cerr << "Options:" << std::endl;
 	std::cerr << "\t--readscop\t\tInput file is openscop format" << std::endl;
 	std::cerr << "\t--config,-c <file>\t\tSpecify a JSON configuration file" << std::endl;
-	std::cerr << "\t--output,-o <file>\t\tSpecify a JSON configuration file" << std::endl;
+	std::cerr << "\t--output,-o <file>\t\tSet output file path" << std::endl;
 	std::cerr << "\t--indent,-i\t\tFormat generated code" << std::endl;
 	std::cerr << "\t--help,-h\t\tPrint this help message" << std::endl;
 	std::cerr << "\t--version,-v\t\tPrint the version number" << std::endl;

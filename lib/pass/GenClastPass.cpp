@@ -16,7 +16,8 @@ GenClastPass::GenClastPass()
 	, cloogSh(0)
 	, cloogFirstUnroll(-1)
 	, cloogBacktrack(0)
-	, cloogNoSimplify(0) {}
+	, cloogNoSimplify(0)
+	, cloogEsp(1) {}
 
 GenClastPass::~GenClastPass() {}
 
@@ -45,6 +46,7 @@ void GenClastPass::applyScop(OslScop &nest) {
 	data->cloogOptions->first_unroll = cloogFirstUnroll;
 	data->cloogOptions->backtrack = cloogBacktrack;
 	data->cloogOptions->nosimplify = cloogNoSimplify;
+	data->cloogOptions->esp = cloogEsp;
 
 	// data.cloogOptions->override = 1;
 

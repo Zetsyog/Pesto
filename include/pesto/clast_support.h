@@ -157,6 +157,15 @@ struct clast_for *clast_get_innermost_for(struct clast_stmt *root_for);
 
 struct clast_stmt *clast_stmt_hard_copy(struct clast_stmt *stmt);
 
+/**
+ * @brief develop  the given fraction expression into a sum of terms
+ * Take as input a fraction expression of the form (a1*X1 + a2*X2 + ... + an*Xn)/d
+ * and return a clast_reduction expression of the form a1*X1/d + a2*X2/d + ... + an*Xn/d
+ * @param bin the fraction expression to develop
+ * @return the developed expression as a clast_reduction
+ */
+struct clast_expr *clast_develop_fraction(struct clast_binary *bin);
+
 #ifdef __cplusplus
 }
 #endif

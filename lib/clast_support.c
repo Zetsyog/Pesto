@@ -797,3 +797,86 @@ struct clast_stmt *clast_stmt_hard_copy(struct clast_stmt *stmt) {
 
 	return result_root;
 }
+
+struct clast_expr *clast_develop_fraction(struct clast_binary *bin) {
+	assert(bin != NULL);
+	assert(bin->type == clast_bin_div);
+
+	// case denominator is 1
+	// we can just return the numerator
+	if (cloog_int_is_one(bin->RHS)) {
+		struct clast_expr *copy = clast_expr_hard_copy(bin->LHS);
+		return copy;
+	}
+
+	// case numerator is not a reduction
+	// we cannot develop the fraction
+	if (bin->LHS->type != clast_expr_red) {
+		return &(bin->expr);
+	}
+
+	struct clast_reduction *red = (struct clast_reduction *)bin->LHS;
+	// only support sum reduction for now
+	if (red->type != clast_red_sum) {
+		return &(bin->expr);
+	}
+	cloog_int_t rhs;
+	cloog_int_init(rhs);
+	cloog_int_set(rhs, bin->RHS);
+
+	cloog_int_t one;
+	cloog_int_init(one);
+	cloog_int_set_si(one, 1);
+
+	struct clast_term **terms = calloc(red->n, sizeof(struct clast_term *));
+	size_t n_terms = 0;
+
+	for (int i = 0; i < red->n; i += 1) {
+		if (red->elts[i]->type == clast_expr_term) {
+			struct clast_term *term = (struct clast_term *)red->elts[i];
+			// special case for constant fractions
+			if (term->var == NULL && n_terms != 0) {
+				int found_compatible = 0;
+				for (size_t j = 0; j < n_terms; j += 1) {
+					if (terms[j]->var->type == clast_expr_bin) {
+						struct clast_binary *term_bin = (struct clast_binary *)terms[j]->var;
+						if (term_bin->type == clast_bin_div && cloog_int_eq(term_bin->RHS, rhs)) {
+							// we found a compatible term
+							struct clast_reduction *num = new_clast_reduction(clast_red_sum, 2);
+							num->elts[0] = &(new_clast_term(one, term_bin->LHS))->expr;
+							num->elts[1] = &(new_clast_term(term->val, NULL))->expr;
+
+							term_bin->LHS = &(num->expr);
+
+							found_compatible = 1;
+							break;
+						}
+					}
+				}
+				if (found_compatible) {
+					continue;
+				}
+
+			} else if (cloog_int_eq(term->val, rhs)) {
+				terms[n_terms] = new_clast_term(one, clast_expr_hard_copy(term->var));
+				n_terms += 1;
+				continue;
+			}
+		}
+
+		struct clast_binary *term_bin = new_clast_binary(clast_bin_div, clast_expr_hard_copy(red->elts[i]), rhs);
+		terms[n_terms] = new_clast_term(one, &(term_bin->expr));
+		n_terms += 1;
+	}
+
+	struct clast_reduction *result = new_clast_reduction(clast_red_sum, n_terms);
+	for (size_t i = 0; i < n_terms; i += 1) {
+		result->elts[i] = &(terms[i]->expr);
+	}
+
+	free(terms);
+	cloog_int_clear(rhs);
+	cloog_int_clear(one);
+
+	return &(result->expr);
+}
