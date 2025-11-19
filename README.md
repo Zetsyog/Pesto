@@ -26,7 +26,6 @@ Here is a list of the required packages:
 - Pluto dependencies
   - Autotools software collections
   - GMP lib
-  - MPC
   - llvm/clang (max version is llvm14)
   - Bison/Flex library
 - Trahrhe dependencies:
@@ -36,7 +35,7 @@ Here is a list of the required packages:
 The same list as Debian-like package list:
 
 ```bash
-sudo apt install bash cmake gcc g++ git make pkgconf libtool autoconf automake libyaml-dev libgmp3-dev llvm-14 llvm-14-dev libclang-14-dev bison libbison-dev libfl-dev mpc libmpc-dev libntl-dev maxima
+sudo apt install bash cmake gcc g++ git make pkgconf libtool autoconf automake libyaml-dev libgmp3-dev llvm-14 llvm-14-dev libclang-14-dev bison libbison-dev libfl-dev libntl-dev maxima
 ```
 
 Then you will need to install barvinok by source.
