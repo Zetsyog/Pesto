@@ -2,9 +2,14 @@ include(ExternalProject)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GMP REQUIRED gmp)
+pkg_check_modules(CDDGMP cddgmp)
 find_package(NTL REQUIRED)
 
 find_package(GLPK)
+
+if(${CDDGMP_FOUND})
+	message(STATUS "CDDGMP library found.")
+endif()
 
 if(NOT NTL_FOUND)
 	message(FATAL_ERROR "NTL library not found. Please install NTL.")
@@ -35,6 +40,8 @@ ExternalProject_Add(
 
 link_directories(${BARVINOK_INSTALL_DIR}/lib)
 
-set(BARVINOK_LIBRARIES barvinok ${GLPK_LIBRARIES} ${NTL_LIBRARIES} ${GMP_LIBRARIES} polylibgmp)
+set(BARVINOK_LIBRARIES barvinok ${CDDGMP_LIBRARIES} ${GLPK_LIBRARIES} ${NTL_LIBRARIES}
+					   ${GMP_LIBRARIES} polylibgmp
+)
 
 add_dependencies(barvinok-src pluto-src)
