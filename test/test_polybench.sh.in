@@ -249,8 +249,8 @@ EXTRA_FLAGS="$EXTRA_FLAGS -DD1_MIN_VOL=100000"
 BK_RUN_NB=$RUN_NB
 # Some magic here those values work well for trapezoidal tiling
 # on the tested benchmarks
-MIN_TILE_SIZE=5
-MAX_TILE_SIZE=5
+MIN_TILE_SIZE=10
+MAX_TILE_SIZE=10
 
 RUN_NB=1
 
