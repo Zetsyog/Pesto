@@ -24,6 +24,10 @@ build:pesto:
     - docker push "$CI_REGISTRY_IMAGE:latest"
 .test:
   stage: test
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+      when: always
+    - when: never
   tags:
     - ci.inria.fr
   image: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
