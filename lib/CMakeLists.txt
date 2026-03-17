@@ -70,6 +70,8 @@ target_include_directories(
 target_include_directories(pesto PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/include)
 target_include_directories(pesto PUBLIC ${TRAHRHE_INCLUDE_DIRS})
 target_include_directories(pesto PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(pesto PUBLIC pluto cloog nlohmann_json muparser ${TRAHRHE_LIBRARIES})
+target_link_libraries(
+	pesto PUBLIC pluto cloog nlohmann_json muparser ${GMP_LIBRARIES} ${TRAHRHE_LIBRARIES}
+)
 
 message(STATUS "Trahrhe libraries: ${TRAHRHE_LIBRARIES}")
