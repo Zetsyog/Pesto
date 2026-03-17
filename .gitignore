@@ -12,6 +12,9 @@
 *.la
 *.lo
 
+# log files
+*.log
+
 # Build directories
 build/
 dist/
@@ -46,6 +49,7 @@ libtool
 .envrc
 shell.nix
 flake.lock
+env/
 
 # tmp
 output_*

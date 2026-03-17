@@ -1,3 +1,10 @@
+/*
+ * Pesto - A polyhedral loop nest optimizer
+ *
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2024 Clément Rossetti
+ */
+
 #include <pesto/clast_support.h>
 #include <pesto/pass/clast/CustomVecPragma.hpp>
 #include <pesto/pass/clast/GenClastPass.hpp>

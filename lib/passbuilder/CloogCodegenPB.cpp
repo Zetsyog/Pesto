@@ -1,3 +1,10 @@
+/*
+ * Pesto - A polyhedral loop nest optimizer
+ *
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2024 Clément Rossetti
+ */
+
 #include <pesto/macros.h>
 #include <pesto/pass/CodegenPasses.hpp>
 #include <pesto/passbuilder/CloogCodegenPB.hpp>

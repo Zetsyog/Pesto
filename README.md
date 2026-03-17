@@ -2,7 +2,7 @@
 
 [![pipeline status](https://gitlab.inria.fr/crossett/pesto/badges/main/pipeline.svg?key_text=Build+and+Test+(main)&key_width=150)](https://gitlab.inria.fr/crossett/pesto/-/commits/main)
 
-Polyhedral flExible loop-neST Optimizer (PESTO)
+Polyhedral Extensible loop-neST Optimizer (PESTO)
 
 ```bash
 ./pesto <input_file> [-h,--help] [-v,--version]

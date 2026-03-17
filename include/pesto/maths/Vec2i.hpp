@@ -1,3 +1,10 @@
+/*
+ * Pesto - A polyhedral loop nest optimizer
+ *
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2024 Clément Rossetti
+ */
+
 #ifndef PESTO_MATHS_VEC2I_H
 #define PESTO_MATHS_VEC2I_H
 
