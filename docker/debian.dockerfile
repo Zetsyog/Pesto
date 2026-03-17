@@ -6,7 +6,7 @@ RUN apt-get update && apt-get install -y \
     pkgconf libtool autoconf automake\
     libyaml-dev libgmp3-dev \ 
     bison libbison-dev libfl-dev mpc libmpc-dev \
-    libntl-dev bzip2 texinfo &&\    
+    libntl-dev bzip2 texinfo libglpk-dev &&\    
     rm -rf /var/lib/apt/lists/*
 
 # install sbcl
@@ -21,7 +21,7 @@ RUN wget --quiet 'http://prdownloads.sourceforge.net/sbcl/sbcl-1.4.16-x86-64-lin
 ENV maxima_build=5.47.0
 
 WORKDIR /build
-RUN git clone https://git.code.sf.net/p/maxima/code maxima-code --branch 5.47.0 --single-branch --depth 1 &&\
+RUN git clone https://git.code.sf.net/p/maxima/code maxima-code --branch "$maxima_build" --single-branch --depth 1 &&\
     cd maxima-code &&\
     mkdir dist &&\
     ./bootstrap &&\
@@ -29,12 +29,10 @@ RUN git clone https://git.code.sf.net/p/maxima/code maxima-code --branch 5.47.0 
     make -j &&\
     make install
 
-ARG repository_dir
-
 WORKDIR /pesto
 
 # Copy the repository to the container
-ADD ${repository_dir} ./
+COPY . .
 
 # Cleanup the build directory (host might have built the project before)
 RUN rm -rf build && mkdir -p build
