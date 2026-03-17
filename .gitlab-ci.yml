@@ -2,49 +2,40 @@ stages:
   - build
   - test
 
-build:docker-ci:
+variables:
+  IMAGE_TAG: "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"
+
+
+build:pesto:
   stage: build
-  when: manual
-  image: docker:stable
+  image: docker:dind
   tags:
     - ci.inria.fr
     - large
   rules:
-    - changes:
-        - docker/ci.dockerfile
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
       when: always
-    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-      when: never
+    - when: never
   before_script:
     - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
   script:
-    - docker build . -t "$CI_REGISTRY_IMAGE/pesto-ci" -f docker/ci.dockerfile
-    - docker push "$CI_REGISTRY_IMAGE/pesto-ci"
-
-build:pesto:
-  stage: build
-  image: $CI_REGISTRY_IMAGE/pesto-ci
-  tags:
-    - ci.inria.fr
-    - large
-  script:
-    - mkdir build
-    - cd build
-    - cmake .. -DPESTO_BUILD_JOBS=4 && cmake --build . -j
+    - docker build -t "$IMAGE_TAG" -t "$CI_REGISTRY_IMAGE:latest" -f ./docker/debian.dockerfile .
+    - docker push "$IMAGE_TAG"
+    - docker push "$CI_REGISTRY_IMAGE:latest"
 .test:
   stage: test
-  variables:
-    GIT_STRATEGY: fetch
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
+      when: always
+    - when: never
   tags:
     - ci.inria.fr
-  image: $CI_REGISTRY_IMAGE/pesto-ci
+  image: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
 
 test:polybench:
   extends: .test
   tags:
     - large
   script:
-    - mkdir build
-    - cd build
-    - cmake .. -DPESTO_BUILD_JOBS=4 && cmake --build . -j
     - cmake --build . --target test-polybench
+

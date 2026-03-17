@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2024 Clément Rossetti
+
 extract_scop_bin="@EXTRACT_SCOP_BIN@"
 replace_scop_bin="@REPLACE_SCOP_BIN@"
 pesto_bin="@PESTO_TOOL_BIN@"

@@ -1,3 +1,10 @@
+/*
+ * Pesto - A polyhedral loop nest optimizer
+ *
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2024 Clément Rossetti
+ */
+
 #include <iostream>
 
 #include <pesto/clast_support.h>
@@ -47,6 +54,7 @@ void GenClastPass::applyScop(OslScop &nest) {
 	data->cloogOptions->backtrack = cloogBacktrack;
 	data->cloogOptions->nosimplify = cloogNoSimplify;
 	data->cloogOptions->esp = cloogEsp;
+	data->cloogOptions->strides = 1;
 
 	// data.cloogOptions->override = 1;
 
