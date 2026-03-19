@@ -1,0 +1,23 @@
+{
+    "options": {
+        "input-format": "c"
+    },
+    "passes": [
+        {
+            "uuid": "pluto",
+            "options": {
+                "tile": true,
+                "parallel": true,
+                "prevector": false,
+                "intratileopt": true,
+                "silent": false,
+                "fuse": "smart"
+            }
+        },
+        {
+            "uuid": "codegen-cloog",
+            "optLastLevel": 1,
+            "optFirstLevel": 1000
+        }
+    ]
+}

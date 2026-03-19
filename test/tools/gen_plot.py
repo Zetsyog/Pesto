@@ -334,6 +334,7 @@ def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="Process input files.")
     parser.add_argument("input_file", nargs="+", help="Input file(s)")
+
     return parser.parse_args()
 
 
@@ -370,6 +371,11 @@ def main():
 
     import matplotlib.pyplot as plt
 
+    plt.xticks(rotation=45)
+    plt.yscale("log")
+    plt.minorticks_on()
+    plt.grid(which="minor", linestyle=":", linewidth="0.5", color="gray", axis="y")
+    plt.grid(which="major", linestyle="-", linewidth="0.75", color="black", axis="y")
     plt.show()
 
 

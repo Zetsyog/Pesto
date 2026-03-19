@@ -245,7 +245,7 @@ echo -e "${BOLD}==========================================================${RESE
 echo -e "${BOLD}          Running tests with trapezoidal tiling           ${RESET}"
 echo -e "${BOLD}==========================================================${RESET}"
 EXTRA_FLAGS_OLD="$EXTRA_FLAGS"
-EXTRA_FLAGS="$EXTRA_FLAGS -DD1_MIN_VOL=100000"
+EXTRA_FLAGS="$EXTRA_FLAGS -DD1_MIN_VOL=200000"
 BK_RUN_NB=$RUN_NB
 # Some magic here those values work well for trapezoidal tiling
 # on the tested benchmarks

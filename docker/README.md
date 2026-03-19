@@ -3,7 +3,8 @@
 ## Build the ci image
 
 ```bash
-docker build -t pesto-ci -f docker/ci.dockerfile .
+docker build -t pesto:latest -f docker/debian.dockerfile .
+docker run -it --rm pesto:latest bash
 ```
 
 ## Push the ci image to gitlab registry

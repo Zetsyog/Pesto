@@ -8,8 +8,7 @@
             "options": {
                 "tile": true,
                 "parallel": true,
-                "prevector": true,
-                "intratileopt": true,
+                "unrolljam": false,
                 "silent": false
             }
         },
