@@ -40,8 +40,10 @@ test:polybench:
   rules:
     # run automatically in scheduled pipelines
     - if: $CI_PIPELINE_SOURCE == "schedule"
-    # allow manual trigger on dev
+    # allow manual trigger on dev and main
     - if: $CI_COMMIT_BRANCH == "dev"
+      when: manual
+    - if: $CI_COMMIT_BRANCH == "main"
       when: manual
     - when: never
   script:
