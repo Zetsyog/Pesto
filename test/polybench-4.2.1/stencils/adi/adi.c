@@ -76,8 +76,6 @@ void kernel_adi(int tsteps, int n,
   DATA_TYPE mul1, mul2;
   DATA_TYPE a, b, c, d, e, f;
 
-#pragma scop
-
   DX = SCALAR_VAL(1.0)/(DATA_TYPE)_PB_N;
   DY = SCALAR_VAL(1.0)/(DATA_TYPE)_PB_N;
   DT = SCALAR_VAL(1.0)/(DATA_TYPE)_PB_TSTEPS;
@@ -93,6 +91,7 @@ void kernel_adi(int tsteps, int n,
   e = SCALAR_VAL(1.0)+mul2;
   f = d;
 
+  #pragma scop
  for (t=1; t<=_PB_TSTEPS; t++) {
     //Column Sweep
     for (i=1; i<_PB_N-1; i++) {

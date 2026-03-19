@@ -1,0 +1,31 @@
+{
+    "passes": [
+        {
+            "uuid": "pluto",
+            "options": {
+                "tile": true,
+                "parallel": true,
+                "prevector": true,
+                "identity": false,
+                "intratileopt": true,
+                "silent": false
+            }
+        },
+        {
+            "uuid": "param-tiling",
+            "gen-trahrhe": true,
+            "trahrhe-use-dichotomy": true,
+            "bound-compute-method": "fill-last",
+            "volumeCheck": {
+                "strategy": "no-check"
+            }
+        },
+        {
+            "uuid": "clast-custom-vec-pragma",
+            "pragma": "GCC ivdep"
+        },
+        {
+            "uuid": "codegen-cloog"
+        }
+    ]
+}
