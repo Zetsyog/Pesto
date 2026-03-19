@@ -3,8 +3,17 @@ stages:
   - test
 
 variables:
-  IMAGE_TAG: "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"
+  IMAGE_TAG: "$CI_REGISTRY_IMAGE:$CI_COMMIT_BRANCH-$CI_COMMIT_SHA"
 
+workflow:
+  rules:
+    # MR to main → normal CI
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"
+    # scheduled pipelines → allowed
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    # optional: manual runs
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - when: never
 
 build:pesto:
   stage: build
@@ -12,30 +21,29 @@ build:pesto:
   tags:
     - ci.inria.fr
     - large
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
-      when: always
-    - when: never
   before_script:
     - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
   script:
-    - docker build -t "$IMAGE_TAG" -t "$CI_REGISTRY_IMAGE:latest" -f ./docker/debian.dockerfile .
+    - docker build -t "$IMAGE_TAG" -t "$CI_REGISTRY_IMAGE:$CI_COMMIT_BRANCH-latest" -f ./docker/debian.dockerfile .
     - docker push "$IMAGE_TAG"
-    - docker push "$CI_REGISTRY_IMAGE:latest"
+    - docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_BRANCH-latest"
 .test:
   stage: test
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"'
-      when: always
-    - when: never
   tags:
     - ci.inria.fr
-  image: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+  image: $CI_REGISTRY_IMAGE:$CI_COMMIT_BRANCH-$CI_COMMIT_SHA
 
 test:polybench:
   extends: .test
   tags:
     - large
+  rules:
+    # run automatically in scheduled pipelines
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    # allow manual trigger on dev
+    - if: $CI_COMMIT_BRANCH == "dev"
+      when: manual
+    - when: never
   script:
     - cd /pesto/build
     - cmake --build . --target test-polybench
