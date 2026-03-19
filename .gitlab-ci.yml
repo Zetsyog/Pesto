@@ -3,7 +3,7 @@ stages:
   - test
 
 variables:
-  IMAGE_TAG: "$CI_REGISTRY_IMAGE:$CI_COMMIT_BRANCH-$CI_COMMIT_SHA"
+  IMAGE_TAG: "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"
 
 workflow:
   rules:
@@ -24,15 +24,13 @@ build:pesto:
   before_script:
     - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
   script:
-    - docker build -t "$IMAGE_TAG" -t "$CI_REGISTRY_IMAGE:$CI_COMMIT_BRANCH-latest" -f ./docker/debian.dockerfile .
+    - docker build -t "$IMAGE_TAG" -f ./docker/debian.dockerfile .
     - docker push "$IMAGE_TAG"
-    - docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_BRANCH-latest"
 .test:
   stage: test
   tags:
     - ci.inria.fr
-  image: $CI_REGISTRY_IMAGE:$CI_COMMIT_BRANCH-$CI_COMMIT_SHA
-
+  image: $IMAGE_TAG
 test:polybench:
   extends: .test
   tags:
