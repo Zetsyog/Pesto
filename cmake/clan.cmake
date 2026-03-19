@@ -1,14 +1,6 @@
 # require isl
 message(STATUS "Checking clan")
 
-# Cloog patch files
-set(CLOOG_PATCH_CLAST_USER_VEC
-	${CMAKE_SOURCE_DIR}/patches/cloog-Enhanced-CLAST_PARALLEL_USER-directive.patch
-)
-set(CLOOG_PATCH_CONFIGURE_FIX
-	${CMAKE_SOURCE_DIR}/patches/cloog-configure.ac-fix-TEXI2DVI-check-to-handle-missing-pr.patch
-)
-
 include(ExternalProject)
 
 set(CLAN_BIN ${CMAKE_CURRENT_BINARY_DIR}/clan)
