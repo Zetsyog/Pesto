@@ -30,3 +30,4 @@ add_dependencies(trahrhe-src barvinok-src)
 
 set(TRAHRHE_INCLUDE_DIRS ${TRAHRHE_PREFIX}/include)
 set(TRAHRHE_LIBRARIES ${BARVINOK_LIBRARIES} trahrhe m)
+message(STATUS "Trahrhe libraries: ${TRAHRHE_LIBRARIES}")

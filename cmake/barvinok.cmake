@@ -1,14 +1,16 @@
 include(ExternalProject)
 
+message(STATUS "Fetching Barvinok")
+
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GMP REQUIRED gmp)
-pkg_check_modules(CDDGMP cddgmp)
+pkg_check_modules(CDDLIB cddlib)
 find_package(NTL REQUIRED)
 
 find_package(GLPK)
 
-if(${CDDGMP_FOUND})
-	message(STATUS "CDDGMP library found.")
+if(${CDDLIB_FOUND})
+	message(STATUS "CDDLIB library found.")
 endif()
 
 if(NOT NTL_FOUND)
@@ -40,7 +42,7 @@ ExternalProject_Add(
 
 link_directories(${BARVINOK_INSTALL_DIR}/lib)
 
-set(BARVINOK_LIBRARIES barvinok ${CDDGMP_LIBRARIES} ${GLPK_LIBRARIES} ${NTL_LIBRARIES}
+set(BARVINOK_LIBRARIES barvinok ${CDDLIB_LIBRARIES} ${GLPK_LIBRARIES} ${NTL_LIBRARIES}
 					   ${GMP_LIBRARIES} polylibgmp
 )
 
