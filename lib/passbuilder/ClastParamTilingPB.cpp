@@ -66,6 +66,8 @@ std::unique_ptr<pesto::pass::IPass> ClastParamTilingPB::build(PassManagerBuilder
 					type = ParamTilingType::RECTANGULAR;
 				} else if (elt == "scheduled") {
 					type = ParamTilingType::SCHEDULED;
+				} else if (elt == "last-dim-rect") {
+					type = ParamTilingType::LAST_DIM_RECT;
 				} else {
 					type = ParamTilingType::ALGEBRAIC;
 					std::cerr << "Warning: unknown param tiling type. Default to "

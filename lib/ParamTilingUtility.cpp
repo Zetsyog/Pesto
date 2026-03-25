@@ -89,6 +89,9 @@ void pesto::ParamTilingUtility::apply(CloogProgram *cloogProgram, CloogOptions *
 	}
 
 	for (auto &group : stmtGroups) {
+		// ignore groups that are not tiled
+		if (group.trahrheDomain.first == 0)
+			continue;
 		this->trahrheDomains.push_back(group.trahrheDomain);
 	}
 }
@@ -571,9 +574,14 @@ void pesto::ParamTilingUtility::computeTrahrheDomain(CloogProgram *cloogProgram,
 
 	int ntiled_dim = 0;
 	for (std::size_t i = 0; i < group.tilingData.size(); i += 1) {
-		if (this->getTilingType(i) != ParamTilingType::RECTANGULAR) {
+		if (this->getTilingType(i) == ParamTilingType::ALGEBRAIC ||
+			this->getTilingType(i) == ParamTilingType::SCHEDULED) {
 			ntiled_dim += 1;
 		}
+	}
+
+	if (this->getTilingType(0) == ParamTilingType::LAST_DIM_RECT && group.tilingData.size() > 1) {
+		ntiled_dim += group.tilingData.size() - 1;
 	}
 
 	isl_printer *printer = isl_printer_to_str(ctx);

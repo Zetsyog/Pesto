@@ -25,7 +25,7 @@
 
 namespace pesto {
 
-enum class ParamTilingType { RECTANGULAR, ALGEBRAIC, SCHEDULED };
+enum class ParamTilingType { RECTANGULAR, ALGEBRAIC, SCHEDULED, LAST_DIM_RECT };
 
 enum class VolumeCheckTrigger {
 	NEVER,
