@@ -84,6 +84,13 @@ void ParamTilingCodegen::genHeaderStmt(std::ostream &os) {
 	case pesto::ParamTilingType::SCHEDULED:
 		this->genHeaderStmtScheduled(os);
 		break;
+	case pesto::ParamTilingType::LAST_DIM_RECT:
+		if (this->tilingDepth == this->group.tilingData.size() - 1) {
+			this->genHeaderStmtRectangular(os);
+		} else {
+			this->genHeaderStmtAlgebraic(os);
+		}
+		break;
 	default:
 		std::cerr << "[param-tiling] Unknown tiling type" << std::endl;
 	}
@@ -173,6 +180,13 @@ void ParamTilingCodegen::genBodyStmt(std::ostream &os) {
 		break;
 	case pesto::ParamTilingType::SCHEDULED:
 		this->genBodyStmtScheduled(os);
+		break;
+	case pesto::ParamTilingType::LAST_DIM_RECT:
+		if (this->tilingDepth == this->group.tilingData.size() - 1) {
+			this->genBodyStmtRectangular(os);
+		} else {
+			this->genBodyStmtAlgebraic(os);
+		}
 		break;
 	default:
 		std::cerr << "[param-tiling] Unknown tiling type" << std::endl;

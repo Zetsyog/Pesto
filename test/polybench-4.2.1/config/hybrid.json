@@ -17,8 +17,7 @@
             "gen-trahrhe": true,
             "trahrhe-use-dichotomy": true,
             "types": [
-                "algebraic",
-                "rectangular"
+                "last-dim-rect"
             ]
         },
         {
