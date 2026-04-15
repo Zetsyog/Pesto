@@ -61,10 +61,11 @@ int main(int argc, char **argv) {
 	}
 
 	if (options->debug()) {
-		logger->set_level(spdlog::level::debug);
+		spdlog::set_level(spdlog::level::debug);
+		pesto::log::set_level(spdlog::level::debug);
 		logger->debug("Debug mode enabled");
 	} else {
-		logger->set_level(spdlog::level::info);
+		pesto::log::set_level(spdlog::level::info);
 	}
 
 	/* FRONTEND */

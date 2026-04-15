@@ -32,14 +32,16 @@ const std::vector<spdlog::sink_ptr> &sinks() {
 std::shared_ptr<spdlog::logger> get_logger(const std::string &name) {
 	auto existing_logger = spdlog::get(name);
 	if (existing_logger != nullptr) {
+		existing_logger->set_level(spdlog::get_level());
+
 		return existing_logger;
 	}
 
 	auto logger = std::make_shared<spdlog::logger>(name, sinks().begin(), sinks().end());
 
 	// Default configuration – can be overridden per‑component later
-	logger->set_level(spdlog::level::info);
 	logger->flush_on(spdlog::level::err);
+	logger->set_level(spdlog::get_level());
 
 	spdlog::register_logger(logger);
 	return logger;
