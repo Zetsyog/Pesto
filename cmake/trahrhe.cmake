@@ -26,9 +26,10 @@ externalproject_add(
     LOG_DIR ${TRAHRHE_PREFIX}/log
     CMAKE_CACHE_ARGS
     "-DCMAKE_C_FLAGS:PATH=-I${POLYLIB_PREFIX}/install/include -L${POLYLIB_PREFIX}/install/lib"
-    "-DBARVINOK_PATH:PATH=${BARVINOK_INSTALL_DIR}" #
-    "-DISL_INSTALL_PATH:PATH=${ISL_PREFIX}/install" #
-    "-DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>" #
+    "-DBARVINOK_PATH:PATH=${BARVINOK_INSTALL_DIR}"
+    "-DISL_INSTALL_PATH:PATH=${ISL_PREFIX}/install"
+    "-DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>"
+    BUILD_BYPRODUCTS ${TRAHRHE_PREFIX}/install/bin/trahrhe
     UPDATE_DISCONNECTED OFF
 )
 add_dependencies(trahrhe-src barvinok-src isl-src polylib-src)
