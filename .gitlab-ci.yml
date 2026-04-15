@@ -31,12 +31,20 @@ build:pesto:
   tags:
     - ci.inria.fr
   image: $IMAGE_TAG
-test:polybench:
+test:polybench:algebraic:
   extends: .test
-  tags:
-    - large
-  rules:
   script:
     - cd /pesto/build
-    - cmake --build . --target test-polybench
+    - cmake --build . --target test-polybench-algebraic
+    - cmake --build . --target test-polybench-hybrid
+test:polybench:dynschedule:
+  extends: .test
+  script:
+    - cd /pesto/build
+    - cmake --build . --target test-polybench-dynschedule
+test:polybench:tpz:
+  extends: .test
+  script:
+    - cd /pesto/build
+    - cmake --build . --target test-polybench-tpz
 

@@ -1,0 +1,33 @@
+#!/usr/env/bin bash
+
+source "@PESTO_TEST_POLYBENCH_SCRIPT@"
+
+BENCHMARKS=(
+    "datamining/correlation"
+    "datamining/covariance"
+    "linear-algebra/blas/gemm"
+    "linear-algebra/blas/gemver"
+    "linear-algebra/blas/gesummv"
+    # "linear-algebra/blas/symm"
+    "linear-algebra/blas/syr2k"
+    "linear-algebra/blas/syrk"
+    "linear-algebra/blas/trmm"
+    "linear-algebra/kernels/2mm"
+    "linear-algebra/kernels/3mm"
+    "linear-algebra/kernels/atax"
+    "linear-algebra/kernels/bicg"
+    "linear-algebra/kernels/doitgen"
+    "linear-algebra/kernels/mvt"
+)
+
+config_path=$(realpath "config/ptile.json")
+
+print_header "Pesto CLI Test Suite - Polybench" "Algebraic tiling tests"
+
+for benchmark in "${BENCHMARKS[@]}"; do
+    benchmark_name=$(basename "$benchmark")
+    run_test "$benchmark" "${benchmark_name}_pesto" "$config_path"
+    cleanup_test "$benchmark"
+done
+
+print_results

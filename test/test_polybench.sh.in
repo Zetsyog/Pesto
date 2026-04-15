@@ -15,7 +15,7 @@ ALL_BENCHMARKS=(
     "linear-algebra/blas/gemm"
     "linear-algebra/blas/gemver"
     "linear-algebra/blas/gesummv"
-    # "linear-algebra/blas/symm"
+    "linear-algebra/blas/symm"
     "linear-algebra/blas/syr2k"
     "linear-algebra/blas/syrk"
     "linear-algebra/blas/trmm"
@@ -28,55 +28,15 @@ ALL_BENCHMARKS=(
     "linear-algebra/solvers/cholesky"
     "linear-algebra/solvers/gramschmidt"
     "linear-algebra/solvers/lu"
-    # "stencils/adi"
+    "stencils/adi"
     "stencils/fdtd-2d"
     "stencils/jacobi-1d"
     "stencils/jacobi-2d"
     "stencils/seidel-2d"
-)
-
-BENCHMARKS=(
-    "datamining/correlation"
-    "datamining/covariance"
-    "linear-algebra/blas/gemm"
-    "linear-algebra/blas/gemver"
-    "linear-algebra/blas/gesummv"
-    # "linear-algebra/blas/symm"
-    "linear-algebra/blas/syr2k"
-    "linear-algebra/blas/syrk"
-    "linear-algebra/blas/trmm"
-    "linear-algebra/kernels/2mm"
-    "linear-algebra/kernels/3mm"
-    "linear-algebra/kernels/atax"
-    "linear-algebra/kernels/bicg"
-    "linear-algebra/kernels/doitgen"
-    "linear-algebra/kernels/mvt"
-)
-
-DYNSCHEDULE_BENCHMARKS=(
-    # "stencils/adi"
-    # "stencils/fdtd-2d" # fdtd-2d is not supported yet
-    "stencils/jacobi-1d"
-    "stencils/jacobi-2d"
-    "stencils/seidel-2d"
-)
-
-TPZ_BENCHMARKS=(
-    # "stencils/adi"
-    "stencils/fdtd-2d"
-    "stencils/heat-3d"
-    "stencils/jacobi-1d"
-    "stencils/jacobi-2d"
-    "stencils/seidel-2d"
-)
-
-CONFIGS=(
-    "config/ptile.json"
-    "config/hybrid.json"
 )
 
 CFLAGS="-march=native -O3 -fopenmp"
-EXTRA_FLAGS="-lm -DPOLYBENCH_TIME -DPOLYBENCH_DUMP_ARRAYS -D$DATASET_SIZE $EXTRA_FLAGS"
+EXTRA_FLAGS="-lm -DPOLYBENCH_TIME -DPOLYBENCH_DUMP_ARRAYS -D$DATASET_SIZE"
 
 # Define colors
 GREEN="\e[32m"
@@ -110,15 +70,71 @@ cleanup_all() {
     done
 }
 
+center64() {
+    local txt="${1:-}"                     # the text to centre
+    local width=64                         # fixed field width
+    local fill="${2:- }"                   # padding character (space by default)
+    local truncate="${CENTER_TRUNCATE:-0}" # 1 → truncate, 0 → leave as‑is
+
+    local txt_len
+    txt_len=$(printf '%s' "$txt" | wc -m)
+    # wc prints leading spaces, strip them:
+    txt_len=${txt_len##* }
+
+    if ((txt_len > width)); then
+        if ((truncate)); then
+            # Cut the string to the first $width characters.
+            # `cut -c` works on *characters*, not bytes.
+            txt=$(printf '%s' "$txt" | cut -c1-"$width")
+            txt_len=$width
+        else
+            printf '%s\n' "$txt"
+            return
+        fi
+    fi
+
+    local pad=$((width - txt_len))
+    local pad_left=$((pad / 2))
+    local pad_right=$((pad - pad_left))
+
+    local left_pad right_pad
+    left_pad=$(printf '%*s' "$pad_left" '' | tr ' ' "$fill")
+    right_pad=$(printf '%*s' "$pad_right" '' | tr ' ' "$fill")
+
+    printf '%s%s%s\n' "$left_pad" "$txt" "$right_pad"
+}
+
+print_header() {
+    local title="${1:-}"
+    local subtitle="${2:-}"
+
+    echo ""
+    center64 "" "="
+    center64 "$title"
+    center64 "" "-"
+    center64 "$subtitle"
+    center64 "" "="
+}
+
+print_results() {
+    center64 "" "="
+    center64 "TEST SUMMARY"
+    center64 "" "="
+    echo -e "✔ ${GREEN}PASSED${RESET}: $pass_count"
+    echo -e "✘ ${RED}FAILED${RESET}: $fail_count"
+    echo -e " "
+    center64 "" "="
+
+}
+
 trap cleanup_all EXIT
 
-# Print header
-echo -e "${BOLD}==========================================${RESET}"
-echo -e "${BOLD}     Pesto CLI Test Suite - Polybench     ${RESET}"
-echo -e "${BOLD}==========================================${RESET}\n"
+# Run tests
+pass_count=0
+fail_count=0
 
 # Test function
-run_test() {
+function run_test() {
     # args
     local benchmark="$1"
     local make_target="$2"
@@ -153,7 +169,8 @@ run_test() {
     expected_output=$(sha256sum "$benchmark/${benchmark_name}.dump" | cut -d' ' -f1)
     echo -e "${INFO} Expected output hash: $expected_output"
 
-    command=("${MAKE}" -C "$benchmark" "${benchmark_name}" -B CC="$CC" PESTO="$PESTO" PESTO_CONFIG="$pesto_config" EXTRA_FLAGS="$EXTRA_FLAGS")
+    command=("${MAKE}" -C "$benchmark" "${benchmark_name}.pesto.c" -B CC="$CC" PESTO="$PESTO" PESTO_CONFIG="$pesto_config" EXTRA_FLAGS="$EXTRA_FLAGS")
+    echo "${command[@]}"
     echo -e "${INFO} Generate pesto program"
     if ! "${command[@]}" >/dev/null 2>&1; then
         echo -e "[ ${RED}  FAIL  ${RESET} ] Pesto failed: ${command[*]}"
@@ -162,7 +179,7 @@ run_test() {
 
     # compile and run pesto program $RUN_NB times with random divider sizes
     if [ "$MIN_TILE_SIZE" -eq "$MAX_TILE_SIZE" ]; then
-        div_list=$(yes "$MIN_TILE_SIZE" | head -n $((RUN_NB * 3)))
+        div_list=$(printf '%s\n' "$(seq 1 $((RUN_NB * 3)))" | xargs -I{} echo "$MIN_TILE_SIZE")
     else
         div_list=$(shuf -i "$MIN_TILE_SIZE-$MAX_TILE_SIZE" -n $((RUN_NB * 3)))
     fi
@@ -170,6 +187,7 @@ run_test() {
         D1=$(sed "$((i * 3 + 1))q;d" <<<"$div_list")
         D2=$(sed "$((i * 3 + 1))q;d" <<<"$div_list")
         D3=$(sed "$((i * 3 + 2))q;d" <<<"$div_list")
+        echo "aze"
 
         rm -f "$benchmark/$make_target"
         command=("${MAKE}" -C "$benchmark" "${make_target}" CC="$CC" PESTO="$PESTO" PESTO_CONFIG="$pesto_config" EXTRA_FLAGS="$EXTRA_FLAGS -DDIV0=$D1 -DDIV1=$D2 -DDIV2=$D3")
@@ -183,6 +201,7 @@ run_test() {
         echo -e "${INFO} Run command: ${command[*]}"
         if ! "${command[@]}" 2>"$output_dump" >/dev/null; then
             echo -e "[ ${RED}  FAIL  ${RESET} ] Execution failed"
+            fail_count=$((fail_count + 1))
             return 1
         fi
         output=$(sha256sum "$benchmark/${make_target}.dump" | cut -d' ' -f1)
@@ -190,97 +209,16 @@ run_test() {
             echo -e "[ ${RED}  FAIL  ${RESET} ] Output differs from expected result"
             echo -e "[ ${RED}  DIFF  ${RESET} ] Expected: \"$expected_output\""
             echo -e "[ ${RED}  DIFF  ${RESET} ] Got: \"$output\""
+            fail_count=$((fail_count + 1))
             return 1
         else
             echo -e "[ ${GREEN}  PASS  ${RESET} ] Output matches expected: \"$expected_output\""
         fi
     done
+    pass_count=$((pass_count + 1))
 
     echo -e "${INFO} Cleaning "
     command=("${MAKE}" -C "$benchmark" "clean")
     "${command[@]}" >/dev/null 2>&1
     return 0
 }
-
-# Run tests
-pass_count=0
-fail_count=0
-
-for config in "${CONFIGS[@]}"; do
-    config_path=$(realpath "$config")
-    echo ""
-    echo -e "${BOLD}==========================================================${RESET}"
-    echo -e "${BOLD}  Running tests with configuration: $config${RESET}"
-    echo -e "${BOLD}==========================================================${RESET}"
-    for benchmark in "${BENCHMARKS[@]}"; do
-        benchmark_name=$(basename "$benchmark")
-        if run_test "$benchmark" "${benchmark_name}_pesto" "$config_path"; then
-            pass_count=$((pass_count + 1))
-        else
-            fail_count=$((fail_count + 1))
-        fi
-        cleanup_test "$benchmark"
-    done
-done
-
-# Dynamic scheduling tests
-echo ""
-echo -e "${BOLD}==========================================================${RESET}"
-echo -e "${BOLD}         Running tests with dynamic scheduling            ${RESET}"
-echo -e "${BOLD}==========================================================${RESET}"
-config=$(realpath "config/ptile.json")
-for benchmark in "${DYNSCHEDULE_BENCHMARKS[@]}"; do
-    benchmark_name=$(basename "$benchmark")
-    if run_test "$benchmark" "${benchmark_name}_pesto" "$config"; then
-        pass_count=$((pass_count + 1))
-    else
-        fail_count=$((fail_count + 1))
-    fi
-    cleanup_test "$benchmark"
-done
-
-# Trapezoidal tiling tests
-echo ""
-echo -e "${BOLD}==========================================================${RESET}"
-echo -e "${BOLD}          Running tests with trapezoidal tiling           ${RESET}"
-echo -e "${BOLD}==========================================================${RESET}"
-EXTRA_FLAGS_OLD="$EXTRA_FLAGS"
-EXTRA_FLAGS="$EXTRA_FLAGS -DD1_MIN_VOL=200000"
-BK_RUN_NB=$RUN_NB
-# Some magic here those values work well for trapezoidal tiling
-# on the tested benchmarks
-MIN_TILE_SIZE=10
-MAX_TILE_SIZE=10
-
-RUN_NB=1
-
-for benchmark in "${TPZ_BENCHMARKS[@]}"; do
-    benchmark_name=$(basename "$benchmark")
-    if run_test "$benchmark" "${benchmark_name}_tpz" "$config"; then
-        pass_count=$((pass_count + 1))
-    else
-        fail_count=$((fail_count + 1))
-    fi
-    cleanup_test "$benchmark"
-done
-# Restore original EXTRA_FLAGS
-EXTRA_FLAGS="$EXTRA_FLAGS_OLD"
-MIN_TILE_SIZE=@PESTO_TEST_POLYBENCH_TILE_DIVIDER_MIN@
-MAX_TILE_SIZE=@PESTO_TEST_POLYBENCH_TILE_DIVIDER_MAX@
-RUN_NB=$BK_RUN_NB
-
-#########################################################################################
-# End tests
-#########################################################################################
-
-# Print summary
-echo ""
-echo -e "${BOLD}============================================${RESET}"
-echo -e "${BOLD}              TEST SUMMARY${RESET}"
-echo -e "${BOLD}============================================${RESET}"
-echo -e "✔ ${GREEN}PASSED${RESET}: $pass_count"
-echo -e "✘ ${RED}FAILED${RESET}: $fail_count"
-echo -e "${BOLD}============================================${RESET}"
-
-# Exit with appropriate status
-[[ $fail_count -eq 0 ]] && exit 0 || exit 1

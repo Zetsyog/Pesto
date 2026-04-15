@@ -1,0 +1,25 @@
+#!/usr/env/bin bash
+
+set -euo pipefail
+
+source "@PESTO_TEST_POLYBENCH_SCRIPT@"
+
+BENCHMARKS=(
+    # "stencils/adi"
+    # "stencils/fdtd-2d" # fdtd-2d is not supported yet
+    "stencils/jacobi-1d"
+    "stencils/jacobi-2d"
+    "stencils/seidel-2d"
+)
+
+config_path=$(realpath "config/ptile.json")
+
+print_header "Pesto CLI Test Suite - Polybench" "Dynamic scheduling tiling tests"
+
+for benchmark in "${BENCHMARKS[@]}"; do
+    benchmark_name=$(basename "$benchmark")
+    run_test "$benchmark" "${benchmark_name}_pesto" "$config_path"
+    cleanup_test "$benchmark"
+done
+
+print_results
