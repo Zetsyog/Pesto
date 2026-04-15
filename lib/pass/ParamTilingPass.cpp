@@ -5,7 +5,6 @@
  * Copyright (c) 2024 Clément Rossetti
  */
 
-#include <iostream>
 #include <memory>
 #include <optional>
 #include <string>
@@ -34,7 +33,7 @@ using pesto::pass::metadata::MacroMetadata;
 using pesto::pass::metadata::VarDeclMetadata;
 
 pesto::pass::ClastParamTilingPass::ClastParamTilingPass()
-	: IPass("pass-param-tiling")
+	: IPass("param-tiling")
 	, gen_trahrhe(false)
 	, trahrhe_use_dichotomy(true)
 	, tiling_types()
@@ -53,7 +52,7 @@ pesto::pass::ClastParamTilingPass::~ClastParamTilingPass() {}
 void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
 	if (this->areTileSkewed(scop)) {
 		// TODO: add a flag to preven pesto to do this
-		log(std::cerr) << "Detected skewing over tiling loops. Switching to dynamic scheduling. " << std::endl;
+		logger->info("Detected skewing over tiling loops. Switching to dynamic scheduling. ");
 
 		ptileUtil.clearTilingTypes();
 		ptileUtil.pushTilingType(ParamTilingType::SCHEDULED);
@@ -65,11 +64,10 @@ void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
 	}
 
 	// generate the clast
-	log(std::cerr) << "Generating clast for nest " << scop.getId() << std::endl;
+	logger->info("Generating clast for nest {}", scop.getId());
 	this->gen_clast_pass->applyScop(scop);
 	if (!scop.metadata.has<ClastHolder>()) {
-		log(std::cerr) << "Error: "
-					   << "Clast generation failed." << std::endl;
+		logger->error("Error: Clast generation failed.");
 		return;
 	}
 	auto clastData = scop.metadata.get<ClastHolder>().lock();
@@ -81,7 +79,8 @@ void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
 
 	ptileUtil.apply(clastData->cloogProgram, clastData->cloogOptions, (struct clast_root *)clastData->root);
 	if (ptileUtil.hasError()) {
-		log(std::cerr) << "Error while tiling: " << ptileUtil.getErrorMessage() << std::endl;
+		std::string errorMessage = ptileUtil.getErrorMessage();
+		logger->error("Error while tiling: {}", errorMessage.c_str());
 	}
 
 	for (auto &name : ptileUtil.getNames()) {
@@ -101,7 +100,7 @@ void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
 	auto trahrheDomains = ptileUtil.getTrahrheDomains();
 	for (auto &pair : trahrheDomains) {
 		// print trahrhe domain
-		log(std::cerr) << "Trahrhe domain = " << pair.second << std::endl;
+		logger->debug("Trahrhe domain = {}", pair.second.c_str());
 	}
 
 	if (this->gen_trahrhe) {
@@ -129,16 +128,14 @@ void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
 			size_t trahrhe_len = 0;
 			char **trahrhe_expr = trahrhe_get_inverted_polynomials_expr(trahrhe_ctx, &trahrhe_len);
 			if (trahrhe_len == 0) {
-				log(std::cerr) << "Error: "
-							   << "Could not compute trahrhe expr" << std::endl;
+				logger->error("Could not compute trahrhe expr");
 				continue;
 			}
 			std::string header_path = (outputDir / header_filename).string();
-			log(std::cerr) << "trahrhe header = " << header_path << std::endl;
+			logger->debug("trahrhe header = {}", header_path.c_str());
 			FILE *fp = fopen(header_path.c_str(), "w");
 			if (fp == NULL) {
-				log(std::cerr) << "Error: "
-							   << "Could not open file " << header_filename << std::endl;
+				logger->error("Error: Could not open file {}", header_filename.c_str());
 				if (trahrhe_expr != NULL) {
 					for (size_t i = 0; i < trahrhe_len; i++) {
 						if (trahrhe_expr[i] != NULL) {
@@ -151,7 +148,7 @@ void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
 			}
 			trahrhe_generate_header(trahrhe_ctx, fp, trahrhe_len, trahrhe_expr);
 			fclose(fp);
-			log(std::cerr) << "Generated trahrhe header file: " << header_filename << std::endl;
+			logger->info("Generated trahrhe header file: {}", header_filename.c_str());
 
 			// TODO: function to generate the header file name
 			std::string macro = "#include \"" + header_filename + "\"";
@@ -190,7 +187,7 @@ void pesto::pass::ClastParamTilingPass::applyScop(pesto::OslScop &scop) {
 		std::string macro = "#include \"" + scheduleFilename + "\"";
 		macroData->list.push_back(macro);
 
-		log(std::cerr) << "Generated schedule file: " << scheduleFilename << std::endl;
+		logger->info("Generated schedule file: {}", scheduleFilename.c_str());
 	}
 }
 
@@ -304,8 +301,7 @@ void pesto::pass::ClastParamTilingPass::undoTileSkewing(pesto::OslScop &scop) {
 			continue;
 		}
 
-		log(std::cerr) << "Undoing tile skewing of dim " << skewedDims->first << " and " << skewedDims->second
-					   << std::endl;
+		logger->info("Undoing tile skewing of dim {} and {}", skewedDims->first, skewedDims->second);
 		osl_relation_p scat = stmt->scattering;
 
 		osl_int_t one;

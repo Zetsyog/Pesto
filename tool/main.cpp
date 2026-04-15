@@ -5,10 +5,12 @@
  * Copyright (c) 2024 Clément Rossetti
  */
 
+#include <cstdio>
 #include <filesystem>
 #include <iostream>
 
-#include <stdio.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/spdlog.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -16,51 +18,93 @@
 #include <clan/clan.h>
 #include <osl/osl.h>
 
+#include <pesto/OslScop.hpp>
 #include <pesto/Pesto.hpp>
 
 #include "Options.hpp"
-#include <pesto/OslScop.hpp>
+
+void print_usage(std::ostream &out) {
+	out << "Usage: pesto [options] <input file>" << std::endl;
+	out << "Options:" << std::endl;
+	out << "\t--readscop\t\tInput file is openscop format" << std::endl;
+	out << "\t--config,-c <file>\t\tSpecify a JSON configuration file" << std::endl;
+	out << "\t--output,-o <file>\t\tSet output file path" << std::endl;
+	out << "\t--indent,-i\t\tFormat generated code" << std::endl;
+	out << "\t--debug\t\t\tEnable debug mode (more verbose output, keep intermediate files...)" << std::endl;
+	out << "\t--help,-h\t\tPrint this help message" << std::endl;
+	out << "\t--version,-v\t\tPrint the version number" << std::endl;
+}
+
+void print_version(std::ostream &out) { out << "pesto 0.1" << std::endl; }
 
 int main(int argc, char **argv) {
-	auto options = pesto::Options::build(argc, argv);
+	auto logger = pesto::log::get_logger("pesto-cli");
+
+	logger->info("Starting pesto-cli...");
+
+	std::unique_ptr<pesto::Options> options;
+	try {
+		options = pesto::Options::build(argc, argv);
+	} catch (const std::exception &e) {
+		logger->error("Error while parsing options: {}", e.what());
+		return 1;
+	}
+
+	if (options->printUsage()) {
+		print_usage(std::cerr);
+		return 0;
+	}
+
+	if (options->printVersion()) {
+		print_version(std::cerr);
+		return 0;
+	}
+
+	if (options->debug()) {
+		logger->set_level(spdlog::level::debug);
+		logger->debug("Debug mode enabled");
+	} else {
+		logger->set_level(spdlog::level::info);
+	}
 
 	/* FRONTEND */
 	// check if input file is provided
-	std::cerr << "[pesto-tool] Received input file '" << options->getInputPath() << "'" << std::endl;
+	auto inputPathStr = options->inputPath().string();
+	logger->info("Received input file '{}'", inputPathStr.c_str());
 
 	// check if input file is regular file, else shout
 	struct stat path_stat;
-	stat(options->getInputPath().c_str(), &path_stat);
+	stat(options->inputPath().c_str(), &path_stat);
 	if (!S_ISREG(path_stat.st_mode)) {
-		std::cerr << "[pesto-tool] Input file is not a regular file" << std::endl;
+		logger->error("Input file is not a regular file");
 		return 1;
 	}
 
 	// open input file
-	FILE *in = fopen(options->getInputPath().c_str(), "r");
+	FILE *in = fopen(options->inputPath().c_str(), "r");
 	if (in == NULL) {
-		std::cerr << "[pesto-tool] Error while opening input file '" << options->getInputPath() << "'" << std::endl;
+		logger->error("Error while opening input file '{}'", inputPathStr.c_str());
 		return 1;
 	}
 
 	osl_scop_p scop;
 
 	// if input is scop file
-	if (options->getReadScop()) {
-		std::cerr << "[pesto-tool] Considering input as openscop file" << std::endl;
+	if (options->readScop()) {
+		logger->info("Considering input as openscop file");
 		scop = osl_scop_read(in);
 		if (scop == NULL) {
-			std::cerr << "[pesto-tool] Error parsing scop file" << std::endl;
+			logger->error("Error parsing scop file");
 			return 1;
 		}
 	} else { // else we consider it is plain c and extract openscop using clan
-		std::cerr << "[pesto-tool] Considering input file as plain c" << std::endl;
-		std::cerr << "[pesto-tool] Running clan on '" << options->getInputPath() << "'" << std::endl;
+		logger->info("Considering input file as plain c");
+		logger->info("Running clan on '{}'", inputPathStr.c_str());
 		clan_options_p clan_opt = clan_options_malloc();
 		scop = clan_scop_extract(in, clan_opt);
 		clan_options_free(clan_opt);
 		if (scop == NULL) {
-			std::cerr << "[pesto-tool] Clan scop extraction failed. Abort" << std::endl;
+			logger->error("Clan scop extraction failed. Abort");
 			return 1;
 		}
 
@@ -76,21 +120,21 @@ int main(int argc, char **argv) {
 	// create pesto program
 	std::unique_ptr<pesto::Program> program = pesto::Program::Builder()
 												  .addScop(scop)
-												  .setInputFile(options->getInputPath())
-												  .setOutputFile(options->getOutputPath())
+												  .setInputFile(options->inputPath())
+												  .setOutputFile(options->outputPath())
 												  .build();
 	// scop has been copied by builder, we can free memory
 	osl_scop_free(scop);
 
 	std::unique_ptr<pesto::PassManager> passManager;
 
-	if (options->getConfigPath().has_value()) {
+	if (options->configPath().has_value()) {
 		std::unique_ptr<pesto::builder::PassManagerBuilder> builder =
 			pesto::builder::PassManagerBuilder::createDefault();
 
-		passManager = builder->build(options->getConfigPath().value());
+		passManager = builder->build(options->configPath().value());
 		if (passManager == nullptr) {
-			std::cerr << "[pesto-tool] Error while building pass manager" << std::endl;
+			logger->error("Error while building pass manager");
 			return 1;
 		}
 	} else {
@@ -112,9 +156,9 @@ int main(int argc, char **argv) {
 	}
 
 	// run the passes
-	std::cerr << "[pesto-tool] Running optimizations passes" << std::endl;
+	logger->info("Running optimizations passes");
 	passManager->run(*program.get());
 
-	std::cerr << "[pesto-tool] Done" << std::endl;
+	logger->info("Done");
 	return 0;
 }

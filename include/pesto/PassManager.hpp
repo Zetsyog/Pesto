@@ -9,7 +9,8 @@
 #define PESTO_OPENSCOP_OPTIMIZER_H
 
 #include <memory>
-#include <vector>
+
+#include <spdlog/spdlog.h>
 
 #include <osl/osl.h>
 
@@ -43,6 +44,7 @@ class PassManager {
 	void addPass(std::unique_ptr<pesto::pass::IPass> pass);
 
   private:
+	std::shared_ptr<spdlog::logger> logger;
 	std::vector<std::unique_ptr<pesto::pass::IPass>> passList;
 };
 

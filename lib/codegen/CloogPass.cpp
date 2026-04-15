@@ -14,7 +14,7 @@
 
 using namespace pesto::pass;
 
-CloogCodegenPass::CloogCodegenPass() : IPass("pass-gen-cloog"), output(""), genClastPass() {}
+CloogCodegenPass::CloogCodegenPass() : IPass("codegen-cloog"), output(""), genClastPass() {}
 
 CloogCodegenPass::~CloogCodegenPass() {}
 
@@ -23,14 +23,14 @@ void CloogCodegenPass::apply(Program &prog) {
 
 	this->output = prog.getOutputFile();
 
-	log(std::cerr) << "Starting Cloog codegen. Writing in '" << output.string() << "'" << std::endl;
+	logger->info("Starting Cloog codegen. Writing in '{}'", output.string().c_str());
 
 	this->genClastPass->apply(prog);
 
 	// Check that all scops has a ClastHolder metadata
 	for (auto scop : prog.getScopNests()) {
 		if (!scop->metadata.has<metadata::ClastHolder>()) {
-			log(std::cerr) << "Could not generate Cloog AST for nest " << scop->getId() << std::endl;
+			logger->error("Could not generate Cloog AST for nest {}", scop->getId());
 
 			return;
 		}
@@ -39,11 +39,11 @@ void CloogCodegenPass::apply(Program &prog) {
 	// Generate variable declarations
 	VarDeclMetadata varDecls = this->mergeVarDecls(prog);
 
-	log(std::cerr) << "Writing var decls to " << this->output << std::endl;
+	logger->info("Writing var decls to {}", this->output.string().c_str());
 	std::ofstream outFile;
 	outFile.open(this->output);
 	if (!outFile.is_open()) {
-		log(std::cerr) << "Failed to open file: " << this->output.string() << std::endl;
+		logger->error("Failed to open file: {}", this->output.string().c_str());
 		return;
 	}
 	outFile << "/* Variable declarations */" << std::endl;
@@ -58,7 +58,7 @@ void CloogCodegenPass::apply(Program &prog) {
 	IPass::apply(prog);
 }
 
-void generateStmtMacro(FILE *fd, pesto::OslScop &nest) {
+void CloogCodegenPass::generateStmtMacro(pesto::OslScop &nest) {
 	using metadata::MacroMetadata;
 	osl_scop_p scop = nest.c_scop();
 
@@ -108,7 +108,7 @@ void CloogCodegenPass::applyScop(OslScop &nest) {
 	std::string path = this->output.string();
 
 	if (!clastData) {
-		log(std::cerr) << "An error occured, ClastData was not generated...";
+		logger->error("An error occured, ClastData was not generated...");
 		return;
 	}
 
@@ -119,14 +119,14 @@ void CloogCodegenPass::applyScop(OslScop &nest) {
 	program = clastData->cloogProgram;
 
 	if (root == nullptr || state == nullptr || options == nullptr || program == nullptr) {
-		log(std::cerr) << "Error during Cloog AST generation" << std::endl;
+		logger->error("Error during Cloog AST generation");
 		return;
 	}
 
-	log(std::cerr) << "Writing code to " << path << std::endl;
+	logger->info("Writing code to {}", path.c_str());
 	FILE *file = fopen(path.c_str(), "a");
 	// generate stmt macros
-	generateStmtMacro(file, nest);
+	generateStmtMacro(nest);
 
 	// print custom macro if there are any
 	auto macrosData = nest.metadata.get<MacroMetadata>().lock();

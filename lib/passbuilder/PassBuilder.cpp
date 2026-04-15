@@ -9,5 +9,5 @@
 
 using namespace pesto::builder;
 
-IPassBuilder::IPassBuilder() {}
+IPassBuilder::IPassBuilder() { logger = log::get_logger("pass-builder"); }
 IPassBuilder::~IPassBuilder() {}

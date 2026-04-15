@@ -7,6 +7,8 @@
 
 #include <cloog/cloog.h>
 
+#include <pesto/Logging.hpp>
+
 // clang-format off
 #define _PESTO_TEMPLATE_SCHEDULE_PATH "@PESTO_TEMPLATE_SCHEDULE@"
 // clang-format on
@@ -97,6 +99,8 @@ class ParamTilingCodegen {
 	void genScheduleHeaderFile(std::ostream &os);
 
   private:
+	std::shared_ptr<spdlog::logger> logger;
+
 	StmtGroup &group;
 	TilingData &data;
 	ParamTilingType tilingType;

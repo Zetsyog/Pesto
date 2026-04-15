@@ -59,6 +59,23 @@ find_package(BISON REQUIRED)
 # pkg-config packages
 pkg_check_modules(GMP REQUIRED gmp)
 
+
+# Miscellaneous dependencies
+
+# json
+include(cmake/json.cmake)
+
+# muparser
+include(cmake/muparser.cmake)
+
+# gtest
+include(cmake/gtest.cmake)
+
+# spdlog
+include(cmake/spdlog.cmake)
+
+# Polyhedral libraries
+
 # piplib
 include(cmake/piplib.cmake)
 
@@ -83,22 +100,11 @@ include(cmake/cloog.cmake)
 # clan
 include(cmake/clan.cmake)
 
-# json
-include(cmake/json.cmake)
-
-# muparser
-include(cmake/muparser.cmake)
-
-# gtest
-include(cmake/gtest.cmake)
-
 # barvinok
 include(cmake/barvinok.cmake)
 
 # trahrhe
 include(cmake/trahrhe.cmake)
-
-
 
 # ##################################################################################################
 # libpesto

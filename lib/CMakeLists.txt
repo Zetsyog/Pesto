@@ -16,6 +16,7 @@ set(PESTO_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/clast_support.c
     ${CMAKE_CURRENT_SOURCE_DIR}/isl_support.c
     ${CMAKE_CURRENT_SOURCE_DIR}/osl_support.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/logging/Logging.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pass/CustomVecPragma.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pass/DumpOslPass.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/pass/GenClastPass.cpp
@@ -70,5 +71,12 @@ target_include_directories(
 target_include_directories(pesto PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/include)
 target_include_directories(pesto PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(
-    pesto PUBLIC pluto cloog nlohmann_json muparser ${GMP_LIBRARIES} trahrhe
+    pesto PUBLIC
+    nlohmann_json
+    muparser
+    spdlog
+    pluto
+    cloog
+    trahrhe
+    ${GMP_LIBRARIES}
 )

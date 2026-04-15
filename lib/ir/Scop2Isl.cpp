@@ -5,7 +5,6 @@
  * Copyright (c) 2024 Clément Rossetti
  */
 
-
 #include <isl/ctx.h>
 #include <isl/map.h>
 #include <isl/mat.h>
@@ -401,6 +400,8 @@ void Scop2Isl::convert(osl_scop_t &scop) {
 		isl_set_free(domain_i);
 		isl_map_free(schedule_i);
 	}
+
+	osl_names_free(names);
 }
 
 __isl_give isl_space *Scop2Isl::islDomainSpaceFromStatement(osl_statement_p stmt) {

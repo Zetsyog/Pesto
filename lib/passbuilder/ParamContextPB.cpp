@@ -10,7 +10,7 @@
 
 using namespace pesto::builder;
 
-ParamContextPB::ParamContextPB() {}
+ParamContextPB::ParamContextPB() { logger = log::get_logger("pb/param-context"); }
 
 ParamContextPB::~ParamContextPB() {}
 
@@ -19,8 +19,8 @@ std::unique_ptr<pesto::pass::IPass> ParamContextPB::build(PassManagerBuilder &bu
 
 	// TODO Parse the JSON object and build the pass
 	if (!j.contains("value")) {
-		std::cerr << "[pass-builder] Missing option \".value\" for ParamContextPass" << std::endl;
-		return std::unique_ptr<pesto::pass::ParamContextPass>{};
+		logger->error("Missing option \"value\" for ParamContextPass");
+		throw std::invalid_argument("Missing option \"value\" for ParamContextPass");
 	}
 
 	auto pass = std::make_unique<pesto::pass::ParamContextPass>(j["value"]);

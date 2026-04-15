@@ -54,12 +54,12 @@ void TpzTilingPass::applyScop(OslScop &scop) {
 	std::optional<pesto::maths::Vec2i> slope = this->computeDepDistanceVector(scop);
 
 	if (!slope.has_value()) {
-		log(std::cerr) << "Trapezoidal tiling cannot be performed on this scop." << std::endl;
+		this->logger->error("Trapezoidal tiling cannot be performed on this scop.");
 		return;
 	}
 
-	log(std::cerr) << "Steepest dependency vector: (" << slope->x << ", " << slope->y << ")" << std::endl;
-	log(std::cerr) << "Trapezoidal tiling slope: " << slope->y / slope->x << std::endl;
+	this->logger->debug("Steepest dependency vector: ({}, {})", slope->x, slope->y);
+	this->logger->debug("Trapezoidal tiling slope: {}", slope->y / slope->x);
 
 	// Generate a Cloog ast from the scop
 	GenClastPass genClastPass;
@@ -71,7 +71,7 @@ void TpzTilingPass::applyScop(OslScop &scop) {
 	genClastPass.applyScop(scop);
 
 	if (!scop.metadata.has<metadata::ClastHolder>()) {
-		log(std::cerr) << "Error: clast generation failed. Could not apply Trapezoidal Tiling" << std::endl;
+		this->logger->error("Error: clast generation failed. Could not apply Trapezoidal Tiling");
 		return;
 	}
 
@@ -101,7 +101,7 @@ void TpzTilingPass::tileClastFor(OslScop &scop, CloogProgram *cloogProgram, Cloo
 
 	using pesto::pass::ptile::ClastTilingPair;
 
-	log(std::cerr) << "tiling clastFor: " << clastFor->iterator << std::endl;
+	this->logger->debug("tiling clastFor: {}", clastFor->iterator);
 	std::vector<ClastTilingPair> clastTilingPairs =
 		this->computeTilingPairs(scop, cloogProgram, cloogOptions, root, clastFor);
 
@@ -113,11 +113,11 @@ void TpzTilingPass::tileClastFor(OslScop &scop, CloogProgram *cloogProgram, Cloo
 	// duplicate ast at depth 1
 	ClastTilingPair &trapezoidalPair = clastTilingPairs[1];
 
-	log(std::cerr) << "Duplicating outer for loop " << trapezoidalPair.outerFor->iterator << std::endl;
+	this->logger->debug("Duplicating outer for loop {}", trapezoidalPair.outerFor->iterator);
 	// TODO: we might have to find a way to group user statement by pair of original and duplicated
 	struct clast_stmt *secondTileBand = clast_stmt_hard_copy(&(trapezoidalPair.outerFor->stmt));
 	trapezoidalPair.outerFor->stmt.next = secondTileBand;
-	log(std::cerr) << "Duplication done" << std::endl;
+	this->logger->debug("Duplication done");
 
 	// replace the duplicated inner for user statements
 
@@ -140,8 +140,7 @@ void TpzTilingPass::tileClastFor(OslScop &scop, CloogProgram *cloogProgram, Cloo
 			}
 		}
 		if (targetStmt == nullptr) {
-			log(std::cerr) << "Error: could not find duplicated user statement for number " << targetStmtNumber
-						   << std::endl;
+			this->logger->error("Error: could not find duplicated user statement for number {}", targetStmtNumber);
 			continue;
 		}
 		this->insertedStmts += 1;							 // Increment the inserted statement count
@@ -158,10 +157,15 @@ void TpzTilingPass::tileClastFor(OslScop &scop, CloogProgram *cloogProgram, Cloo
 
 	this->codegen(scop, cloogProgram, cloogOptions, root, clastTilingPairs, innerDomain, slope);
 
-	log(std::cerr) << "Starting trahrhe header generation using domain: " << std::endl;
-	isl_set_dump(innerDomain);
+	if (logger->level() <= spdlog::level::debug) {
+		this->printer = isl_printer_print_set(this->printer, innerDomain);
+		char *set_str = isl_printer_get_str(printer);
+		logger->debug("Starting trahrhe header generation using domain: {}", set_str);
+		free(set_str);
+		this->printer = isl_printer_flush(this->printer);
+	}
 	this->generateTrahrheHeaders(scop, cloogProgram, cloogOptions, root, clastTilingPairs, innerDomain);
-	log(std::cerr) << "Trahrhe header generation done." << std::endl;
+	logger->debug("Trahrhe header generation done.");
 
 	isl_set_free(innerDomain);
 }
@@ -182,7 +186,7 @@ TpzTilingPass::computeTilingPairs(OslScop &scop, CloogProgram *cloogProgram, Clo
 		 for_it = clast_get_parent_clast_for(&(root->stmt), &(for_it->stmt))) {
 		ClastTilingPair pair;
 		pair.innerFor = for_it;
-		log(std::cerr) << "Found inner for: " << for_it->iterator << std::endl;
+		logger->debug("Found inner for: {}", for_it->iterator);
 
 		clastTilingPairs.push_back(pair);
 	}
@@ -228,7 +232,7 @@ void TpzTilingPass::insertOuterForLoop(OslScop &scop, struct clast_root *root,
 		std::unique_ptr<std::string> lbName = std::make_unique<std::string>(nameHelper.outerForLBName());
 		std::unique_ptr<std::string> ubName = std::make_unique<std::string>(nameHelper.outerForUBName());
 
-		log(std::cerr) << "Creating outer for loop with iterator: " << *it_name << std::endl;
+		logger->debug("Creating outer for loop with iterator: {}", it_name->c_str());
 
 		varDeclData->addVar(*it_name);
 		varDeclData->addVar(nameHelper.outerForLBName());
@@ -505,8 +509,7 @@ __isl_give isl_set *TpzTilingPass::computeInnerDomain(OslScop &scop, CloogProgra
 	int nstmts = 0;
 	clast_user_stmt **userStmts = clast_get_user_stmt_list(&(rootFor->stmt), &nstmts);
 
-	log(std::cerr) << "Found " << nstmts
-				   << " user statements in the inner for loop: " << clastTilingPairs[0].innerFor->iterator << std::endl;
+	logger->debug("Found {} user statements in the inner for loop: {}", nstmts, clastTilingPairs[0].innerFor->iterator);
 
 	isl_union_set *domain = nullptr;
 	for (int i = 0; i < nstmts; ++i) {
@@ -515,8 +518,8 @@ __isl_give isl_set *TpzTilingPass::computeInnerDomain(OslScop &scop, CloogProgra
 
 		assert(parentFor != nullptr && "Parent for loop should not be null");
 
-		log(std::cerr) << "Processing user statement: " << userStmt->statement->number
-					   << " in parent for loop: " << parentFor->iterator << "(" << parentFor << ")" << std::endl;
+		logger->debug("Processing user statement: {} in parent for loop: {} ({})", userStmt->statement->number,
+					  parentFor->iterator, (uintptr_t)parentFor);
 
 		isl_set_dump(isl_set_from_cloog_domain(parentFor->domain));
 
@@ -578,7 +581,7 @@ void TpzTilingPass::generateTrahrheHeaders(OslScop &scop, CloogProgram *cloogPro
 	size_t trahrhe_len = 0;
 	char **trahrhe_expr = trahrhe_get_inverted_polynomials_expr(trahrhe_ctx, &trahrhe_len);
 	if (trahrhe_len == 0 || trahrhe_expr == NULL) {
-		log(std::cerr) << "Error: Could not compute trahrhe expr" << std::endl;
+		logger->error("Error: Could not compute trahrhe expr");
 		trahrhe_context_free(trahrhe_ctx);
 		return;
 	}
@@ -586,7 +589,7 @@ void TpzTilingPass::generateTrahrheHeaders(OslScop &scop, CloogProgram *cloogPro
 	std::string header_path = (outputDir / header_filename).string();
 	FILE *fp = fopen(header_path.c_str(), "w");
 	if (fp == NULL) {
-		log(std::cerr) << "Error: Could not open file " << header_filename << std::endl;
+		logger->error("Error: Could not open file {}", header_filename.c_str());
 		trahrhe_context_free(trahrhe_ctx);
 		goto error;
 	}

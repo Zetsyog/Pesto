@@ -21,17 +21,23 @@ class Options {
 
 	Options();
 
-	std::filesystem::path getInputPath();
-	std::filesystem::path getOutputPath();
+	std::filesystem::path inputPath();
+	std::filesystem::path outputPath();
 
-	std::optional<std::string> getConfigPath();
-	int getReadScop();
+	std::optional<std::string> configPath();
+	bool readScop();
+	bool debug();
+	bool printUsage();
+	bool printVersion();
 
   private:
 	std::filesystem::path input;
 	std::filesystem::path output;
-	std::optional<std::string> configPath;
-	int readScop;
+	std::optional<std::string> _configPath;
+	int _readScop;
+	int _debug;
+	int _printUsage;
+	int _printVersion;
 };
 
 } // namespace pesto

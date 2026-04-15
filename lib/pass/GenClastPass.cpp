@@ -15,7 +15,7 @@
 using namespace pesto::pass;
 
 GenClastPass::GenClastPass()
-	: IPass("pass-clast-gen")
+	: IPass("clast-gen")
 	, codegenContext(-1)
 	, cloogL(-1)
 	, cloogF(1)
@@ -36,7 +36,7 @@ void GenClastPass::applyScop(OslScop &nest) {
 	// TODO: add an option to force clast generation? (and erase old clast)
 	if (data->cloogState != nullptr || data->cloogOptions != nullptr || data->cloogProgram != nullptr ||
 		data->root != nullptr) {
-		log(std::cerr) << "Clast already generated for nest " << nest.getId() << ". Skipping." << std::endl;
+		logger->info("Clast already generated for nest {}. Skipping.", nest.getId());
 		return;
 	}
 

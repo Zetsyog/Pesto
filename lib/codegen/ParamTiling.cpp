@@ -45,6 +45,7 @@ ParamTilingCodegen::ParamTilingCodegen(StmtGroup &group, TilingData &data, int n
 	this->trahrheNameHelper.setPrefix("n" + std::to_string(nestId) + this->nameHelper.getSeparator() + "g" +
 									  std::to_string(group.id));
 	this->volumeCheckThreshold = this->nameHelper.divName() + " * 10";
+	this->logger = pesto::log::get_logger("param-tiling-codegen");
 }
 
 ParamTilingCodegen::~ParamTilingCodegen() {
@@ -69,7 +70,7 @@ void ParamTilingCodegen::genStmt(std::ostream &os, StmtType type) {
 		this->genBodyStmt(os);
 		break;
 	default:
-		std::cerr << "[param-tiling] Unknown statement type" << std::endl;
+		this->logger->error("Unknown statement type");
 	}
 }
 
@@ -92,7 +93,7 @@ void ParamTilingCodegen::genHeaderStmt(std::ostream &os) {
 		}
 		break;
 	default:
-		std::cerr << "[param-tiling] Unknown tiling type" << std::endl;
+		this->logger->error("Unknown tiling type");
 	}
 }
 
@@ -189,7 +190,7 @@ void ParamTilingCodegen::genBodyStmt(std::ostream &os) {
 		}
 		break;
 	default:
-		std::cerr << "[param-tiling] Unknown tiling type" << std::endl;
+		this->logger->error("Unknown tiling type");
 	}
 }
 
@@ -278,8 +279,7 @@ void ParamTilingCodegen::setEndline(std::string endline) { this->endline = endli
 
 void ParamTilingCodegen::setVolumeCheckThreshold(std::string threshold) {
 	if (threshold.empty()) {
-		std::cerr << "[param-tiling] Warning: volume check threshold is empty. Default to "
-				  << this->volumeCheckThreshold << std::endl;
+		this->logger->warn("Volume check threshold is empty. Default to {}", this->volumeCheckThreshold.c_str());
 		return;
 	}
 	this->volumeCheckThreshold = threshold;
@@ -312,7 +312,7 @@ void ParamTilingCodegen::genBodyStmtScheduled(std::ostream &os) {
 		return;
 	}
 	if (this->tilingDepth > 1) {
-		std::cerr << "[param-tiling] Warning: scheduled tiling depth is > 1. This is really weird..." << std::endl;
+		this->logger->warn("Scheduled tiling depth is > 1. This is really weird...");
 		return;
 	}
 
@@ -336,17 +336,15 @@ void ParamTilingCodegen::genBodyStmtScheduled(std::ostream &os) {
 void ParamTilingCodegen::genScheduleHeaderFile(std::ostream &os) {
 	// sanity check
 	if (this->tilingDepth != 0) {
-		std::cerr << "[param-tiling] Error: schedule header file can only be generated for tiling depth 0" << std::endl;
+		this->logger->error("Schedule header file can only be generated for tiling depth 0");
 		return;
 	}
 	if (this->group.tilingData.size() < 2) {
-		std::cerr << "[param-tiling] Error: schedule header file can only be generated for tiling depth 0 and 1"
-				  << std::endl;
+		this->logger->error("Schedule header file can only be generated for tiling depth 0 and 1");
 		return;
 	}
 	if (this->tilingType != ParamTilingType::SCHEDULED) {
-		std::cerr << "[param-tiling] Error: schedule header file can only be generated for scheduled tiling"
-				  << std::endl;
+		this->logger->error("Schedule header file can only be generated for scheduled tiling");
 		return;
 	}
 	// done sanity check
@@ -371,7 +369,7 @@ void ParamTilingCodegen::genScheduleHeaderFile(std::ostream &os) {
 	// copy template schedule.h
 	std::ifstream scheduleTemplate(_PESTO_TEMPLATE_SCHEDULE_PATH, std::ios::in);
 	if (!scheduleTemplate.is_open()) {
-		std::cerr << "[param-tiling] Error: cannot open schedule template file" << std::endl;
+		this->logger->error("Cannot open schedule template file");
 		return;
 	}
 	os << scheduleTemplate.rdbuf() << std::endl;

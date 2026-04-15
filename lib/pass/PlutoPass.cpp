@@ -31,7 +31,7 @@
 
 using namespace pesto::pass;
 
-PlutoPass::PlutoPass() : IPass("pass-pluto"), pluto() {
+PlutoPass::PlutoPass() : IPass("pluto"), pluto() {
 	this->pluto = this->pluto.silent(!PLUTO_DEBUG)
 					  .quiet(!PLUTO_DEBUG)
 					  .debug(PLUTO_DEBUG)
@@ -55,7 +55,7 @@ void PlutoPass::applyScop(OslScop &nest) {
 	if (osl_generic_lookup(c_scop->extension, OSL_URI_PLUTO_UNROLL) != nullptr) {
 		osl_generic_remove(&c_scop->extension, OSL_URI_PLUTO_UNROLL);
 	}
-	log(std::cerr) << "Applying pluto on nest " << nest.getId() << std::endl;
+	this->logger->debug("Applying pluto on nest {}", nest.getId());
 	// run the pass on each nest
 	this->pluto.run(nest);
 }

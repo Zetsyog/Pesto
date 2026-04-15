@@ -17,6 +17,7 @@
 /*
 	Pesto Core
 */
+#include <pesto/Logging.hpp>
 #include <pesto/OslScop.hpp>
 #include <pesto/Program.hpp>
 #include <pesto/Utils.hpp>

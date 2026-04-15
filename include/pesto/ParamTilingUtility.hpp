@@ -21,6 +21,7 @@
 
 #include <cloog/cloog.h>
 
+#include <pesto/Logging.hpp>
 #include <pesto/codegen/ParamTiling.hpp>
 
 namespace pesto {
@@ -130,7 +131,8 @@ class ParamTilingUtility {
 
   private:
 	/* polyhedral stuff */
-	isl_ctx *ctx; /* isl context */
+	isl_ctx *ctx;		  /* isl context */
+	isl_printer *printer; /* isl printer, used to print isl objects to string */
 
 	std::vector<ParamTilingType> tilingTypes;
 
@@ -158,6 +160,10 @@ class ParamTilingUtility {
 	VolumeCheckTrigger volumeCheckTrigger;
 	std::string volumeCheckThreshold;
 
+	/* Logging */
+	std::shared_ptr<spdlog::logger> logger;
+
+	/* Methods */
 	std::vector<StmtGroup> computeStmtGroups(CloogProgram *cloogProgram, struct clast_root *root);
 
 	void tileGroup(CloogProgram *cloogProgram, CloogOptions *cloogOptions, struct clast_root *root, StmtGroup &group);

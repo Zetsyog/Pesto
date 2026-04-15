@@ -8,11 +8,11 @@
 #ifndef PESTO_POLYHEDRAL_PASS_H
 #define PESTO_POLYHEDRAL_PASS_H
 
-#include <iostream>
 #include <string>
 
 #include <pluto/pluto.h>
 
+#include <pesto/Logging.hpp>
 #include <pesto/OslScop.hpp>
 #include <pesto/Program.hpp>
 
@@ -47,7 +47,7 @@ class IPass {
 
   protected:
 	std::string name;
-	virtual std::ostream &log(std::ostream &os);
+	std::shared_ptr<spdlog::logger> logger;
 };
 
 } // namespace pass

@@ -14,7 +14,7 @@
 using pesto::pass::IPass;
 using pesto::pass::MatchCriteriaPass;
 
-MatchCriteriaPass::MatchCriteriaPass() : pesto::pass::IPass("if-pass") {
+MatchCriteriaPass::MatchCriteriaPass() : pesto::pass::IPass("if") {
 	this->variables = {{"scop_max_it", 0}, {"stmt_nb", 0}};
 
 	// Add the variables to the parser
@@ -23,8 +23,7 @@ MatchCriteriaPass::MatchCriteriaPass() : pesto::pass::IPass("if-pass") {
 			this->parser.DefineVar(name, const_cast<double *>(&value));
 		}
 	} catch (mu::Parser::exception_type &e) {
-		std::cerr << "Error defining variables: ";
-		std::cerr << e.GetMsg() << std::endl;
+		logger->error("Error defining variables: {}", e.GetMsg().c_str());
 	}
 }
 
@@ -38,17 +37,15 @@ void MatchCriteriaPass::setCriteria(std::string criteria) {
 	this->criteria = criteria;
 
 	try {
-		parser.SetExpr(criteria);
+		parser.SetExpr(this->criteria);
 	} catch (mu::Parser::exception_type &e) {
-		std::cerr << "Error parsing criteria: ";
-		std::cerr << e.GetMsg() << std::endl;
+		logger->error("Error parsing criteria: {}", e.GetMsg().c_str());
 	}
 
-	std::cerr << "criteria: " << criteria << std::endl;
+	logger->debug("criteria: {}", this->criteria.c_str());
 }
 
 void MatchCriteriaPass::applyScop(OslScop &nest) {
-
 	this->variables["stmt_nb"] = osl_statement_number(nest.c_scop()->statement);
 
 	int max_it = 0;
@@ -64,17 +61,17 @@ void MatchCriteriaPass::applyScop(OslScop &nest) {
 	try {
 		result = this->parser.Eval() != 0;
 	} catch (mu::Parser::exception_type &e) {
-		std::cerr << e.GetMsg() << std::endl;
+		logger->error("Error evaluating criteria: {}", e.GetMsg().c_str());
 		return;
 	}
 
 	if (result) {
-		log(std::cerr) << "Criteria matched for scop " << nest.getId() << ". Applying then passes" << std::endl;
+		logger->info("Criteria matched for scop {}. Applying then passes", nest.getId());
 		for (auto &pass : this->thenPasses) {
 			pass->applyScop(nest);
 		}
 	} else {
-		log(std::cerr) << "Criteria not matched for scop " << nest.getId() << ". Applying else passes" << std::endl;
+		logger->info("Criteria not matched for scop {}. Applying else passes", nest.getId());
 		for (auto &pass : this->elsePasses) {
 			pass->applyScop(nest);
 		}

@@ -10,7 +10,7 @@
 
 using namespace pesto::builder;
 
-GenClastPB::GenClastPB() {}
+GenClastPB::GenClastPB() { logger = log::get_logger("pb/gen-clast"); }
 
 GenClastPB::~GenClastPB() {}
 
@@ -26,54 +26,55 @@ std::unique_ptr<pesto::pass::IPass> GenClastPB::build(PassManagerBuilder &builde
 		if (key == "uuid") {
 		} else if (key == "optLastLevel") {
 			if (!val.is_number_integer()) {
-				std::cerr << "Warning: " << key << " must be an integer. Ignoring." << std::endl;
-				continue;
+				logger->error("{} must be an integer.", key.c_str());
+				throw std::invalid_argument(key + " must be an integer");
 			}
 			pass->cloogL = val.get<int>();
 		} else if (key == "optFirstLevel") {
 			if (!val.is_number_integer()) {
-				std::cerr << "Warning: " << key << " must be an integer. Ignoring." << std::endl;
-				continue;
+				logger->error("{} must be an integer.", key.c_str());
+				throw std::invalid_argument(key + " must be an integer");
 			}
 			pass->cloogF = val.get<int>();
 		} else if (key == "stopLevel") {
 			if (!val.is_number_integer()) {
-				std::cerr << "Warning: " << key << " must be an integer. Ignoring." << std::endl;
-				continue;
+				logger->error("{} must be an integer.", key.c_str());
+				throw std::invalid_argument(key + " must be an integer");
 			}
 			pass->cloogStop = val.get<int>();
 		} else if (key == "simpleHulls") {
 			if (!val.is_boolean()) {
-				std::cerr << "Warning: " << key << " must be a boolean. Ignoring." << std::endl;
-				continue;
+				logger->error("{} must be a boolean.", key.c_str());
+				throw std::invalid_argument(key + " must be a boolean");
 			}
 			pass->cloogSh = val.get<bool>() ? 1 : 0;
 		} else if (key == "firstUnrollDimension") {
 			if (!val.is_number_integer()) {
-				std::cerr << "Warning: " << key << " must be an integer. Ignoring." << std::endl;
-				continue;
+				logger->error("{} must be an integer.", key.c_str());
+				throw std::invalid_argument(key + " must be an integer");
 			}
 			pass->cloogFirstUnroll = val.get<int>();
 		} else if (key == "backtrack") {
 			if (!val.is_boolean()) {
-				std::cerr << "Warning: " << key << " must be a boolean. Ignoring." << std::endl;
-				continue;
+				logger->error("{} must be a boolean.", key.c_str());
+				throw std::invalid_argument(key + " must be a boolean");
 			}
 			pass->cloogBacktrack = val.get<bool>() ? 1 : 0;
 		} else if (key == "codegenContext") {
 			if (!val.is_number_integer()) {
-				std::cerr << "Warning: " << key << " must be an integer. Ignoring." << std::endl;
-				continue;
+				logger->error("{} must be an integer.", key.c_str());
+				throw std::invalid_argument(key + " must be an integer");
 			}
 			pass->codegenContext = val.get<int>();
 		} else if (key == "spreadEqualities") {
 			if (!val.is_boolean()) {
-				std::cerr << "Warning: " << key << " must be a boolean. Ignoring." << std::endl;
-				continue;
+				logger->error("{} must be a boolean.", key.c_str());
+				throw std::invalid_argument(key + " must be a boolean");
 			}
 			pass->cloogEsp = val.get<bool>() ? 1 : 0;
 		} else {
-			std::cerr << "Warning: " << key << " is not a valid option for " << j["uuid"] << ". Ignoring." << std::endl;
+			logger->error("Invalid option: {}", key.c_str());
+			throw std::invalid_argument("Invalid option: " + key);
 		}
 	}
 

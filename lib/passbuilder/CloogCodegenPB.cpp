@@ -11,7 +11,7 @@
 
 using namespace pesto::builder;
 
-CloogCodegenPB::CloogCodegenPB() {}
+CloogCodegenPB::CloogCodegenPB() { logger = log::get_logger("pb/codegen-cloog"); }
 
 CloogCodegenPB::~CloogCodegenPB() {}
 
@@ -27,8 +27,7 @@ std::unique_ptr<pesto::pass::IPass> CloogCodegenPB::build(PassManagerBuilder &bu
 	if (clastPass) {
 		pass->setGenClastPass(std::move(clastPass));
 	} else {
-		std::cerr << "Error: "
-				  << "Could not create clast pass" << std::endl;
+		logger->error("Could not create clast pass");
 		return nullptr;
 	}
 

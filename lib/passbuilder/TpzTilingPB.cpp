@@ -10,7 +10,7 @@
 
 using namespace pesto::builder;
 
-TpzTilingPB::TpzTilingPB() {}
+TpzTilingPB::TpzTilingPB() { logger = log::get_logger("pb/tpz-tiling"); }
 
 TpzTilingPB::~TpzTilingPB() {}
 
@@ -27,13 +27,13 @@ std::unique_ptr<pesto::pass::IPass> TpzTilingPB::build(PassManagerBuilder &build
 			continue;
 		} else if (key == "useMinVolume") {
 			if (!val.is_boolean()) {
-				std::cerr << "Warning: " << key << " must be a boolean. Ignoring." << std::endl;
+				logger->warn("Option {} must be a boolean. Ignoring.", key.c_str());
 				continue;
 			}
 			pass->setUseMinVolume(val.get<bool>());
 
 		} else {
-			std::cerr << "Warning: Unknown option " << key << ". Ignoring." << std::endl;
+			logger->warn("Unknown option {}. Ignoring.", key.c_str());
 		}
 	}
 

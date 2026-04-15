@@ -23,7 +23,7 @@
 
 using pesto::pass::IslPass;
 
-IslPass::IslPass() : IPass("isl-pass-dev") { this->ctx = isl_ctx_alloc(); }
+IslPass::IslPass() : IPass("isl-test") { this->ctx = isl_ctx_alloc(); }
 
 IslPass::~IslPass() { isl_ctx_free(this->ctx); }
 
@@ -42,8 +42,20 @@ static __isl_give isl_multi_val *ppcg_multi_val_from_int(__isl_take isl_space *s
 	n = isl_space_dim(space, isl_dim_set);
 	mv = isl_multi_val_zero(space);
 	v = isl_val_int_from_si(ctx, val);
-	for (i = 0; i < n; ++i)
-		mv = isl_multi_val_set_val(mv, i, isl_val_copy(v));
+	for (i = 0; i < n; ++i) {
+		if (i == 0) {
+			isl_val *tmp = isl_val_int_from_si(ctx, 11);
+			mv = isl_multi_val_set_val(mv, i, tmp);
+		} else if (i == 1) {
+			isl_val *tmp = isl_val_int_from_si(ctx, 13);
+			mv = isl_multi_val_set_val(mv, i, tmp);
+		} else if (i == 2) {
+			isl_val *tmp = isl_val_int_from_si(ctx, 17);
+			mv = isl_multi_val_set_val(mv, i, tmp);
+		} else {
+			mv = isl_multi_val_set_val(mv, i, isl_val_copy(v));
+		}
+	}
 	isl_val_free(v);
 
 	return mv;
@@ -212,25 +224,28 @@ void IslPass::applyScop(OslScop &scop) {
 	isl_union_access_info *access;
 	isl_union_flow *flow;
 
-	isl_union_map *dep_flow; // potential flow dependences
+	isl_union_map *dep_flow;  // potential flow dependences
+	isl_union_map *dep_false; // potential false (anti and output) dependences
 
-	// compute live in
-	access = isl_union_access_info_from_sink(isl_union_map_copy(reads));
-	access = isl_union_access_info_set_must_source(access, isl_union_map_copy(writes));
-	access = isl_union_access_info_set_schedule_map(access, isl_union_map_copy(schedules));
-	flow = isl_union_access_info_compute_flow(access);
-
-	dep_flow = isl_union_flow_get_must_dependence(flow);
-
-	isl_union_flow_free(flow);
-
+	// compute flow dependences
 	access = isl_union_access_info_from_sink(isl_union_map_copy(reads));
 	access = isl_union_access_info_set_kill(access, isl_union_map_copy(writes));
 	access = isl_union_access_info_set_may_source(access, isl_union_map_copy(mayWrites));
 	access = isl_union_access_info_set_schedule_map(access, isl_union_map_copy(schedules));
 	flow = isl_union_access_info_compute_flow(access);
+	dep_flow = isl_union_flow_get_may_dependence(flow);
 
-	isl_union_map *proximity = isl_union_flow_get_may_dependence(flow);
+	isl_union_flow_free(flow);
+
+	// compute false dependences
+	isl_union_map *may_source = isl_union_map_union(isl_union_map_copy(mayWrites), isl_union_map_copy(reads));
+	access = isl_union_access_info_from_sink(isl_union_map_copy(mayWrites));
+	access = isl_union_access_info_set_kill(access, isl_union_map_copy(writes));
+	access = isl_union_access_info_set_may_source(access, may_source);
+	access = isl_union_access_info_set_schedule_map(access, isl_union_map_copy(schedules));
+	flow = isl_union_access_info_compute_flow(access);
+	dep_false = isl_union_flow_get_may_dependence(flow);
+	dep_false = isl_union_map_coalesce(dep_false);
 
 	isl_union_flow_free(flow);
 
@@ -249,41 +264,44 @@ void IslPass::applyScop(OslScop &scop) {
 
 	// raw = isl_union_access_info_set_schedule_map(isl_union_access_info *access, isl_union_map *schedule_map)
 
-	isl_schedule_constraints *sc = isl_schedule_constraints_on_domain(domains);
+	isl_schedule_constraints *sc = isl_schedule_constraints_on_domain(isl_union_set_copy(domains));
 	sc = isl_schedule_constraints_set_context(sc, isl_set_copy(context));
 
-	isl_union_map *validity = isl_union_map_copy(dep_flow);
+	isl_union_map *validity = isl_union_map_union(isl_union_map_copy(dep_flow), isl_union_map_copy(dep_false));
+	isl_union_map *coincidence = isl_union_map_copy(validity);
+	isl_union_map *proximity = isl_union_map_copy(dep_flow);
 
 	sc = isl_schedule_constraints_set_validity(sc, validity);
-	// sc = isl_schedule_constraints_set_coincidence(sc, coincidence);
-	// sc = isl_schedule_constraints_set_proximity(sc, proximity);
+	sc = isl_schedule_constraints_set_coincidence(sc, coincidence);
+	sc = isl_schedule_constraints_set_proximity(sc, proximity);
 
 	isl_schedule *schedule = isl_schedule_constraints_compute_schedule(sc);
-	/*
-		schedule = isl_schedule_map_schedule_node_bottom_up(
-			schedule,
-			[](__isl_take isl_schedule_node *node, void *user) -> __isl_give isl_schedule_node * {
-				if (isl_schedule_node_get_type(node) != isl_schedule_node_band) {
-					return node;
-				}
-				int n = isl_schedule_node_band_n_member(node);
-				if (n <= 1) {
-					return node;
-				}
-				isl_space *space = isl_schedule_node_band_get_space(node);
-				isl_multi_val *sizes = ppcg_multi_val_from_int(space, 32);
 
-				isl_schedule_node_dump(node);
-				node = scale_down_and_shift_to_origin(node);
-				node = isl_schedule_node_band_tile(node, sizes);
-				n = isl_schedule_node_band_n_member(node);
-				for (int i = 0; i < n; ++i)
-					node = isl_schedule_node_band_member_set_ast_loop_type(node, i, isl_ast_loop_atomic);
-
+	schedule = isl_schedule_map_schedule_node_bottom_up(
+		schedule,
+		[](__isl_take isl_schedule_node *node, void *user) -> __isl_give isl_schedule_node * {
+			(void)user;
+			if (isl_schedule_node_get_type(node) != isl_schedule_node_band) {
 				return node;
-			},
-			nullptr);
-	*/
+			}
+			int n = isl_schedule_node_band_n_member(node);
+			if (n <= 1) {
+				return node;
+			}
+			isl_space *space = isl_schedule_node_band_get_space(node);
+			isl_multi_val *sizes = ppcg_multi_val_from_int(space, 32);
+
+			isl_schedule_node_dump(node);
+			node = scale_down_and_shift_to_origin(node);
+			node = isl_schedule_node_band_tile(node, sizes);
+			n = isl_schedule_node_band_n_member(node);
+			for (int i = 0; i < n; ++i)
+				node = isl_schedule_node_band_member_set_ast_loop_type(node, i, isl_ast_loop_atomic);
+
+			return node;
+		},
+		nullptr);
+
 	p = isl_printer_print_schedule(p, schedule);
 
 	isl_ast_build *build = isl_ast_build_alloc(this->ctx);
@@ -305,8 +323,17 @@ void IslPass::applyScop(OslScop &scop) {
 	fprintf(stderr, "ISL2SCOP\n");
 	isl2scop.applySchedule(c_scop, schedule);
 
+	isl_union_set_free(domains);
+	isl_union_map_free(schedules);
+	isl_union_map_free(writes);
+	isl_union_map_free(mayWrites);
+	isl_union_map_free(reads);
+	isl_union_map_free(empty);
+
+	isl_union_map_free(dep_flow);
+	isl_union_map_free(dep_false);
+
 	isl_printer_free(p);
 	isl_schedule_free(schedule);
 	isl_set_free(context);
-	isl_union_map_free(schedules);
 }

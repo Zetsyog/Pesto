@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024 Clément Rossetti
 
+set -euo pipefail
+
 extract_scop_bin="@EXTRACT_SCOP_BIN@"
 replace_scop_bin="@REPLACE_SCOP_BIN@"
 pesto_bin="@PESTO_TOOL_BIN@"
@@ -10,18 +12,50 @@ pesto_bin="@PESTO_TOOL_BIN@"
 # TODO: custom compiler support
 CPP=@CMAKE_C_COMPILER@
 
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
 usage() {
     $pesto_bin -h
     exit 1
+}
+
+log() {
+    local level="$1"
+    shift
+    echo -e "[$(date +"%H:%M:%S")] [$level] [pesto-cli] $*" >&2
+}
+
+error() {
+    log "${RED}error${NC}" "$@"
+}
+
+debug() {
+    if [[ -z "${DEBUG:-}" ]]; then
+        return
+    fi
+    log "${BLUE}debug${NC}" "$@"
+}
+
+info() {
+    log "${GREEN}info${NC}" "$@"
+}
+
+warn() {
+    log "${YELLOW}warn${NC}" "$@"
 }
 
 cleanup() {
     rm -f .pesto* .kernel .exec-once
 }
 
-OPTS=$(getopt -o "c:o:ihv" --long "config:,output:,readscop,indent,help,version" -- "$@")
+OPTS=$(getopt -o "c:o:ihv" --long "config:,output:,readscop,indent,help,version,debug" -- "$@")
 if [ $? != 0 ]; then
-    echo "[pesto-cli] Failed to parse options" >&2
+    error "Failed to parse options"
     exit 1
 fi
 
@@ -58,12 +92,17 @@ while true; do
         forward_opts+=("$1")
         shift
         ;;
+    --debug)
+        forward_opts+=("$1")
+        DEBUG=1
+        shift
+        ;;
     --)
         shift
         break
         ;;
     *)
-        echo "[pesto-cli] Internal error!" >&2
+        error "Internal error!"
         exit 1
         ;;
     esac
@@ -71,7 +110,7 @@ done
 
 # Check if only one input is provided
 if [ $# -ne 1 ]; then
-    echo "[pesto-cli] ERROR: Only one input file is allowed" >&2
+    error "Only one input file is allowed"
     usage
 fi
 
@@ -94,7 +133,7 @@ if [ -z "$output_file" ]; then
 fi
 
 if [[ -d "$output_file" ]]; then
-    echo "[pesto-cli] ERROR: Output is a directory" >&2
+    error "Output is a directory"
     exit 1
 fi
 
@@ -106,7 +145,7 @@ process_file() {
     local tmp_dir
     local basename
 
-    echo "[pesto-cli] Processing file $infile" >&2
+    info "Processing file $infile"
 
     tmp_dir=$(mktemp -d)
     basename=$(basename "$infile")
@@ -114,7 +153,7 @@ process_file() {
     # scop_file is a temporary file that contains only the input code delimited by the pragmas
     scop_file=$tmp_dir/$basename.input
 
-    echo "[pesto-cli] Extracting scop to $scop_file" >&2
+    info "Extracting scop to $scop_file"
 
     echo "#pragma scop" >"$scop_file"
     ${extract_scop_bin} "$infile" >>"$scop_file"
@@ -126,10 +165,10 @@ process_file() {
     pesto_cmd="${pesto_bin} $scop_file ${forward_opts[*]} -o $pesto_outfile"
 
     # DEBUG
-    echo "[Debug] Running $pesto_cmd"
+    debug "Running $pesto_cmd"
     if ! $pesto_cmd; then
-        echo "[pesto-cli] ERROR: pesto-tool failed" >&2
-        echo "$pesto_cmd" >&2
+        error "pesto-tool failed"
+        debug "Command: $pesto_cmd"
         cleanup
         exit 1
     fi
@@ -138,7 +177,7 @@ process_file() {
     body_file=${tmp_dir}/$basename.body
     echo "" >"${body_file}"
 
-    echo "[pesto-cli] DEBUG: processing $pesto_outfile" >&2
+    debug "Processing $pesto_outfile"
 
     # extract include directives
     grep "^#include" "$pesto_outfile" >>"${include_file}"
@@ -148,9 +187,9 @@ process_file() {
 
     # run preprocessor on file write it to output file
     cpp_cmd="${CPP} -E -P $pesto_outfile"
-    echo "$cpp_cmd"
     if ! $cpp_cmd >>"$body_file"; then
-        echo "[pesto-cli] ERROR: Preprocessor failed" >&2
+        error "Preprocessor failed"
+        debug "Command: $cpp_cmd"
         cleanup
         exit 1
     fi
@@ -159,15 +198,15 @@ process_file() {
     header_files="$tmp_dir/*.h"
     for file in $header_files; do
         if [ -f "$file" ]; then
-            echo "[pesto-cli] Copying header file $file to $(dirname "$infile")" >&2
+            info "Copying header file $file to $(dirname "$infile")"
         else
-            echo "[pesto-cli] WARNING: Header file $file does not exist" >&2
+            warn "Header file $file does not exist"
             continue
         fi
         cp "$file" "$(dirname "$infile")"
     done
 
-    echo "[pesto-cli] DEBUG: replacing scop in $infile with $body_file" >&2
+    debug "Replacing scop in $infile with $body_file"
     cat "$include_file" >".kernel"
     ${replace_scop_bin} "$infile" "$body_file" >>".kernel"
     mv ".kernel" "$infile"
@@ -179,7 +218,7 @@ contains_pragma() {
     grep -q "#pragma scop" "$1"
 }
 
-echo "[pesto-cli] Starting pesto" >&2
+info "Starting pesto wrapper..."
 
 working_dir=$(mktemp -d)
 
@@ -190,21 +229,26 @@ working_file=$working_dir/$full_filename
 # input file must not be modified
 cp "$input_file" "$working_file"
 
-echo "[pesto-cli] Working on file $working_file" >&2
+info "Working on file $working_file"
 
 # file to store include directives
 include_file=$working_dir/.includes
 
-echo "[pesto-cli] Working dir: $working_dir" >&2
-echo "[pesto-cli] Input file: $input_file" >&2
-echo "[pesto-cli] Filename : $filename" >&2
-echo "[pesto-cli] Output file: $output_file" >&2
-echo "[pesto-cli] Include file: $include_file" >&2
+info "Working dir: $working_dir"
+info "Input file: $input_file"
+info "Filename : $filename"
+info "Output file: $output_file"
+info "Include file: $include_file"
 
 # Clear the include file
 echo "" >"$include_file"
 # extract existing include directives and define macros
-grep "^#define" "$working_file" >>"$include_file"
+if [ -f "$working_file" ]; then
+    if grep -q "^#define" "$working_file"; then
+        info "Extracting existing #define directives from $working_file"
+        grep "^#define" "$working_file" >>"$include_file"
+    fi
+fi
 
 # check if include file contains a line starting with #define min(x,y)
 if ! grep -q "#define ceild(n,d)" "$include_file"; then
@@ -234,21 +278,21 @@ if [[ $indent -ne 0 ]]; then
     if which clang-format &>/dev/null; then
         clang-format --style="{BasedOnStyle: LLVM, ColumnLimit: 120}" -i "${working_file}"
     else
-        echo "[pesto-cli] Indent flag is given but clang-format is not found. Skipping." >&2
+        warn "Indent flag is given but clang-format is not found. Skipping."
     fi
 fi
 
 # Move the final processed file to the specified output file
-echo "[pesto-cli] Done working on $output_file" >&2
+info "Done working on $output_file"
 mv "$working_file" "$output_file"
 
 # handle header files
 header_files="$working_dir/*.h"
 for file in $header_files; do
     if [ -f "$file" ]; then
-        echo "[pesto-cli] Copying header file $file to $(dirname "$infile")" >&2
+        info "Copying header file $file to $(dirname "$output_file")"
     else
-        echo "[pesto-cli] WARNING: Header file $file does not exist" >&2
+        warn "Header file $file does not exist"
         continue
     fi
     cp "$file" "$(dirname "$output_file")"

@@ -157,6 +157,12 @@ void Isl2Scop::applySchedule(osl_scop_p scop, isl_schedule *schedule) {
 		isl_map_free(map);
 	}
 
+	isl_map_list_free(map_list);
+	isl_set_list_free(domain_list);
+
+	isl_union_map_free(schedule_map);
+	isl_union_set_free(domain);
+
 	if (osl_generic_has_URI(scop->extension, OSL_URI_SCATNAMES)) {
 		osl_scatnames_p scatnames = (osl_scatnames_p)osl_generic_lookup(scop->extension, OSL_URI_SCATNAMES);
 		int size = osl_strings_size(scatnames->names);

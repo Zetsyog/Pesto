@@ -10,7 +10,7 @@
 
 using namespace pesto::builder;
 
-ClastParamTilingPB::ClastParamTilingPB() {}
+ClastParamTilingPB::ClastParamTilingPB() { logger = log::get_logger("pb/param-tiling"); }
 
 ClastParamTilingPB::~ClastParamTilingPB() {}
 
@@ -31,10 +31,9 @@ std::unique_ptr<pesto::pass::IPass> ClastParamTilingPB::build(PassManagerBuilder
 			continue;
 		}
 		if (key == "trahrhe-mask") {
-			std::cerr << "Warning: trahrhe-mask is deprecated. Use "
-						 "trahrhe-use-dichtomy"
-						 "attribute instead."
-					  << std::endl;
+			logger->warn("Trahrhe-mask is deprecated. Use "
+						 "trahrhe-use-dichotomy"
+						 "attribute instead.");
 			continue;
 		}
 		if (key == "trahrhe-use-dichotomy") {
@@ -42,20 +41,24 @@ std::unique_ptr<pesto::pass::IPass> ClastParamTilingPB::build(PassManagerBuilder
 			continue;
 		}
 		if (key == "bound-compute-method") {
-			if (val == "fill-last" || val == "default") {
+			if (!val.is_string()) {
+				logger->error("Bound compute method must be a string.");
+				throw std::invalid_argument("Bound compute method must be a string");
+			}
+			std::string valStr = val.get<std::string>();
+			if (valStr == "fill-last" || valStr == "default") {
 				pass->setBoundComputeMethod(ptile::codegen::BoundComputeMethod::FILL_LAST);
-			} else if (val == "fill-first") {
+			} else if (valStr == "fill-first") {
 				pass->setBoundComputeMethod(ptile::codegen::BoundComputeMethod::FILL_FIRST);
 			} else {
-				std::cerr << "Warning: unknown bound compute method \"" << val << "\". Default to fill-last."
-						  << std::endl;
+				logger->warn("Unknown bound compute method \"{}\". Default to fill-last.", valStr.c_str());
 				pass->setBoundComputeMethod(ptile::codegen::BoundComputeMethod::FILL_LAST);
 			}
 			continue;
 		}
 		if (key == "types") {
 			if (!val.is_array()) {
-				std::cerr << "Warning: types should be an array. Skipping." << std::endl;
+				logger->warn("Types must be an array. Skipping.");
 				continue;
 			}
 			for (std::string elt : val) {
@@ -70,96 +73,100 @@ std::unique_ptr<pesto::pass::IPass> ClastParamTilingPB::build(PassManagerBuilder
 					type = ParamTilingType::LAST_DIM_RECT;
 				} else {
 					type = ParamTilingType::ALGEBRAIC;
-					std::cerr << "Warning: unknown param tiling type. Default to "
-								 "algebraic."
-							  << std::endl;
+					logger->warn("Unknown param tiling type. Default to "
+								 "algebraic.");
 				}
 				pass->pushTilingType(type);
 			}
 			continue;
 		}
 		if (key == "pluto") {
-			std::cerr << "Warning: pluto pass is deprecated. You should call a pluto "
-						 "pass before the param-tiling pass instead."
-					  << std::endl;
+			logger->warn("Pluto pass is deprecated. You should call a pluto "
+						 "pass before the param-tiling pass instead.");
 			continue;
 		}
 		if (key == "tile-size-hint") {
 			if (!val.is_number_integer()) {
-				std::cerr << "Warning: tile-size-hint should be an integer. "
-							 "Skipping."
-						  << std::endl;
-				continue;
+				logger->error("Tile-size-hint must be an integer. Skipping.");
+				throw std::invalid_argument("Tile-size-hint must be an integer");
 			}
 			pass->setTileSizeHint(val);
 			continue;
 		}
 		if (key == "boundCorrectionStrategy") {
-			if (val == "no-correction") {
+			if (!val.is_string()) {
+				logger->error("Bound correction strategy must be a string. Skipping.");
+				throw std::invalid_argument("Bound correction strategy must be a string");
+			}
+			std::string valStr = val.get<std::string>();
+			if (valStr == "no-correction") {
 				pass->setBoundCorrectionStrategy(ptile::codegen::BoundCorrectionStrategy::NO_CORRECTION);
-			} else if (val == "correct") {
+			} else if (valStr == "correct") {
 				pass->setBoundCorrectionStrategy(ptile::codegen::BoundCorrectionStrategy::CORRECT);
-			} else if (val == "shout-and-continue") {
+			} else if (valStr == "shout-and-continue") {
 				pass->setBoundCorrectionStrategy(ptile::codegen::BoundCorrectionStrategy::SHOUT_AND_CONTINUE);
-			} else if (val == "shout-and-die") {
+			} else if (valStr == "shout-and-die") {
 				pass->setBoundCorrectionStrategy(ptile::codegen::BoundCorrectionStrategy::SHOUT_AND_DIE);
 			} else {
-				std::cerr << "Warning: unknown bound correction strategy \"" << val << "\". Skipping." << std::endl;
+				logger->warn("unknown bound correction strategy \"{}\". Skipping.", valStr.c_str());
 			}
 			continue;
 		}
 		if (key == "volumeCheck") {
 			if (!val.is_object()) {
-				std::cerr << "Warning: volumeCheck should be an object. Skipping." << std::endl;
-				continue;
+				logger->error("volumeCheck must be an object. Skipping.");
+				throw std::invalid_argument("volumeCheck must be an object");
 			}
 			for (auto &[k, v] : val.items()) {
 				if (k == "strategy") {
 					if (!v.is_string()) {
-						std::cerr << "Warning: volumeCheck strategy should be a string. Skipping." << std::endl;
-						continue;
+						logger->error("volumeCheck strategy must be a string.");
+						throw std::invalid_argument("volumeCheck strategy must be a string");
 					}
-					if (v == "no-check") {
+					std::string vStr = v.get<std::string>();
+					if (vStr == "no-check") {
 						pass->setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::NO_CHECK);
-					} else if (v == "check-and-die") {
+					} else if (vStr == "check-and-die") {
 						pass->setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::CHECK_AND_DIE);
-					} else if (v == "check-and-warn") {
+					} else if (vStr == "check-and-warn") {
 						pass->setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::CHECK_AND_WARN);
-					} else if (v == "no-tile-until-threshold") {
+					} else if (vStr == "no-tile-until-threshold") {
 						pass->setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::NO_TILE_UNTIL_THRESHOLD);
-					} else if (v == "dynamic-tile-until-threshold") {
+					} else if (vStr == "dynamic-tile-until-threshold") {
 						pass->setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::DYNAMIC_TILE_UNTIL_THRESHOLD);
 					} else {
-						std::cerr << "Warning: unknown volume check strategy \"" << v << "\". Skipping." << std::endl;
+						logger->warn("Unknown volume check strategy \"{}\". Skipping.", vStr.c_str());
 					}
 				} else if (k == "trigger") {
 					if (!v.is_string()) {
-						std::cerr << "Warning: volumeCheck trigger should be a string. Skipping." << std::endl;
-						continue;
+						logger->error("volumeCheck trigger must be a string. Skipping.");
+						throw std::invalid_argument("volumeCheck trigger must be a string");
 					}
-					if (v == "never") {
+					std::string vStr = v.get<std::string>();
+					if (vStr == "never") {
 						pass->setVolumeCheckTrigger(VolumeCheckTrigger::NEVER);
-					} else if (v == "always") {
+					} else if (vStr == "always") {
 						pass->setVolumeCheckTrigger(VolumeCheckTrigger::ALWAYS);
-					} else if (v == "first-outter-iterator-dependency") {
+					} else if (vStr == "first-outter-iterator-dependency") {
 						pass->setVolumeCheckTrigger(VolumeCheckTrigger::FIRST_OUTTER_ITERATOR_DEPENDENCY);
 					} else {
-						std::cerr << "Warning: unknown volume check trigger \"" << v << "\". Skipping." << std::endl;
+						logger->warn("Unknown volume check trigger \"{}\". Skipping.", vStr.c_str());
 					}
 				} else if (k == "threshold") {
 					if (!v.is_string()) {
-						std::cerr << "Warning: volume check threshold should be a string. Skipping." << std::endl;
-						continue;
+						logger->error("volumeCheck threshold must be a string. Skipping.");
+						throw std::invalid_argument("volumeCheck threshold must be a string");
 					}
-					pass->setVolumeCheckThreshold(v);
+					std::string vStr = v.get<std::string>();
+					pass->setVolumeCheckThreshold(vStr);
 				} else {
-					std::cerr << "Warning: unknown volume check option " << k << ". Skipping." << std::endl;
+					logger->warn("Unknown volume check option {}. Skipping.", k.c_str());
 				}
 			}
 			continue;
 		}
 
-		std::cerr << "Warning: unknown option " << key << " in clast-param-tiling pass. Ignoring." << std::endl;
+		logger->warn("Unknown option {} in clast-param-tiling pass. Ignoring.", key.c_str());
 	}
 
 	// TODO: trahrhe parameters

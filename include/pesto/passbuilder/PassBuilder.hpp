@@ -9,10 +9,10 @@
 #define PESTO_PASS_BUILDER_H
 
 #include <memory>
-#include <optional>
 
 #include <nlohmann/json.hpp>
 
+#include <pesto/Logging.hpp>
 #include <pesto/PassManager.hpp>
 
 using json = nlohmann::json;
@@ -40,6 +40,9 @@ class IPassBuilder {
 	 * @return A pointer to the newly created pass
 	 */
 	virtual std::unique_ptr<pesto::pass::IPass> build(PassManagerBuilder &builder, const json &j) = 0;
+
+  protected:
+	std::shared_ptr<spdlog::logger> logger;
 };
 /**
  * A pass manager builder
@@ -94,6 +97,7 @@ class PassManagerBuilder {
 
   private:
 	std::unordered_map<std::string, std::unique_ptr<IPassBuilder>> builders;
+	std::shared_ptr<spdlog::logger> logger;
 };
 
 } // namespace builder

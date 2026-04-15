@@ -5,7 +5,6 @@
  * Copyright (c) 2024 Clément Rossetti
  */
 
-
 #include <pesto/osl_support.h>
 #include <pesto/pass/OslPass.hpp>
 #include <pesto/pass/Pass.hpp>
@@ -13,7 +12,7 @@
 using namespace pesto::pass;
 
 // ParamContextPass
-ParamContextPass::ParamContextPass(int contextValue) : IPass("pass-param-context"), contextValue(contextValue) {}
+ParamContextPass::ParamContextPass(int contextValue) : IPass("param-context"), contextValue(contextValue) {}
 
 ParamContextPass::~ParamContextPass() {}
 

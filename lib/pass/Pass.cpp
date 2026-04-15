@@ -11,17 +11,9 @@
 
 using namespace pesto::pass;
 
-IPass::IPass(std::string name) : name(name) {}
+IPass::IPass(std::string name) : name(name) { logger = log::get_logger("pass/" + name); }
 
 IPass::~IPass() {}
-
-/**
- * Log a message to the given output stream by prepending the pass name between
- * brackets
- * @param os the output stream
- * @return a reference to the output stream
- */
-std::ostream &IPass::log(std::ostream &os) { return os << "[" << name << "] "; }
 
 /**
  * Call the applyScop method on each ScopNest of the Program

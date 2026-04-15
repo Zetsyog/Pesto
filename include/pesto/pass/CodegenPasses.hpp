@@ -82,6 +82,8 @@ class CloogCodegenPass : public IPass {
 	std::unique_ptr<pass::GenClastPass> genClastPass;
 
 	pesto::pass::metadata::VarDeclMetadata mergeVarDecls(Program &prog);
+
+	void generateStmtMacro(pesto::OslScop &nest);
 };
 
 } // namespace pass

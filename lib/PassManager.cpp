@@ -5,21 +5,20 @@
  * Copyright (c) 2024 Clément Rossetti
  */
 
-#include <iostream>
+#include <pesto/Logging.hpp>
 #include <pesto/PassManager.hpp>
 #include <pesto/macros.h>
 
 using namespace pesto;
 
-PassManager::PassManager() {}
+PassManager::PassManager() { logger = log::get_logger("pass-manager"); }
 
 PassManager::~PassManager() {}
 
 void PassManager::run(Program &prog) {
 	for (auto it = this->passList.begin(); it != this->passList.end(); ++it) {
 		int nestCount = prog.getScopNests().size();
-		std::cerr << "[" << PESTO_NAME_PM << "] Running pass '" << (*it)->getName() << "' on "
-				  << std::to_string(nestCount) << " loop nests " << std::endl;
+		logger->info("Running pass '{}' on {} loop nests", (*it)->getName().c_str(), nestCount);
 
 		(*it)->apply(prog);
 	}

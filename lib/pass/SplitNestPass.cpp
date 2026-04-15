@@ -14,7 +14,7 @@
 
 using namespace pesto::pass;
 
-SplitNestedLoopsPass::SplitNestedLoopsPass() : IPass("pass-split-nest") {}
+SplitNestedLoopsPass::SplitNestedLoopsPass() : IPass("split-nest") {}
 
 SplitNestedLoopsPass::~SplitNestedLoopsPass() {}
 
@@ -29,18 +29,18 @@ void SplitNestedLoopsPass::apply(Program &prog) {
 		auto &nest = *it;
 		auto distance = std::distance(original_nests.begin(), it);
 
-		log(std::cerr) << "Running pass on nest " << distance << std::endl;
+		this->logger->debug("Running pass on nest {}", distance);
 
 		osl_scop_p scop = nest->c_scop();
 
 		int nest_count = osl_scop_count_loop_nests(scop);
-		log(std::cerr) << "found " << nest_count << " nests" << std::endl;
+		this->logger->debug("found {} nests", nest_count);
 		if (nest_count <= 1) {
 			auto nest = new OslScop(nextNestId++, scop);
 			new_nests.push_back(nest);
 			continue;
 		}
-		log(std::cerr) << "splitting nests..." << std::endl;
+		this->logger->debug("splitting nests...");
 
 		osl_scop_p *new_scops = osl_scop_split_nests(scop);
 		if (new_scops == NULL) {
@@ -61,9 +61,9 @@ void SplitNestedLoopsPass::apply(Program &prog) {
 	}
 
 	if (new_nests.size() > 0) {
-		log(std::cerr) << "Added " << new_nests.size() << " new nests" << std::endl;
+		this->logger->info("Added {} new nests", new_nests.size());
 	} else {
-		log(std::cerr) << "No new nests added" << std::endl;
+		this->logger->info("No new nests added");
 		return;
 	}
 	prog.clearScopNests();

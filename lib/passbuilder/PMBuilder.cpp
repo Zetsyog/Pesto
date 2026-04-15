@@ -25,7 +25,7 @@
 
 using namespace pesto::builder;
 
-PassManagerBuilder::PassManagerBuilder() {}
+PassManagerBuilder::PassManagerBuilder() { logger = log::get_logger("pm-builder"); }
 
 PassManagerBuilder::~PassManagerBuilder() {}
 
@@ -54,14 +54,14 @@ void PassManagerBuilder::registerPassBuilder(std::string uuid, std::unique_ptr<I
 }
 
 std::unique_ptr<pesto::PassManager> PassManagerBuilder::build(std::string path) {
-	std::cerr << "[pesto-pmbuilder] Building pass manager from " << path << std::endl;
-	std::cerr << "[pesto-pmbuilder] " << builders.size() << " builders registered" << std::endl;
+	logger->info("Building pass manager from {}", path.c_str());
+	logger->info("Number of builders registered: {}", builders.size());
 
 	// Parse the JSON file and build the pass manager
 	std::ifstream file(path);
 
 	if (!file.is_open()) {
-		std::cerr << "Error: could not open file " << path << std::endl;
+		logger->error("Could not open file {}", path.c_str());
 		return nullptr;
 	}
 
@@ -69,7 +69,7 @@ std::unique_ptr<pesto::PassManager> PassManagerBuilder::build(std::string path) 
 	try {
 		file >> j;
 	} catch (json::parse_error &e) {
-		std::cerr << "Error: could not parse JSON file " << path << std::endl;
+		logger->error("Could not parse JSON file {}", path.c_str());
 		return nullptr;
 	}
 
@@ -85,7 +85,7 @@ std::unique_ptr<pesto::PassManager> PassManagerBuilder::build(std::string path) 
 			}
 		}
 	} catch (const json::out_of_range &e) {
-		std::cerr << "Error: JSON key error " << e.what() << std::endl;
+		logger->error("JSON key error {}", e.what());
 		return nullptr;
 	}
 
@@ -100,20 +100,18 @@ bool PassManagerBuilder::hasPassBuilder(std::string uuid) {
 std::unique_ptr<pesto::pass::IPass> PassManagerBuilder::buildPass(const json &j) {
 	// Build a pass from a JSON object
 	if (j.contains("uuid") == false) {
-		std::cerr << "Error: can't parse pass. JSON object does not contain a "
-					 "uuid field"
-				  << std::endl;
+		logger->error("Can't parse pass. JSON object does not contain a uuid field");
 		return nullptr;
 	}
 	std::string uuid = j["uuid"];
 	if (this->hasPassBuilder(uuid) == false) {
-		std::cerr << "Error: could not find pass builder with uuid " << uuid << std::endl;
+		logger->error("Could not find pass builder with uuid {}", uuid.c_str());
 		throw std::runtime_error("Parsing error: unknown pass uuid");
 	}
 
 	std::unique_ptr<pesto::pass::IPass> pass = builders[uuid]->build(*this, j);
 
-	std::cerr << "[pesto-pmbuilder] Pass '" << uuid << "' built" << std::endl;
+	logger->info("Pass '{}' built", uuid.c_str());
 
 	return pass;
 }

@@ -34,9 +34,14 @@ pesto::ParamTilingUtility::ParamTilingUtility()
 	, volumeCheckTrigger(VolumeCheckTrigger::FIRST_OUTTER_ITERATOR_DEPENDENCY)
 	, volumeCheckThreshold("") {
 	this->ctx = isl_ctx_alloc();
+	this->printer = isl_printer_to_str(this->ctx);
+	this->logger = pesto::log::get_logger("param-tiling");
 }
 
-pesto::ParamTilingUtility::~ParamTilingUtility() { isl_ctx_free(this->ctx); }
+pesto::ParamTilingUtility::~ParamTilingUtility() {
+	isl_printer_free(this->printer);
+	isl_ctx_free(this->ctx);
+}
 
 // TODO: return status
 void pesto::ParamTilingUtility::apply(CloogProgram *cloogProgram, CloogOptions *cloogOptions, struct clast_root *root) {
@@ -58,10 +63,10 @@ void pesto::ParamTilingUtility::apply(CloogProgram *cloogProgram, CloogOptions *
 
 	// Then we must create group of statement that can be tiled together
 	// i.e tiling bands
-	std::cerr << "[param-tiling] Computing stmt groups..." << std::endl;
+	this->logger->info("Computing stmt groups...");
 	auto stmtGroups = this->computeStmtGroups(cloogProgram, root);
 
-	std::cerr << "[param-tiling] Found " << stmtGroups.size() << " statements groups" << std::endl;
+	this->logger->info("Found {} statements groups", stmtGroups.size());
 
 	if (stmtGroups.size() == 0) {
 		// TODO: this error handling seems not appropriate...
@@ -81,13 +86,14 @@ void pesto::ParamTilingUtility::apply(CloogProgram *cloogProgram, CloogOptions *
 		}
 	}
 
-	std::cerr << "[param-tiling] Applying tiling..." << std::endl;
+	this->logger->info("Applying tiling...");
 
 	// then for each statement group we apply the tiling
 	for (auto &group : stmtGroups) {
 		this->tileGroup(cloogProgram, cloogOptions, root, group);
 	}
 
+	this->logger->info("Fetching trahrhe domains...");
 	for (auto &group : stmtGroups) {
 		// ignore groups that are not tiled
 		if (group.trahrheDomain.first == 0)
@@ -107,13 +113,18 @@ std::vector<pesto::StmtGroup> pesto::ParamTilingUtility::computeStmtGroups(Cloog
 
 	for (CloogLoop *loop = cloogProgram->loop; loop != NULL; loop = loop->inner) {
 		isl_set *domain = isl_set_from_cloog_domain(loop->domain);
-		isl_set_dump(domain);
+		if (logger->level() <= spdlog::level::debug) {
+			this->printer = isl_printer_print_set(this->printer, domain);
+			char *str = isl_printer_get_str(this->printer);
+			this->printer = isl_printer_flush(this->printer);
+			this->logger->debug("Groupe domain: {}", str);
+		}
 		if (loop->block) {
-			std::cerr << "block!" << std::endl;
+			this->logger->debug("block!");
 		}
 	}
 
-	std::cerr << "[param-tiling] Found " << stmt_count << " statements in clast" << std::endl;
+	this->logger->info("Found {} statements in clast", stmt_count);
 	if (stmt_count == 0) {
 		return stmtGroups;
 	}
@@ -213,12 +224,22 @@ std::vector<pesto::StmtGroup> pesto::ParamTilingUtility::computeStmtGroups(Cloog
 		}
 		group_domain = isl_set_coalesce(group_domain);
 
-		;
-		isl_set_dump(group_domain);
-		isl_printer *p = isl_printer_to_file(this->ctx, stderr);
-		p = isl_printer_set_output_format(p, ISL_FORMAT_EXT_POLYLIB);
-		p = isl_printer_print_set(p, group_domain);
-		isl_printer_free(p);
+		if (logger->level() <= spdlog::level::debug) {
+			this->printer = isl_printer_set_output_format(this->printer, ISL_FORMAT_ISL);
+			this->printer = isl_printer_print_set(this->printer, group_domain);
+			char *str = isl_printer_get_str(this->printer);
+			this->printer = isl_printer_flush(this->printer);
+			this->logger->debug("Computed group domain: {}", str);
+			free(str);
+			if (logger->level() <= spdlog::level::trace) {
+				this->printer = isl_printer_set_output_format(this->printer, ISL_FORMAT_EXT_POLYLIB);
+				this->printer = isl_printer_print_set(this->printer, group_domain);
+				str = isl_printer_get_str(this->printer);
+				this->printer = isl_printer_flush(this->printer);
+				this->logger->debug("Computed group domain in polylib format: {}", str);
+				free(str);
+			}
+		}
 		isl_bool empty = isl_set_is_empty(group_domain);
 		int tiling_dim_count = isl_set_count_tiling_dimensions(group_domain);
 		isl_set_free(group_domain);
@@ -235,13 +256,14 @@ std::vector<pesto::StmtGroup> pesto::ParamTilingUtility::computeStmtGroups(Cloog
 	this->insertedStmts = stmt_count;
 
 	for (auto &group : stmtGroups) {
-		std::cerr << "group " << group.id << "; parent for: " << group.parent_for->iterator;
-		std::cerr << "; first tiling for: "
-				  << (group.first_tiling_for != NULL ? group.first_tiling_for->iterator : "NULL") << "; stmts: ";
+		this->logger->debug("group {}", group.id);
+		this->logger->debug("parent for: {}", group.parent_for->iterator);
+		this->logger->debug("first tiling for: {}",
+							group.first_tiling_for != NULL ? group.first_tiling_for->iterator : "NULL");
+		this->logger->debug("stmts: ");
 		for (auto stmt : group.stmts) {
-			std::cerr << std::to_string(stmt->statement->number) << " ";
+			this->logger->debug("\t{}", stmt->statement->number);
 		}
-		std::cerr << std::endl;
 	}
 
 	return stmtGroups;
@@ -255,13 +277,13 @@ void pesto::ParamTilingUtility::tileGroup(CloogProgram *cloogProgram, CloogOptio
 
 	// if there are no tiled dimensions we can skip this group
 	if (tiling_dim_count == 0) {
-		std::cerr << "No tiled dimensions found in group" << std::endl;
+		this->logger->debug("No tiled dimensions found in group");
 		return;
 	}
 
 	for (auto &data : group.tilingData) {
-		std::cerr << "Found tiling for pair : " << data.outter_for->iterator
-				  << " is outter of: " << data.inner_for->iterator << std::endl;
+		this->logger->debug("Found tiling for pair : {} is outter of: {}", data.outter_for->iterator,
+							data.inner_for->iterator);
 	}
 
 	// Then we need to sort the tiling_for ascendingly of the depth of the
@@ -432,8 +454,7 @@ void pesto::ParamTilingUtility::generateStatements(CloogProgram *cloogProgram, S
 	for (auto &data : group.tilingData) {
 
 		ptile::codegen::ParamTilingCodegen codegen = this->getCodegen(cloogProgram, group, data);
-		std::cerr << "[param-tiling] Generating statements... (" << data.head_stmt_id << ", " << data.body_stmt_id
-				  << ")" << std::endl;
+		this->logger->debug("Generating statements... ({}, {})", data.head_stmt_id, data.body_stmt_id);
 		for (std::size_t i = 0; i < 2; ++i) {
 			std::ostringstream oss;
 			codegen.genStmt(oss, i == 0 ? StmtType::HEAD : StmtType::BODY);
@@ -681,8 +702,7 @@ __isl_give isl_set *pesto::ParamTilingUtility::moveNonTiledDimensionsToParameter
 			continue;
 		}
 
-		std::cerr << "dim " << isl_set_get_dim_name(domain, isl_dim_set, i) << "(" << i << ") will be moved to param "
-				  << std::endl;
+		this->logger->debug("dim {}({}) will be moved to param ", isl_set_get_dim_name(domain, isl_dim_set, i), i);
 		isl_size npar = isl_set_dim(domain, isl_dim_param);
 		domain = isl_set_move_dims(domain, isl_dim_param, npar, isl_dim_set, i, 1);
 		i -= 1;
@@ -745,7 +765,7 @@ pesto::ptile::codegen::ParamTilingCodegen pesto::ParamTilingUtility::getCodegen(
 		if (movedDimCount == 0) {
 			codegen.setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::NO_CHECK);
 		} else {
-			std::cerr << "[param-tiling] moved dimensions count: " << movedDimCount << std::endl;
+			this->logger->debug("Moved dimensions count: {}", movedDimCount);
 			bool isFirstDependency = true;
 			for (auto &tdata : group.tilingData) {
 				if (tdata.tiling_depth >= data.tiling_depth) {
@@ -759,10 +779,10 @@ pesto::ptile::codegen::ParamTilingCodegen pesto::ParamTilingUtility::getCodegen(
 			}
 			if (isFirstDependency) {
 				codegen.setVolumeCheckStrategy(this->volumeCheckStrategy);
-				std::cerr << "[param-tiling] volume check strategy triggered !" << std::endl;
+				this->logger->debug("Volume check strategy triggered !");
 			} else {
 				codegen.setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::NO_CHECK);
-				std::cerr << "[param-tiling] volume check strategy not triggered !" << std::endl;
+				this->logger->debug("Volume check strategy not triggered !");
 			}
 		}
 	}
@@ -814,7 +834,7 @@ pesto::TilingData pesto::ParamTilingUtility::computeTilingDataBoundExpr(CloogPro
 	for (std::size_t i = 0; i < 2; ++i) {
 		namesList[i] = cloog_names_malloc();
 		if (namesList[i] == NULL) {
-			std::cerr << "[param-tiling] Error: cannot allocate memory for cloog names" << std::endl;
+			this->logger->error("Cannot allocate memory for cloog names");
 			break;
 		}
 		CloogNames *names = namesList[i];

@@ -10,7 +10,7 @@
 
 using namespace pesto::builder;
 
-ClastCustomVecPragmaPB::ClastCustomVecPragmaPB() {}
+ClastCustomVecPragmaPB::ClastCustomVecPragmaPB() { logger = log::get_logger("pb/custom-vec-pragma"); }
 
 ClastCustomVecPragmaPB::~ClastCustomVecPragmaPB() {}
 
@@ -22,10 +22,9 @@ std::unique_ptr<pesto::pass::IPass> ClastCustomVecPragmaPB::build(PassManagerBui
 	std::unique_ptr<CustomVecPragma> pass = std::make_unique<CustomVecPragma>();
 
 	if (!j.contains("pragma")) {
-		std::cerr << "Warning: missing pragma definition in custom vec pragma pass. "
-					 "Pass won't be registered."
-				  << std::endl;
-		return nullptr;
+		logger->error("Missing pragma definition in custom vec pragma pass. "
+					  "This pass requires a \"pragma\" field in the configuration.");
+		throw std::runtime_error("Missing pragma definition in custom vec pragma pass.");
 	}
 	pass->setPragma(j["pragma"]);
 
