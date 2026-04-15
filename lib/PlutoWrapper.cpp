@@ -24,6 +24,7 @@ PlutoWrapper::PlutoWrapper() {
 PlutoWrapper::~PlutoWrapper() { pluto_context_free(context); }
 
 void PlutoWrapper::run(osl_scop_p scop) {
+	pluto_options_validate(context->options);
 	// TODO: should be this done in place, or should we create a new scop?
 	PlutoProg *pluto_prog = osl_scop_to_pluto_prog(scop, context);
 	pluto_schedule_prog(pluto_prog);
