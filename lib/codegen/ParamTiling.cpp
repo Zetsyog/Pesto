@@ -44,7 +44,7 @@ ParamTilingCodegen::ParamTilingCodegen(StmtGroup &group, TilingData &data, int n
 	this->nameHelper.setPrefix("g" + std::to_string(group.id));
 	this->trahrheNameHelper.setPrefix("n" + std::to_string(nestId) + this->nameHelper.getSeparator() + "g" +
 									  std::to_string(group.id));
-	this->volumeCheckThreshold = this->nameHelper.divName() + " * 10";
+	this->volumeCheckThreshold = this->nameHelper.divName() + " * 1000";
 	this->logger = pesto::log::get_logger("param-tiling-codegen");
 }
 
@@ -402,7 +402,6 @@ void ParamTilingCodegen::genScheduleHeaderFile(std::ostream &os) {
 	os << varType << " " << t1NameHelper.pcMaxName() << ", " << t1NameHelper.targetVolName() << ";" << this->endline;
 
 	INDENT_TABS(os, 1);
-	os << varType << " t1;" << this->endline;
 
 	INDENT_TABS(os, 1);
 	os << varType << " " << this->nameHelper.innerForLBName() << ", " << this->nameHelper.innerForUBName() << ";"
@@ -410,13 +409,14 @@ void ParamTilingCodegen::genScheduleHeaderFile(std::ostream &os) {
 
 	os << "#pragma omp parallel for firstprivate(" << this->nameHelper.pcMaxName() << ", "
 	   << this->nameHelper.targetVolName() << ") " //
-	   << "private(t1, " << t1NameHelper.pcMaxName() << ", " << t1NameHelper.targetVolName() << ", "
+	   << "private(" << t1NameHelper.pcMaxName() << ", " << t1NameHelper.targetVolName() << ", "
 	   << this->nameHelper.innerForLBName() << ", " << this->nameHelper.innerForUBName() << ")" << this->endline;
 	INDENT_TABS(os, 1);
-	os << "for(" << varType << " t0 = 0; t0 < " << this->nameHelper.divName() << "; ++t0) {" << this->endline;
+	os << "for(" << varType << " __pesto_t0 = 0; __pesto_t0 < " << this->nameHelper.divName() << "; ++__pesto_t0) {"
+	   << this->endline;
 	INDENT_TABS(os, 2);
 	os << varType << " " << this->nameHelper.innerForLBName() << " = " << this->trahrheNameHelper.trahrheFnName()
-	   << "(max(1, t0 * " << this->nameHelper.targetVolName() << ")";
+	   << "(max(1, __pesto_t0 * " << this->nameHelper.targetVolName() << ")";
 	for (isl_size i = 0; i < npar; i += 1) {
 		os << ", " << isl_set_get_dim_name(this->innerDomain, isl_dim_param, i);
 	}
@@ -424,14 +424,14 @@ void ParamTilingCodegen::genScheduleHeaderFile(std::ostream &os) {
 
 	INDENT_TABS(os, 2);
 	os << varType << " " << this->nameHelper.innerForUBName() << " = " << this->trahrheNameHelper.trahrheFnName()
-	   << "(min(" << this->nameHelper.pcMaxName() << ", (t0 + 1) * " << this->nameHelper.targetVolName() << ")";
+	   << "(min(" << this->nameHelper.pcMaxName() << ", (__pesto_t0 + 1) * " << this->nameHelper.targetVolName() << ")";
 	for (isl_size i = 0; i < npar; i += 1) {
 		os << ", " << isl_set_get_dim_name(this->innerDomain, isl_dim_param, i);
 	}
 	os << ") - 1;" << this->endline;
 
 	INDENT_TABS(os, 2);
-	os << "if(t0 == " << this->nameHelper.divName() << " - 1) {" << this->endline;
+	os << "if(__pesto_t0 == " << this->nameHelper.divName() << " - 1) {" << this->endline;
 	INDENT_TABS(os, 3);
 	os << this->nameHelper.innerForUBName() << " = " << this->data.innerForUBExpr << ";" << this->endline;
 	INDENT_TABS(os, 2);
@@ -453,18 +453,19 @@ void ParamTilingCodegen::genScheduleHeaderFile(std::ostream &os) {
 	   << this->endline;
 
 	INDENT_TABS(os, 2);
-	os << "for(t1 = 0; t1 < " << t1NameHelper.divName() << "; ++t1) {" << this->endline;
+	os << "for(" << varType << " __pesto_t1 = 0; __pesto_t1 < " << t1NameHelper.divName() << "; ++__pesto_t1) {"
+	   << this->endline;
 
 	INDENT_TABS(os, 3);
-	os << "tileArray[t0][t1].t0 = t0;" << this->endline;
+	os << "tileArray[__pesto_t0][__pesto_t1].t0 = __pesto_t0;" << this->endline;
 	INDENT_TABS(os, 3);
-	os << "tileArray[t0][t1].t1 = t1;" << this->endline;
+	os << "tileArray[__pesto_t0][__pesto_t1].t1 = __pesto_t1;" << this->endline;
 	INDENT_TABS(os, 3);
-	os << "tileArray[t0][t1].lb0 = " << this->nameHelper.innerForLBName() << ";" << this->endline;
+	os << "tileArray[__pesto_t0][__pesto_t1].lb0 = " << this->nameHelper.innerForLBName() << ";" << this->endline;
 	INDENT_TABS(os, 3);
-	os << "tileArray[t0][t1].ub0 = " << this->nameHelper.innerForUBName() << ";" << this->endline;
+	os << "tileArray[__pesto_t0][__pesto_t1].ub0 = " << this->nameHelper.innerForUBName() << ";" << this->endline;
 	INDENT_TABS(os, 3);
-	os << "tileArray[t0][t1].lb1 = " << t1TrahrheHelper.trahrheFnName() << "(max(1, t1 * "
+	os << "tileArray[__pesto_t0][__pesto_t1].lb1 = " << t1TrahrheHelper.trahrheFnName() << "(max(1, __pesto_t1 * "
 	   << t1NameHelper.targetVolName() << ")";
 	for (isl_size i = 0; i < npar; i += 1) {
 		os << ", " << isl_set_get_dim_name(this->innerDomain, isl_dim_param, i);
@@ -472,19 +473,20 @@ void ParamTilingCodegen::genScheduleHeaderFile(std::ostream &os) {
 	os << ", " << this->nameHelper.innerForLBName() << ", " << this->nameHelper.innerForUBName() << ");"
 	   << this->endline;
 	INDENT_TABS(os, 3);
-	os << "tileArray[t0][t1].ub1 = " << t1TrahrheHelper.trahrheFnName() << "(min(" << t1NameHelper.pcMaxName()
-	   << ", (t1 + 1) * " << t1NameHelper.targetVolName() << ")";
+	os << "tileArray[__pesto_t0][__pesto_t1].ub1 = " << t1TrahrheHelper.trahrheFnName() << "(min("
+	   << t1NameHelper.pcMaxName() << ", (__pesto_t1 + 1) * " << t1NameHelper.targetVolName() << ")";
 	for (isl_size i = 0; i < npar; i += 1) {
 		os << ", " << isl_set_get_dim_name(this->innerDomain, isl_dim_param, i);
 	}
 	os << ", " << this->nameHelper.innerForLBName() << ", " << this->nameHelper.innerForUBName() << ") - 1;"
 	   << this->endline;
 	INDENT_TABS(os, 3);
-	os << "tileArray[t0][t1].marked = 0;" << this->endline;
+	os << "tileArray[__pesto_t0][__pesto_t1].marked = 0;" << this->endline;
 	INDENT_TABS(os, 3);
-	os << "if(t1 == " << t1NameHelper.divName() << " - 1) {" << this->endline;
+	os << "if(__pesto_t1 == " << t1NameHelper.divName() << " - 1) {" << this->endline;
 	INDENT_TABS(os, 4);
-	os << "tileArray[t0][t1].ub1 = " << this->group.tilingData[1].innerForUBExpr << ";" << this->endline;
+	os << "tileArray[__pesto_t0][__pesto_t1].ub1 = " << this->group.tilingData[1].innerForUBExpr << ";"
+	   << this->endline;
 	INDENT_TABS(os, 3);
 	os << "}" << this->endline;
 
