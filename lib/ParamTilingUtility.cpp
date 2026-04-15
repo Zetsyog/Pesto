@@ -564,7 +564,7 @@ void pesto::ParamTilingUtility::updateOmpPragma(StmtGroup &group) {
 }
 
 void pesto::ParamTilingUtility::computeTrahrheDomain(CloogProgram *cloogProgram, StmtGroup &group) {
-	isl_set *domain = this->getInnerDomain(cloogProgram, group, group.tilingData.back());
+	isl_set *domain = this->getInnerDomain(cloogProgram, group, group.tilingData.back(), true);
 	// rename the dimension
 	for (std::size_t i = 0; i < group.tilingData.size(); i += 1) {
 		auto &data = group.tilingData[i];
@@ -645,7 +645,7 @@ void pesto::ParamTilingUtility::setTileSizeTarget(int size) { this->tilesizeTarg
 int pesto::ParamTilingUtility::getTileSizeTarget() { return this->tilesizeTarget; }
 
 __isl_give isl_set *pesto::ParamTilingUtility::moveNonTiledDimensionsToParameters(__isl_take isl_set *set,
-																				  StmtGroup &group) {
+																				  TilingData &data, StmtGroup &group) {
 	isl_set *domain = isl_set_copy(set);
 	isl_set_free(set);
 
@@ -662,17 +662,25 @@ __isl_give isl_set *pesto::ParamTilingUtility::moveNonTiledDimensionsToParameter
 		bool is_tiled = false;
 		// search if this dimension is tiled
 		for (std::size_t j = 0; j < group.tilingData.size(); j += 1) {
-			auto &data = group.tilingData[j];
-			int in_idx = isl_set_find_dim_by_name(domain, isl_dim_set, data.inner_for->iterator);
-			int out_idx = isl_set_find_dim_by_name(domain, isl_dim_set, data.outter_for->iterator);
+			auto &it_data = group.tilingData[j];
+			int in_idx = isl_set_find_dim_by_name(domain, isl_dim_set, it_data.inner_for->iterator);
+			int out_idx = isl_set_find_dim_by_name(domain, isl_dim_set, it_data.outter_for->iterator);
 			if (i == in_idx || i == out_idx) {
 				is_tiled = true;
 				break;
 			}
 		}
+		// if the dimension is tiled we keep it as it is
 		if (is_tiled) {
 			continue;
 		}
+		int tiling_for_idx = isl_set_find_dim_by_name(domain, isl_dim_set, data.outter_for->iterator);
+		if (i > tiling_for_idx) {
+			// if the dimension is after the tiling dimension, we keep it as it is
+			// because the tiling loop will not depend on it
+			continue;
+		}
+
 		std::cerr << "dim " << isl_set_get_dim_name(domain, isl_dim_set, i) << "(" << i << ") will be moved to param "
 				  << std::endl;
 		isl_size npar = isl_set_dim(domain, isl_dim_param);
@@ -695,8 +703,7 @@ __isl_give isl_set *pesto::ParamTilingUtility::getInnerDomain(CloogProgram *cloo
 		inner_domain = isl_set_set_dim_name(inner_domain, isl_dim_set, i, cloogProgram->names->scattering[i]);
 	}
 	if (moveNonTiledDimensions) {
-
-		inner_domain = this->moveNonTiledDimensionsToParameters(inner_domain, group);
+		inner_domain = this->moveNonTiledDimensionsToParameters(inner_domain, data, group);
 	}
 	inner_domain = this->extractIslInnerTiledDomain(group, inner_domain, data.tiling_depth + 1);
 
@@ -724,7 +731,8 @@ void pesto::ParamTilingUtility::setVolumeCheckStrategy(pesto::ptile::codegen::Vo
 
 pesto::ptile::codegen::ParamTilingCodegen pesto::ParamTilingUtility::getCodegen(CloogProgram *cloogProgram,
 																				StmtGroup &group, TilingData &data) {
-	ptile::codegen::ParamTilingCodegen codegen(group, data, this->id, this->getInnerDomain(cloogProgram, group, data));
+	ptile::codegen::ParamTilingCodegen codegen(group, data, this->id,
+											   this->getInnerDomain(cloogProgram, group, data, true));
 	codegen.setBoundComputeMethod(this->boundComputeMethod);
 	codegen.setBoundCorrectionStrategy(this->boundCorrectionStrategy);
 	codegen.setTilingType(this->getTilingType(data.tiling_depth));
@@ -797,7 +805,7 @@ pesto::TilingData pesto::ParamTilingUtility::computeTilingDataBoundExpr(CloogPro
 	// compute loop bound expr
 	std::string innerForIt = std::string(data.inner_for->iterator);
 	std::string outterForIt = std::string(data.outter_for->iterator);
-	isl_set *innerDomain = this->getInnerDomain(cloogProgram, group, data);
+	isl_set *innerDomain = this->getInnerDomain(cloogProgram, group, data, true);
 
 	// [0] is for lower bound, [1] is for upper bound
 	CloogOptions *cloogOptions = cloog_options_malloc(nullptr);

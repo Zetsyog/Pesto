@@ -177,7 +177,8 @@ class ParamTilingUtility {
 
 	__isl_give isl_set *dropTilingConstraints(__isl_take isl_set *set, struct StmtGroup &group);
 
-	__isl_give isl_set *moveNonTiledDimensionsToParameters(__isl_take isl_set *set, struct StmtGroup &group);
+	__isl_give isl_set *moveNonTiledDimensionsToParameters(__isl_take isl_set *set, TilingData &data,
+														   struct StmtGroup &group);
 
 	size_t movedDimensionsCount(CloogProgram *cloogProgram, struct StmtGroup &group, TilingData &data);
 
@@ -192,7 +193,7 @@ class ParamTilingUtility {
 	__isl_give isl_set *extractIslInnerTiledDomain(StmtGroup &group, __isl_take isl_set *domain, std::size_t ndim);
 
 	__isl_give isl_set *getInnerDomain(CloogProgram *cloogProgram, StmtGroup &group, TilingData &data,
-									   bool moveNonTiledDimensions = true);
+									   bool moveNonTiledDimensions);
 
 	ptile::NameHelper getNameHelper(StmtGroup &group, TilingData &data);
 	ptile::NameHelper getTrahrheNameHelper(StmtGroup &group, TilingData &data);
