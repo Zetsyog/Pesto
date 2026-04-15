@@ -40,7 +40,7 @@ std::unique_ptr<Options> Options::build(int argc, char **argv) {
 
 		int option_index = 0;
 
-		c = getopt_long(argc, argv, "hvc:o:", long_options, &option_index);
+		c = getopt_long(argc, argv, "hivc:o:", long_options, &option_index);
 
 		// detect end of options
 		if (c == -1)
