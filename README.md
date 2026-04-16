@@ -243,36 +243,38 @@ cmake --build . --target test-polybench
 
 Polybench benchmarks status:
 
-- `datamining/correlation`: OK
-- `datamining/covariance`:  OK
-- `linear-algebra/blas/gemm`: OK
-- `linear-algebra/blas/gemver`: OK
-- `linear-algebra/blas/gesummv`: OK
-- `linear-algebra/blas/symm`: Failing
-- `linear-algebra/blas/syr2k`:  OK
-- `linear-algebra/blas/syrk`: OK
-- `linear-algebra/blas/trmm`: OK
-- `linear-algebra/kernels/2mm`: OK
-- `linear-algebra/kernels/3mm`: OK
-- `linear-algebra/kernels/atax`: OK
-- `linear-algebra/kernels/bicg`: OK
-- `linear-algebra/kernels/doitgen`: OK
-- `linear-algebra/kernels/mvt`: OK
-- `linear-algebra/solvers/cholesky`: Failing
-- `linear-algebra/solvers/durbin`: Failing
-- `linear-algebra/solvers/gramschmidt`: OK
-- `linear-algebra/solvers/lu`: Untested
-- `linear-algebra/solvers/ludcmp`: Failing
-- `linear-algebra/solvers/trisolv`: Failing
-- `medley/deriche`: OK
-- `medley/floyd-warshall`: OK (dynamic schedule)
-- `medley/nussinnov`: OK
-- `stencils/adi`: OK
-- `stencils/fdtd-2d`: OK (tpz)
-- `stencils/heat-3d`: OK (tpz)
-- `stencils/jacobi-1d`:   OK (tpz)
-- `stencils/jacobi-2d`:   OK (tpz)
-- `stencils/seidel-2d`:   OK (tpz)
+| Benchmark                            | Algebraic Tiling   | Hybrid Tiling      | Trapezoidal Tiling | Status                                   |
+|--------------------------------------|--------------------|--------------------|--------------------|------------------------------------------|
+| `datamining/correlation`             | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `datamining/covariance`              | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/blas/gemm`           | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/blas/gemver`         | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/blas/gesummv`        | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/blas/symm`           | :x:                | :heavy_check_mark: | :grey_question:    | :x: FAIL                                 |
+| `linear-algebra/blas/syr2k`          | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/blas/syrk`           | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/blas/trmm`           | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/kernels/2mm`         | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/kernels/3mm`         | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/kernels/atax`        | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/kernels/bicg`        | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/kernels/doitgen`     | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/kernels/mvt`         | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/solvers/cholesky`    | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/solvers/durbin`      | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/solvers/gramschmidt` | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/solvers/lu`          | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/solvers/ludcmp`      | :x:                | :x:                | :grey_question:    | :x: FAIL                                 |
+| `linear-algebra/solvers/trisolv`     | :x:                | :x:                | :grey_question:    | :x: FAIL                                 |
+| `medley/deriche`                     | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `medley/floyd-warshall`              | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK (dynamic schedule) |
+| `medley/nussinov`                    | :heavy_check_mark: | :x:                | :grey_question:    | :warning: Partial (hybrid is incorrect)  |
+| `stencils/adi`                       | :heavy_check_mark: | :x:                | :grey_question:    | :warning: Partial (hybrid is incorrect)  |
+| `stencils/fdtd-2d`                   | :grey_question:    | :grey_question:    | :heavy_check_mark: | :white_check_mark: OK (tpz)              |
+| `stencils/heat-3d`                   | :grey_question:    | :grey_question:    | :heavy_check_mark: | :white_check_mark: OK (tpz)              |
+| `stencils/jacobi-1d`                 | :grey_question:    | :grey_question:    | :heavy_check_mark: | :white_check_mark: OK (tpz)              |
+| `stencils/jacobi-2d`                 | :grey_question:    | :grey_question:    | :heavy_check_mark: | :white_check_mark: OK (tpz)              |
+| `stencils/seidel-2d`                 | :grey_question:    | :grey_question:    | :heavy_check_mark: | :white_check_mark: OK (tpz)              |
 
 ## Build for development
 
