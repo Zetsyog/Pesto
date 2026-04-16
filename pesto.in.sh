@@ -180,10 +180,17 @@ process_file() {
     debug "Processing $pesto_outfile"
 
     # extract include directives
-    grep "^#include" "$pesto_outfile" >>"${include_file}"
+    if grep -q "^#include" "$pesto_outfile"; then
+        debug "Extracting #include directives from $pesto_outfile"
+        grep "^#include" "$pesto_outfile" >>"${include_file}"
+        # remove in place all include directives
+        debug "Removing #include directives from $pesto_outfile"
+        sed -i '/^#include/d' "$pesto_outfile"
+    else
+        debug "No #include directives found in $pesto_outfile"
+    fi
 
-    # remove in place all include directives
-    sed -i '/^#include/d' "$pesto_outfile"
+    debug "Preprocessing $pesto_outfile to $body_file"
 
     # run preprocessor on file write it to output file
     cpp_cmd="${CPP} -E -P $pesto_outfile"
