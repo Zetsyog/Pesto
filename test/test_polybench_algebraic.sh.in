@@ -20,6 +20,7 @@ BENCHMARKS=(
     "linear-algebra/kernels/mvt"
     "linear-algebra/solvers/durbin"
     "linear-algebra/solvers/gramschmidt"
+    "linear-algebra/solvers/lu"
     "medley/deriche"
     "medley/nussinov"
     "stencils/adi"
