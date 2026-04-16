@@ -10,8 +10,6 @@ find_package(GLPK)
 pkg_check_modules(GMP REQUIRED gmp)
 
 pkg_search_module(CDDLIB cddgmp cddlib)
-pkg_check_modules(CDDLIB ${CDDLIB_MODULE_NAME})
-
 
 if(${CDDLIB_FOUND})
     message(STATUS "CDDLIB: found ${CDDLIB_MODULE_NAME}")
