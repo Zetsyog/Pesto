@@ -99,38 +99,38 @@ void kernel_ludcmp(int n,
 {
   int i, j, k;
 
-  DATA_TYPE w;
+  DATA_TYPE POLYBENCH_2D(w, N, N, n, n);
 
 #pragma scop
   for (i = 0; i < _PB_N; i++) {
     for (j = 0; j <i; j++) {
-       w = A[i][j];
+       w[i][j] = A[i][j];
        for (k = 0; k < j; k++) {
-          w -= A[i][k] * A[k][j];
+          w[i][j] -= A[i][k] * A[k][j];
        }
-        A[i][j] = w / A[j][j];
+        A[i][j] = w[i][j] / A[j][j];
     }
    for (j = i; j < _PB_N; j++) {
-       w = A[i][j];
+       w[i][j] = A[i][j];
        for (k = 0; k < i; k++) {
-          w -= A[i][k] * A[k][j];
+          w[i][j] -= A[i][k] * A[k][j];
        }
-       A[i][j] = w;
+       A[i][j] = w[i][j];
     }
   }
 
   for (i = 0; i < _PB_N; i++) {
-     w = b[i];
+     w[i][0] = b[i];
      for (j = 0; j < i; j++)
-        w -= A[i][j] * y[j];
-     y[i] = w;
+        w[i][0] -= A[i][j] * y[j];
+     y[i] = w[i][0];
   }
 
    for (i = _PB_N-1; i >=0; i--) {
-     w = y[i];
+     w[i][0] = y[i];
      for (j = i+1; j < _PB_N; j++)
-        w -= A[i][j] * x[j];
-     x[i] = w / A[i][i];
+        w[i][0] -= A[i][j] * x[j];
+     x[i] = w[i][0] / A[i][i];
   }
 #pragma endscop
 

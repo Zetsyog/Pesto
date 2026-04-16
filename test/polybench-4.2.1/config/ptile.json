@@ -9,7 +9,9 @@
                 "tile": true,
                 "parallel": true,
                 "prevector": true,
-                "intratileopt": true
+                "intratileopt": true,
+                "identity": false,
+                "silent": false
             }
         },
         {

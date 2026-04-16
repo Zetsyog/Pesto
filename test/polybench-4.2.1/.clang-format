@@ -1,0 +1,7 @@
+BasedOnStyle: GNU
+ColumnLimit: 120
+UseTab: Always
+TabWidth: 4
+IndentWidth: 4
+InsertBraces: true
+BreakBeforeBraces: Allman

@@ -5,7 +5,8 @@ set -euo pipefail
 source "@PESTO_TEST_POLYBENCH_SCRIPT@"
 
 BENCHMARKS=(
-    # "stencils/adi"
+    linear-algebra/solvers/cholesky
+    medley/floyd-warshall
     # "stencils/fdtd-2d" # fdtd-2d is not supported yet
     "stencils/jacobi-1d"
     "stencils/jacobi-2d"

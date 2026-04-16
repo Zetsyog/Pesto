@@ -3,7 +3,6 @@
 source "@PESTO_TEST_POLYBENCH_SCRIPT@"
 
 BENCHMARKS=(
-    # "stencils/adi"
     "stencils/fdtd-2d"
     "stencils/heat-3d"
     "stencils/jacobi-1d"
@@ -15,7 +14,7 @@ MAX_TILE_SIZE=10
 RUN_NB=1
 EXTRA_FLAGS="$EXTRA_FLAGS -DD1_MIN_VOL=200000"
 
-config_path=$(realpath "config/hybrid.json")
+config_path=$(realpath "config/tpz.json")
 
 print_header "Pesto CLI Test Suite - Polybench" "Hybrid algebraic tiling tests"
 

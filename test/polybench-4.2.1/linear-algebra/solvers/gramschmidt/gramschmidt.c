@@ -83,15 +83,15 @@ void kernel_gramschmidt(int m, int n,
 {
   int i, j, k;
 
-  DATA_TYPE nrm;
+  DATA_TYPE POLYBENCH_1D(nrm,N,n);
 
 #pragma scop
   for (k = 0; k < _PB_N; k++)
     {
-      nrm = SCALAR_VAL(0.0);
+      nrm[k] = SCALAR_VAL(0.0);
       for (i = 0; i < _PB_M; i++)
-        nrm += A[i][k] * A[i][k];
-      R[k][k] = SQRT_FUN(nrm);
+        nrm[k] += A[i][k] * A[i][k];
+      R[k][k] = SQRT_FUN(nrm[k]);
       for (i = 0; i < _PB_M; i++)
         Q[i][k] = A[i][k] / R[k][k];
       for (j = k + 1; j < _PB_N; j++)

@@ -1,6 +1,6 @@
 SRC=trisolv
 BASEDIR=../../../
-PESTO_CONFIG=./ptile.json
+# PESTO_CONFIG=./ptile.json
 
 include $(BASEDIR)/common.mk
 
