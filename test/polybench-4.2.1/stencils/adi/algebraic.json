@@ -1,4 +1,7 @@
 {
+    "options": {
+        "input-format": "c"
+    },
     "passes": [
         {
             "uuid": "pluto",
@@ -6,8 +9,8 @@
                 "tile": true,
                 "parallel": true,
                 "prevector": true,
-                "identity": true,
                 "intratileopt": true,
+                "identity": true,
                 "silent": false
             }
         },
@@ -15,13 +18,7 @@
             "uuid": "param-tiling",
             "gen-trahrhe": true,
             "trahrhe-use-dichotomy": true,
-            "bound-compute-method": "fill-last",
-            "volumeCheck": {
-                "strategy": "no-check"
-            },
-            "types": [
-                "algebraic"
-            ]
+            "bound-compute-method": "fill-last"
         },
         {
             "uuid": "clast-custom-vec-pragma",

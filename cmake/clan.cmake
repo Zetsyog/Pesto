@@ -23,7 +23,6 @@ externalproject_add(
     CONFIGURE_BYPRODUCTS
     <BINARY_DIR>/config.status
     <BINARY_DIR>/Makefile
-    CONFIGURE_ENVIRONMENT_MODIFICATION
     CONFIGURE_COMMAND
     COMMAND
     <SOURCE_DIR>/autogen.sh
@@ -35,6 +34,7 @@ externalproject_add(
     LIBS=-lgmp # clan's configure script doesn't properly detect gmp, so we have to force it to link against it
     --prefix=<INSTALL_DIR> --with-osl=system
     --with-osl-prefix=${OSL_PREFIX}/install
+    --disable-shared
     BUILD_COMMAND ${CMAKE_MAKE_PROGRAM} -j${PESTO_BUILD_JOBS}
     INSTALL_COMMAND ${CMAKE_MAKE_PROGRAM} install
     LOG_CONFIGURE ON

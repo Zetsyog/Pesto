@@ -1,13 +1,14 @@
 include(ExternalProject)
 
 # trahrhe
-message(STATUS "Fetchin trahrhe")
+message(STATUS "Fetching trahrhe")
 
 # Check if trahrhe dependencies are installed
 find_program(MAXIMA "maxima" REQUIRED)
 
 set(TRAHRHE_GIT_URL "https://gitlab.inria.fr/crossett/trahrhe-blitzcrank.git")
 set(TRAHRHE_PREFIX "${CMAKE_BINARY_DIR}/_deps/trahrhe")
+set(TRAHRHE_STATIC_LIB "${TRAHRHE_PREFIX}/install/${CMAKE_INSTALL_LIBDIR}/libtrahrhe.a")
 
 file(MAKE_DIRECTORY ${TRAHRHE_PREFIX}/install/include)
 
@@ -37,8 +38,8 @@ add_dependencies(trahrhe-src barvinok-src isl-src polylib-src)
 add_library(trahrhe STATIC IMPORTED GLOBAL)
 add_dependencies(trahrhe trahrhe-src)
 set_target_properties(trahrhe PROPERTIES
-    IMPORTED_LOCATION ${TRAHRHE_PREFIX}/install/lib64/libtrahrhe.a
-    INTERFACE_LINK_LIBRARIES ${TRAHRHE_PREFIX}/install/lib64/libtrahrhe.a
+    IMPORTED_LOCATION ${TRAHRHE_STATIC_LIB}
+    INTERFACE_LINK_LIBRARIES ${TRAHRHE_STATIC_LIB}
     INTERFACE_INCLUDE_DIRECTORIES ${TRAHRHE_PREFIX}/install/include
 )
 target_link_libraries(trahrhe INTERFACE barvinok polylib-gmp)

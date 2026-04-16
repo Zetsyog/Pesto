@@ -178,7 +178,7 @@ flake.nix
 
 Using cli (*TODO*)
 
-## JSON interface
+### JSON configuration
 
 You can pass a json config file to the CLI interface.
 
@@ -238,6 +238,41 @@ cmake --build . --target pesto-unit-tests
 # polybench
 cmake --build . --target test-polybench
 ```
+
+### Tested benchmarks
+
+Polybench benchmarks status:
+
+- `datamining/correlation`: OK
+- `datamining/covariance`:  OK
+- `linear-algebra/blas/gemm`: OK
+- `linear-algebra/blas/gemver`: OK
+- `linear-algebra/blas/gesummv`: OK
+- `linear-algebra/blas/symm`: Failing
+- `linear-algebra/blas/syr2k`:  OK
+- `linear-algebra/blas/syrk`: OK
+- `linear-algebra/blas/trmm`: OK
+- `linear-algebra/kernels/2mm`: OK
+- `linear-algebra/kernels/3mm`: OK
+- `linear-algebra/kernels/atax`: OK
+- `linear-algebra/kernels/bicg`: OK
+- `linear-algebra/kernels/doitgen`: OK
+- `linear-algebra/kernels/mvt`: OK
+- `linear-algebra/solvers/cholesky`: Failing
+- `linear-algebra/solvers/durbin`: Failing
+- `linear-algebra/solvers/gramschmidt`: OK
+- `linear-algebra/solvers/lu`: Untested
+- `linear-algebra/solvers/ludcmp`: Failing
+- `linear-algebra/solvers/trisolv`: Failing
+- `medley/deriche`: OK
+- `medley/floyd-warshall`: OK (dynamic schedule)
+- `medley/nussinnov`: OK
+- `stencils/adi`: OK
+- `stencils/fdtd-2d`: OK (tpz)
+- `stencils/heat-3d`: OK (tpz)
+- `stencils/jacobi-1d`:   OK (tpz)
+- `stencils/jacobi-2d`:   OK (tpz)
+- `stencils/seidel-2d`:   OK (tpz)
 
 ## Build for development
 

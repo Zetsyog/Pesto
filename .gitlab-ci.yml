@@ -1,10 +1,13 @@
+spec:
+  inputs:
+    docker_image:
+      options: ["debian.dockerfile", "alpine.dockerfile"]
+      description: "Docker image to use for building and testing"
+      default: "debian.dockerfile"
+---
 stages:
   - build
   - test
-
-variables:
-  IMAGE_TAG: "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"
-
 workflow:
   rules:
     # MR to main → normal CI
@@ -17,34 +20,52 @@ workflow:
 
 build:pesto:
   stage: build
-  image: docker:dind
+  image: docker:latest
+  services:
+    - docker:dind
   tags:
     - ci.inria.fr
-    - large
   before_script:
     - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
   script:
-    - docker build -t "$IMAGE_TAG" -f ./docker/debian.dockerfile .
-    - docker push "$IMAGE_TAG"
+    - sh ./docker/build_and_push.sh $[[ inputs.docker_image ]]
+  artifacts:
+    paths:
+      - .gitlab-ci-docker-image
+    expire_in: 5 hour
+
 .test:
   stage: test
   tags:
     - ci.inria.fr
-  image: $IMAGE_TAG
+  image: docker:latest
+  services:
+    - docker:dind
+  dependencies:
+    - build:pesto
+  before_script:
+    - |
+      echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
+      export DOCKER_IMAGE=$(cat .gitlab-ci-docker-image)
+      docker pull $DOCKER_IMAGE
 test:polybench:algebraic:
   extends: .test
   script:
-    - cd /pesto/build
-    - cmake --build . --target test-polybench-algebraic
-    - cmake --build . --target test-polybench-hybrid
+    - |
+      docker run --rm "$DOCKER_IMAGE" cmake --build build/ --target test-polybench-algebraic
+test:polybench:hybrid:
+  extends: .test
+  script:
+    - |
+      docker run --rm "$DOCKER_IMAGE" cmake --build build/ --target test-polybench-hybrid
 test:polybench:dynschedule:
   extends: .test
   script:
-    - cd /pesto/build
-    - cmake --build . --target test-polybench-dynschedule
+    - |
+      docker run --rm "$DOCKER_IMAGE" cmake --build build/ --target test-polybench-dynschedule
 test:polybench:tpz:
   extends: .test
   script:
-    - cd /pesto/build
-    - cmake --build . --target test-polybench-tpz
+    - |
+      docker run --rm "$DOCKER_IMAGE" cmake --build build/ --target test-polybench-tpz
 

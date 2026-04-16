@@ -26,8 +26,14 @@ ALL_BENCHMARKS=(
     "linear-algebra/kernels/doitgen"
     "linear-algebra/kernels/mvt"
     "linear-algebra/solvers/cholesky"
+    "linear-algebra/solvers/durbin"
     "linear-algebra/solvers/gramschmidt"
     "linear-algebra/solvers/lu"
+    "linear-algebra/solvers/ludcmp"
+    "linear-algebra/solvers/trisolv"
+    "medley/deriche"
+    "medley/floyd-warshall"
+    "medley/nussinov"
     "stencils/adi"
     "stencils/fdtd-2d"
     "stencils/jacobi-1d"
@@ -66,6 +72,7 @@ cleanup_all() {
     echo -e "${BOLD}              Cleaning up                  ${RESET}"
     echo -e "${BOLD}===========================================${RESET}"
     for benchmark in "${ALL_BENCHMARKS[@]}"; do
+        echo -e "${INFO} Cleaning $benchmark"
         cleanup_test "$benchmark"
     done
 }
@@ -137,8 +144,8 @@ fail_count=0
 function run_test() {
     # args
     local benchmark="$1"
-    local make_target="$2"
-    local pesto_config="$3"
+    local baseline_target="$2"
+    local compared_target="$3"
 
     # local variables
     local benchmark_name
@@ -151,7 +158,7 @@ function run_test() {
     echo -e "[   ${BLUE}TEST${RESET}   ] $benchmark"
 
     # compile vanilla program
-    command=("${MAKE}" -C "$benchmark" "${benchmark_name}" -B EXTRA_FLAGS="$EXTRA_FLAGS")
+    command=("${MAKE}" -C "$benchmark" "$baseline_target" -B EXTRA_FLAGS="$EXTRA_FLAGS")
     echo -e "${INFO} Compiling baseline"
     if ! "${command[@]}"; then
         echo -e "[ ${RED}  FAIL  ${RESET} ] Compilation failed: ${command[*]}"
@@ -159,23 +166,15 @@ function run_test() {
     fi
 
     # run the program
-    command=("./$benchmark/${benchmark_name}")
-    output_dump="$benchmark/${benchmark_name}.dump"
+    command=("./$benchmark/$baseline_target")
+    output_dump="$benchmark/$baseline_target.dump"
     echo -e "${INFO} Run command: ${command[*]}"
     if ! "${command[@]}" 2>"$output_dump" >/dev/null; then
         echo -e "[ ${RED}  FAIL  ${RESET} ] Execution failed: ${command[*]}"
         return 1
     fi
-    expected_output=$(sha256sum "$benchmark/${benchmark_name}.dump" | cut -d' ' -f1)
+    expected_output=$(sha256sum "$benchmark/$baseline_target.dump" | cut -d' ' -f1)
     echo -e "${INFO} Expected output hash: $expected_output"
-
-    command=("${MAKE}" -C "$benchmark" "${benchmark_name}.pesto.c" -B CC="$CC" PESTO="$PESTO" PESTO_CONFIG="$pesto_config" EXTRA_FLAGS="$EXTRA_FLAGS")
-    echo "${command[@]}"
-    echo -e "${INFO} Generate pesto program"
-    if ! "${command[@]}" >/dev/null 2>&1; then
-        echo -e "[ ${RED}  FAIL  ${RESET} ] Pesto failed: ${command[*]}"
-        return 1
-    fi
 
     # compile and run pesto program $RUN_NB times with random divider sizes
     if [ "$MIN_TILE_SIZE" -eq "$MAX_TILE_SIZE" ]; then
@@ -187,24 +186,23 @@ function run_test() {
         D1=$(sed "$((i * 3 + 1))q;d" <<<"$div_list")
         D2=$(sed "$((i * 3 + 1))q;d" <<<"$div_list")
         D3=$(sed "$((i * 3 + 2))q;d" <<<"$div_list")
-        echo "aze"
 
-        rm -f "$benchmark/$make_target"
-        command=("${MAKE}" -C "$benchmark" "${make_target}" CC="$CC" PESTO="$PESTO" PESTO_CONFIG="$pesto_config" EXTRA_FLAGS="$EXTRA_FLAGS -DDIV0=$D1 -DDIV1=$D2 -DDIV2=$D3")
+        rm -f "$benchmark/$compared_target"
+        command=("${MAKE}" -C "$benchmark" "${compared_target}" CC="$CC" PESTO="$PESTO" EXTRA_FLAGS="$EXTRA_FLAGS -DDIV0=$D1 -DDIV1=$D2 -DDIV2=$D3")
         echo -e "${INFO} Compile pesto program ${D1}x${D2}x${D3}"
         if ! "${command[@]}" >/dev/null 2>&1; then
             echo -e "[ ${RED}  FAIL  ${RESET} ] Compilation failed: ${command[*]}"
             return 1
         fi
-        command=("./$benchmark/$make_target")
-        output_dump="$benchmark/${make_target}.dump"
+        command=("./$benchmark/$compared_target")
+        output_dump="$benchmark/${compared_target}.dump"
         echo -e "${INFO} Run command: ${command[*]}"
         if ! "${command[@]}" 2>"$output_dump" >/dev/null; then
             echo -e "[ ${RED}  FAIL  ${RESET} ] Execution failed"
             fail_count=$((fail_count + 1))
             return 1
         fi
-        output=$(sha256sum "$benchmark/${make_target}.dump" | cut -d' ' -f1)
+        output=$(sha256sum "$benchmark/${compared_target}.dump" | cut -d' ' -f1)
         if [[ "$output" != "$expected_output" ]]; then
             echo -e "[ ${RED}  FAIL  ${RESET} ] Output differs from expected result"
             echo -e "[ ${RED}  DIFF  ${RESET} ] Expected: \"$expected_output\""

@@ -41,7 +41,7 @@ ENV CC=gcc
 ENV CXX=g++
 
 # Build the project
-RUN mkdir -p build && cd build && cmake .. && cmake --build . -j
+RUN cmake -B build && cmake --build ./build -j
 
 # Set the environment variable
 ENV PESTO=/pesto/build/pesto

@@ -25,14 +25,14 @@ BENCHMARKS=(
     "stencils/adi"
 )
 
-config_path=$(realpath "config/hybrid.json")
-
 print_header "Pesto CLI Test Suite - Polybench" "Hybrid algebraic tiling tests"
 
 for benchmark in "${BENCHMARKS[@]}"; do
-    benchmark_name=$(basename "$benchmark")
-    run_test "$benchmark" "${benchmark_name}_pesto" "$config_path"
+    run_test "$benchmark" "original" "hybrid"
     cleanup_test "$benchmark"
 done
 
 print_results
+
+# Exit with appropriate status
+[[ $fail_count -eq 0 ]] && exit 0 || exit 1
