@@ -106,6 +106,7 @@ include(cmake/barvinok.cmake)
 # trahrhe
 include(cmake/trahrhe.cmake)
 
+
 # ##################################################################################################
 # libpesto
 # ##################################################################################################
@@ -115,6 +116,8 @@ add_subdirectory(lib)
 # pesto-cli
 # ##################################################################################################
 add_subdirectory(cli)
+set(PESTO_CLI_BIN "${CMAKE_BINARY_DIR}/cli/pesto")
+
 
 # ##################################################################################################
 # Tests
@@ -127,7 +130,6 @@ add_subdirectory(test EXCLUDE_FROM_ALL)
 # "Generating API documentation with Doxygen" VERBATIM ) endif()
 
 
-set(PESTO_CLI_BIN "${CMAKE_BINARY_DIR}/cli/pesto")
 
 
 # ##################################################################################################
