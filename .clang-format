@@ -5,3 +5,4 @@ TabWidth: 4
 IndentWidth: 4
 BreakConstructorInitializers: BeforeComma
 ConstructorInitializerAllOnOneLineOrOnePerLine: true
+AllowShortFunctionsOnASingleLine: Empty

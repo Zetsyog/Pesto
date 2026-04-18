@@ -3,63 +3,60 @@
 # ##################################################################################################
 
 set(PESTO_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/OslScop.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/ParamTilingUtility.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/PassManager.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/PestoProgram.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/PlutoWrapper.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/codegen/CloogPass.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/codegen/VarDecls.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/codegen/ParamTiling.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/ir/Scop2Isl.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/ir/Isl2Scop.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/clast_support.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/isl_support.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/osl_support.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/logging/Logging.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/pass/CustomVecPragma.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/pass/DumpOslPass.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/pass/GenClastPass.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/pass/IslPass.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/pass/MatchCriteriaPass.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/pass/ParamContextPass.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/pass/ParamTilingPass.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/pass/Pass.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/pass/PlutoPass.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/pass/SplitNestPass.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/pass/TpzTilingPass.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/ClastCustomVecPragmaPB.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/ClastParamTilingPB.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/CloogCodegenPB.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/DumpOsl.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/GenClastPB.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/IslPB.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/MatchCriteriaPB.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/PMBuilder.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/ParamContextPB.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/PassBuilder.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/PlutoPB.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/SplitNestPB.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/passbuilder/TpzTilingPB.cpp
+    src/Bundle.cpp
+    src/ParamTilingUtility.cpp
+    src/PassManager.cpp
+    src/PlutoWrapper.cpp
+    src/byproduct/HeaderFile.cpp
+    src/byproduct/OutputSourceFile.cpp
+    src/byproduct/SideSourceFile.cpp
+    src/codegen/ParamTiling.cpp
+    src/ir/OpenScopIR.cpp
+    src/ir/ClastIR.cpp
+    src/ir/Isl2Scop.cpp
+    src/ir/Scop2Isl.cpp
+    src/clast_support.c
+    src/isl_support.c
+    src/osl_support.c
+    src/logging/Logging.cpp
+    src/pass/CloogPass.cpp
+    src/pass/CustomVecPragma.cpp
+    src/pass/DumpOslPass.cpp
+    src/pass/GenClastPass.cpp
+    src/pass/IslPass.cpp
+    src/pass/MatchCriteriaPass.cpp
+    src/pass/ParamContextPass.cpp
+    src/pass/ParamTilingPass.cpp
+    src/pass/Pass.cpp
+    src/pass/PlutoPass.cpp
+    src/pass/TpzTilingPass.cpp
+    src/passbuilder/ClastCustomVecPragmaPB.cpp
+    src/passbuilder/ClastParamTilingPB.cpp
+    src/passbuilder/CloogCodegenPB.cpp
+    src/passbuilder/DumpOsl.cpp
+    src/passbuilder/GenClastPB.cpp
+    src/passbuilder/IslPB.cpp
+    src/passbuilder/MatchCriteriaPB.cpp
+    src/passbuilder/PMBuilder.cpp
+    src/passbuilder/ParamContextPB.cpp
+    src/passbuilder/PassBuilder.cpp
+    src/passbuilder/PlutoPB.cpp
+    src/passbuilder/TpzTilingPB.cpp
 )
 
 add_library(pesto STATIC ${PESTO_SOURCES})
 
+set(PESTO_TEMPLATE_SCHEDULE ${CMAKE_CURRENT_BINARY_DIR}/template/schedule.h)
+
 configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/version.h.in # input template file
-    ${PESTO_BINARY_HEADER_DIR}/pesto/version.h # output file
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/config.h.in # input template file
+    ${PESTO_BINARY_HEADER_DIR}/pesto/config.h # output file
 )
 
-set(PESTO_TEMPLATE_SCHEDULE ${CMAKE_CURRENT_BINARY_DIR}/template/schedule.h)
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/export/schedule.h # input template file
     ${PESTO_TEMPLATE_SCHEDULE} # output file
     COPYONLY # do not configure
-)
-
-configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/codegen/ParamTiling.hpp.in # input file
-    ${PESTO_BINARY_HEADER_DIR}/pesto/codegen/ParamTiling.hpp # output file
 )
 
 add_dependencies(pesto trahrhe-src barvinok-src)
@@ -68,8 +65,8 @@ target_include_directories(
     pesto PUBLIC $<BUILD_INTERFACE:${PESTO_SOURCE_HEADER_DIR}>
     $<BUILD_INTERFACE:${PESTO_BINARY_HEADER_DIR}> $<INSTALL_INTERFACE:include>
 )
-target_include_directories(pesto PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/include)
-target_include_directories(pesto PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(pesto PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(pesto PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(
     pesto PUBLIC
     nlohmann_json
