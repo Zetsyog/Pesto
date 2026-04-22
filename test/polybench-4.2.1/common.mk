@@ -56,7 +56,7 @@ $(SRC).hybrid.c: $(SRC).c
 hybrid: $(SRC).hybrid.c
 	$(CC) $(CFLAGS) -o $@ -I $(BASEDIR)/utilities/ $(BASEDIR)/utilities/polybench.c $< $(LDLIBS) $(EXTRA_FLAGS)
 
-check: $(SRC).atiled.c
+check-atiled: $(SRC).atiled.c
 	@$(BASEDIR)/tools/pb_chksum $(SRC).c "-DLARGE_DATASET"
 	@$(BASEDIR)/tools/pb_chksum $(SRC).atiled.c "-DLARGE_DATASET"
 

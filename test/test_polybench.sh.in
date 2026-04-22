@@ -121,6 +121,13 @@ print_header() {
     center64 "" "-"
     center64 "$subtitle"
     center64 "" "="
+    echo "CFLAGS=$CFLAGS"
+    echo "EXTRA_FLAGS=$EXTRA_FLAGS"
+    echo "C Compiler=$CC"
+    echo "Pesto CLI=$PESTO"
+    echo "Dataset size=$DATASET_SIZE"
+    echo "Tile size range=$MIN_TILE_SIZE - $MAX_TILE_SIZE"
+    echo "Runs per test=$RUN_NB"
 }
 
 print_results() {
