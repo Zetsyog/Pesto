@@ -24,6 +24,7 @@
 #include <pesto/Pesto.hpp>
 
 #include <pesto/Options.hpp>
+#include <pesto/PassBuilder.hpp>
 #include <pesto/utils/Process.hpp>
 
 void print_usage(std::ostream &out) {

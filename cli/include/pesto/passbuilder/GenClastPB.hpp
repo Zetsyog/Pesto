@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <pesto/passbuilder/PassBuilder.hpp>
+#include <pesto/PassBuilder.hpp>
 
 #include <memory>
 #include <string>

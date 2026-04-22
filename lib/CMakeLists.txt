@@ -30,18 +30,7 @@ set(PESTO_SOURCES
     src/pass/Pass.cpp
     src/pass/PlutoPass.cpp
     src/pass/TpzTilingPass.cpp
-    src/passbuilder/ClastCustomVecPragmaPB.cpp
-    src/passbuilder/ClastParamTilingPB.cpp
-    src/passbuilder/CloogCodegenPB.cpp
-    src/passbuilder/DumpOsl.cpp
-    src/passbuilder/GenClastPB.cpp
-    src/passbuilder/IslPB.cpp
-    src/passbuilder/MatchCriteriaPB.cpp
-    src/passbuilder/PMBuilder.cpp
-    src/passbuilder/ParamContextPB.cpp
-    src/passbuilder/PassBuilder.cpp
-    src/passbuilder/PlutoPB.cpp
-    src/passbuilder/TpzTilingPB.cpp
+
 )
 
 add_library(pesto STATIC ${PESTO_SOURCES})
@@ -69,7 +58,6 @@ target_include_directories(pesto PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(pesto PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(
     pesto PUBLIC
-    nlohmann_json
     muparser
     spdlog
     pluto

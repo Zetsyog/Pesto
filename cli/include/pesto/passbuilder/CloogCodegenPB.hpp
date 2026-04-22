@@ -5,19 +5,20 @@
  * Copyright (c) 2024 Clément Rossetti
  */
 
-#include <pesto/passbuilder/PassBuilder.hpp>
+#pragma once
+
+#include <pesto/PassBuilder.hpp>
 
 #include <memory>
-#include <string>
 
 namespace pesto {
 
 namespace builder {
 
-class ParamContextPB : public IPassBuilder {
+class CloogCodegenPB : public IPassBuilder {
   public:
-	ParamContextPB();
-	virtual ~ParamContextPB();
+	CloogCodegenPB();
+	virtual ~CloogCodegenPB();
 
 	virtual std::unique_ptr<pesto::pass::IPass> build(PassManagerBuilder &builder, const json &j);
 };

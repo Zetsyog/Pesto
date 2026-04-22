@@ -10,6 +10,7 @@
 
 #include <pesto/macros.h>
 
+#include <pesto/PassBuilder.hpp>
 #include <pesto/passbuilder/ClastCustomVecPragmaPB.hpp>
 #include <pesto/passbuilder/ClastParamTilingPB.hpp>
 #include <pesto/passbuilder/CloogCodegenPB.hpp>
@@ -18,7 +19,6 @@
 #include <pesto/passbuilder/IslPB.hpp>
 #include <pesto/passbuilder/MatchCriteriaPB.hpp>
 #include <pesto/passbuilder/ParamContextPB.hpp>
-#include <pesto/passbuilder/PassBuilder.hpp>
 #include <pesto/passbuilder/PlutoPB.hpp>
 #include <pesto/passbuilder/TpzTilingPB.hpp>
 

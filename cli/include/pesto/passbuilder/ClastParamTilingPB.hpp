@@ -7,16 +7,18 @@
 
 #pragma once
 
-#include <pesto/passbuilder/PassBuilder.hpp>
+#include <pesto/PassBuilder.hpp>
+
+#include <memory>
 
 namespace pesto {
 
 namespace builder {
 
-class MatchCriteriaPB : public IPassBuilder {
+class ClastParamTilingPB : public IPassBuilder {
   public:
-	MatchCriteriaPB();
-	virtual ~MatchCriteriaPB();
+	ClastParamTilingPB();
+	virtual ~ClastParamTilingPB();
 
 	virtual std::unique_ptr<pesto::pass::IPass> build(PassManagerBuilder &builder, const json &j);
 };

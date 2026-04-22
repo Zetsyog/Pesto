@@ -7,19 +7,18 @@
 
 #pragma once
 
-#include <pesto/passbuilder/PassBuilder.hpp>
+#include <pesto/PassBuilder.hpp>
 
 #include <memory>
-#include <string>
 
 namespace pesto {
 
 namespace builder {
 
-class ClastCustomVecPragmaPB : public IPassBuilder {
+class IslPB : public IPassBuilder {
   public:
-	ClastCustomVecPragmaPB();
-	virtual ~ClastCustomVecPragmaPB();
+	IslPB();
+	virtual ~IslPB();
 
 	virtual std::unique_ptr<pesto::pass::IPass> build(PassManagerBuilder &builder, const json &j);
 };

@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <pesto/passbuilder/PassBuilder.hpp>
+#include <pesto/PassBuilder.hpp>
 
 #include <memory>
 
@@ -15,10 +15,10 @@ namespace pesto {
 
 namespace builder {
 
-class TpzTilingPB : public IPassBuilder {
+class OslDumpPB : public IPassBuilder {
   public:
-	TpzTilingPB();
-	virtual ~TpzTilingPB();
+	OslDumpPB();
+	virtual ~OslDumpPB();
 
 	virtual std::unique_ptr<pesto::pass::IPass> build(PassManagerBuilder &builder, const json &j);
 };

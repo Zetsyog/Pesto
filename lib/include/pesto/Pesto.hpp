@@ -63,16 +63,3 @@
 #include <pesto/pass/clast/CustomVecPragma.hpp>
 #include <pesto/pass/clast/GenClastPass.hpp>
 #include <pesto/pass/clast/ParamTilingPass.hpp>
-
-/*
-	Passbuilders
-*/
-#include <pesto/passbuilder/ClastCustomVecPragmaPB.hpp>
-#include <pesto/passbuilder/ClastParamTilingPB.hpp>
-#include <pesto/passbuilder/CloogCodegenPB.hpp>
-#include <pesto/passbuilder/GenClastPB.hpp>
-#include <pesto/passbuilder/IslPB.hpp>
-#include <pesto/passbuilder/MatchCriteriaPB.hpp>
-#include <pesto/passbuilder/ParamContextPB.hpp>
-#include <pesto/passbuilder/PassBuilder.hpp>
-#include <pesto/passbuilder/PlutoPB.hpp>
