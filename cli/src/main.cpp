@@ -255,8 +255,7 @@ int main(int argc, char **argv) {
 								.run();
 
 		if (indentResult.exit_code != 0) {
-			logger->error("Code formatting failed: exit code {}", indentResult.exit_code);
-			return 1;
+			logger->warn("Code formatting failed: exit code {}", indentResult.exit_code);
 		}
 	}
 
