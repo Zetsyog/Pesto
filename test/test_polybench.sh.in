@@ -169,6 +169,7 @@ function run_test() {
     echo -e "${INFO} Compiling baseline"
     if ! "${command[@]}"; then
         echo -e "[ ${RED}  FAIL  ${RESET} ] Compilation failed: ${command[*]}"
+        fail_count=$((fail_count + 1))
         return 1
     fi
 
@@ -178,6 +179,7 @@ function run_test() {
     echo -e "${INFO} Run command: ${command[*]}"
     if ! "${command[@]}" 2>"$output_dump" >/dev/null; then
         echo -e "[ ${RED}  FAIL  ${RESET} ] Execution failed: ${command[*]}"
+        fail_count=$((fail_count + 1))
         return 1
     fi
     expected_output=$(sha256sum "$benchmark/$baseline_target.dump" | cut -d' ' -f1)
@@ -199,6 +201,7 @@ function run_test() {
         echo -e "${INFO} Compile pesto program ${D1}x${D2}x${D3}"
         if ! "${command[@]}" >/dev/null 2>&1; then
             echo -e "[ ${RED}  FAIL  ${RESET} ] Compilation failed: ${command[*]}"
+            fail_count=$((fail_count + 1))
             return 1
         fi
         command=("./$benchmark/$compared_target")
