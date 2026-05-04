@@ -40,7 +40,15 @@ using pesto::Bundle;
 using pesto::pass::ClastParamTilingPass;
 
 pesto::pass::ClastParamTilingPass::ClastParamTilingPass()
-	: IPass("param-tiling"), gen_trahrhe(false), trahrhe_use_dichotomy(true), tilingTypes() {
+	: IPass("param-tiling")
+	, gen_trahrhe(false)
+	, trahrhe_use_dichotomy(true)
+	, tilingTypes()
+	, boundComputeMethod(ptile::codegen::BoundComputeMethod::FILL_LAST)
+	, boundCorrectionStrategy(ptile::codegen::BoundCorrectionStrategy::NO_CORRECTION)
+	, volumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::DYNAMIC_TILE_UNTIL_THRESHOLD)
+	, volumeCheckTrigger(VolumeCheckTrigger::FIRST_OUTTER_ITERATOR_DEPENDENCY)
+	, volumeCheckThreshold(std::nullopt) {
 	this->gen_clast_pass = std::make_unique<GenClastPass>();
 	this->gen_clast_pass->cloogF = -1;
 	this->gen_clast_pass->cloogL = 1;
@@ -770,8 +778,8 @@ void ClastParamTilingPass::generateStatements(CloogProgram *cloogProgram, StmtGr
 	using StmtType = ptile::codegen::StmtType;
 
 	for (auto &data : group.tilingData) {
-		ptile::codegen::ParamTilingCodegen codegen = this->getCodegen(cloogProgram, group, *data);
 		this->logger->debug("Generating statements... ({}, {})", data->head_stmt_id, data->body_stmt_id);
+		ptile::codegen::ParamTilingCodegen codegen = this->getCodegen(cloogProgram, group, *data);
 		for (std::size_t i = 0; i < 2; ++i) {
 			std::ostringstream oss;
 			codegen.genStmt(oss, i == 0 ? StmtType::HEAD : StmtType::BODY);
@@ -1101,10 +1109,10 @@ pesto::ptile::codegen::ParamTilingCodegen ClastParamTilingPass::getCodegen(Cloog
 		codegen.setVolumeCheckStrategy(this->volumeCheckStrategy);
 	} else if (this->volumeCheckTrigger == VolumeCheckTrigger::FIRST_OUTTER_ITERATOR_DEPENDENCY) {
 		size_t movedDimCount = group.movedDimensionsCount;
+		this->logger->debug("Moved dimensions count: {}", movedDimCount);
 		if (movedDimCount == 0) {
 			codegen.setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::NO_CHECK);
 		} else {
-			this->logger->debug("Moved dimensions count: {}", movedDimCount);
 			bool isFirstDependency = true;
 			for (auto &tdata : group.tilingData) {
 				if (tdata->tiling_depth >= data.tiling_depth) {
@@ -1232,18 +1240,10 @@ void ClastParamTilingPass::computeUntiledDomain(CloogProgram *cloogProgram, Stmt
 		inner_domain = isl_set_set_dim_name(inner_domain, isl_dim_set, i, cloogProgram->names->scattering[i]);
 	}
 
-	isl_set_dump(inner_domain);
-
 	// move non tiled dimensions to parameters
 	inner_domain = this->moveNonTiledDimensionsToParameters(inner_domain, group);
 
-	logger->debug("After moving non-tiled dimensions to parameters:");
-	isl_set_dump(inner_domain);
-
 	inner_domain = this->removeTilingDimensions(group, inner_domain, -1);
-
-	logger->debug("After removing tiling dimensions:");
-	isl_set_dump(inner_domain);
 
 	assert(inner_domain != nullptr || "inner domain is null");
 	assert(!isl_set_is_empty(inner_domain));
