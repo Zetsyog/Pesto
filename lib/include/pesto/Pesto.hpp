@@ -26,8 +26,6 @@
 */
 #include <pesto/codegen/ParamTiling.hpp>
 
-#include <pesto/ParamTilingUtility.hpp>
-
 #include <pesto/Pluto.hpp>
 
 /*

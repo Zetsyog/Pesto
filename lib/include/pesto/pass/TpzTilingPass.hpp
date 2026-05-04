@@ -13,8 +13,9 @@
 #include <vector>
 
 #include <isl/ctx.h>
+#include <isl/printer.h>
+#include <isl/set.h>
 
-#include <pesto/ParamTilingUtility.hpp>
 #include <pesto/ir/ClastIR.hpp>
 #include <pesto/ir/OpenScopIR.hpp>
 #include <pesto/maths/Maths.hpp>

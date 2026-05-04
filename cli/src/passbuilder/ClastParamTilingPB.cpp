@@ -10,7 +10,9 @@
 
 using namespace pesto::builder;
 
-ClastParamTilingPB::ClastParamTilingPB() { logger = log::get_logger("pb/param-tiling"); }
+ClastParamTilingPB::ClastParamTilingPB() {
+	logger = log::get_logger("pb/param-tiling");
+}
 
 ClastParamTilingPB::~ClastParamTilingPB() {}
 
@@ -83,14 +85,6 @@ std::unique_ptr<pesto::pass::IPass> ClastParamTilingPB::build(PassManagerBuilder
 		if (key == "pluto") {
 			logger->warn("Pluto pass is deprecated. You should call a pluto "
 						 "pass before the param-tiling pass instead.");
-			continue;
-		}
-		if (key == "tile-size-hint") {
-			if (!val.is_number_integer()) {
-				logger->error("Tile-size-hint must be an integer. Skipping.");
-				throw std::invalid_argument("Tile-size-hint must be an integer");
-			}
-			pass->setTileSizeHint(val);
 			continue;
 		}
 		if (key == "boundCorrectionStrategy") {
