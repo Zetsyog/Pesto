@@ -121,6 +121,13 @@ print_header() {
     center64 "" "-"
     center64 "$subtitle"
     center64 "" "="
+    echo "CFLAGS=$CFLAGS"
+    echo "EXTRA_FLAGS=$EXTRA_FLAGS"
+    echo "C Compiler=$CC"
+    echo "Pesto CLI=$PESTO"
+    echo "Dataset size=$DATASET_SIZE"
+    echo "Tile size range=$MIN_TILE_SIZE - $MAX_TILE_SIZE"
+    echo "Runs per test=$RUN_NB"
 }
 
 print_results() {
@@ -162,6 +169,7 @@ function run_test() {
     echo -e "${INFO} Compiling baseline"
     if ! "${command[@]}"; then
         echo -e "[ ${RED}  FAIL  ${RESET} ] Compilation failed: ${command[*]}"
+        fail_count=$((fail_count + 1))
         return 1
     fi
 
@@ -171,6 +179,7 @@ function run_test() {
     echo -e "${INFO} Run command: ${command[*]}"
     if ! "${command[@]}" 2>"$output_dump" >/dev/null; then
         echo -e "[ ${RED}  FAIL  ${RESET} ] Execution failed: ${command[*]}"
+        fail_count=$((fail_count + 1))
         return 1
     fi
     expected_output=$(sha256sum "$benchmark/$baseline_target.dump" | cut -d' ' -f1)
@@ -188,10 +197,11 @@ function run_test() {
         D3=$(sed "$((i * 3 + 2))q;d" <<<"$div_list")
 
         rm -f "$benchmark/$compared_target"
-        command=("${MAKE}" -C "$benchmark" "${compared_target}" CC="$CC" PESTO="$PESTO" EXTRA_FLAGS="$EXTRA_FLAGS -DDIV0=$D1 -DDIV1=$D2 -DDIV2=$D3")
+        command=("${MAKE}" -C "$benchmark" "${compared_target}" -B "CC=$CC" "PESTO=$PESTO" "EXTRA_FLAGS=$EXTRA_FLAGS -DDIV0=$D1 -DDIV1=$D2 -DDIV2=$D3")
         echo -e "${INFO} Compile pesto program ${D1}x${D2}x${D3}"
         if ! "${command[@]}" >/dev/null 2>&1; then
             echo -e "[ ${RED}  FAIL  ${RESET} ] Compilation failed: ${command[*]}"
+            fail_count=$((fail_count + 1))
             return 1
         fi
         command=("./$benchmark/$compared_target")

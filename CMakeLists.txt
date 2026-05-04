@@ -1,4 +1,13 @@
-cmake_minimum_required(VERSION 3.24)
+#
+# Pesto - A polyhedral loop nest optimizer
+#
+# SPDX-License-Identifier: MIT
+#
+# Copyright (c) 2024 Clément Rossetti
+#
+
+
+cmake_minimum_required(VERSION 3.22)
 project(pestoProject)
 
 function(dump_cmake_variables)
@@ -106,60 +115,18 @@ include(cmake/barvinok.cmake)
 # trahrhe
 include(cmake/trahrhe.cmake)
 
+
 # ##################################################################################################
 # libpesto
 # ##################################################################################################
 add_subdirectory(lib)
 
 # ##################################################################################################
-# pestobin
-# ##################################################################################################
-add_subdirectory(tool)
-
-# ##################################################################################################
 # pesto-cli
 # ##################################################################################################
+add_subdirectory(cli)
+set(PESTO_CLI_BIN "${CMAKE_BINARY_DIR}/cli/pesto")
 
-# Define variable for the templates
-set(EXTRACT_SCOP_BIN "${CMAKE_BINARY_DIR}/extract_scop.sh")
-set(REPLACE_SCOP_BIN "${CMAKE_BINARY_DIR}/replace_scop.sh")
-set(TRAHRHE_WRAPPER_BIN "${CMAKE_BINARY_DIR}/trahrhe_wrapper.sh")
-set(PESTO_TOOL_BIN "${CMAKE_BINARY_DIR}/tool/pestobin")
-set(PESTO_CLI_BIN "${CMAKE_BINARY_DIR}/pesto")
-
-# Add bash scripts
-configure_file("${CMAKE_SOURCE_DIR}/extract_scop.sh" "${CMAKE_BINARY_DIR}" COPYONLY)
-configure_file("${CMAKE_SOURCE_DIR}/replace_scop.sh" "${CMAKE_BINARY_DIR}" COPYONLY)
-
-configure_file(
-    "${CMAKE_SOURCE_DIR}/pesto.in.sh" # input template file
-    ${PESTO_CLI_BIN} # output file
-    FILE_PERMISSIONS
-    OWNER_READ
-    OWNER_WRITE
-    OWNER_EXECUTE
-    GROUP_READ
-    GROUP_EXECUTE
-    WORLD_READ
-    WORLD_EXECUTE
-    @ONLY
-)
-configure_file(
-    "${CMAKE_SOURCE_DIR}/trahrhe_wrapper.in.sh" # input template file
-    "${CMAKE_BINARY_DIR}/trahrhe_wrapper.sh" # output file
-    FILE_PERMISSIONS
-    OWNER_READ
-    OWNER_WRITE
-    OWNER_EXECUTE
-    GROUP_READ
-    GROUP_EXECUTE
-    WORLD_READ
-    WORLD_EXECUTE
-    @ONLY
-)
-
-add_custom_target(pesto-cli)
-add_dependencies(pesto-cli pestobin)
 
 # ##################################################################################################
 # Tests
@@ -170,6 +137,9 @@ add_subdirectory(test EXCLUDE_FROM_ALL)
 # ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile @ONLY) add_custom_target(doc ${DOXYGEN_EXECUTABLE}
 # ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} COMMENT
 # "Generating API documentation with Doxygen" VERBATIM ) endif()
+
+
+
 
 # ##################################################################################################
 # Installation
@@ -183,9 +153,9 @@ install(
     PUBLIC_HEADER DESTINATION include/
 )
 
-# Install pestobin
+# Install pesto-cli
 install(
-    TARGETS pestobin
+    TARGETS pesto-cli
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib

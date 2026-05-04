@@ -1,7 +1,7 @@
 # muparser
 message(STATUS "Fetching muparser")
 
-FetchContent_Declare(
+fetchcontent_declare(
     muparser #
     DOWNLOAD_EXTRACT_TIMESTAMP true #
     EXCLUDE_FROM_ALL

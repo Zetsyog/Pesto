@@ -69,13 +69,6 @@ Values of the array are string. They should be either `algebraic` or `rectangula
 Default is `["algebraic"]`
 This define for each tiled dimension the tiling type. If there is more tiled dimensions than items in the array, the last element will be used.
 
-### `tile-size-hint`
-
-_Advanced use_
-This pass is working on the CloogAST. It is looking in the AST for the loops that have been tiled.
-This parameter gives a hint on the tile size that was used so the algorithm can find tiled dimensions.
-Default value is `32`.
-
 ### `boundCorrectionStrategy`
 
 _String_
