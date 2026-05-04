@@ -64,11 +64,43 @@ class CLI {
 
 	std::optional<std::filesystem::path> getBundleOutputSourceFile(const Bundle &bundle);
 
+	/**
+	 * @brief Write the preprocessor input file.
+	 * This file contains the generated code from the codegen pass, as well as any necessary includes and macros. This
+	 * file destined to be passed to the preprocessor
+	 * @param bundle The bundle containing the code to preprocess.
+	 * @param target The path to the target file.
+	 */
 	void writePreprocessorInputFile(const pesto::Bundle &bundle, const std::filesystem::path &target);
+
+	/**
+	 * @brief Run the preprocessor on a file.
+	 * @param inputFile The path to the input file.
+	 * @param outputFile The path to the output file.
+	 */
 	void runPreprocessor(const std::filesystem::path &inputFile, const std::filesystem::path &outputFile);
+	/**
+	 * @brief Sandwich the generated code between two parts of the original file.
+	 * This is done by copying the original file until reaching the scop section, then inserting the pesto generated
+	 * code, and finally copying the rest of the original file. This allows to preserve any code outside of the scop, as
+	 * well as any formatting and comments in the original file. The generated code is expected to be preprocessed, so
+	 * that it can be directly inserted in the original file without any further processing. The generated code is
+	 * expected to be located in a separate file, which is passed as an argument to this function, so that it can be
+	 * read and inserted in the original file. The coordinates of the scop are also passed as an argument, so that we
+	 * know where in the original file we should insert the generated code.
+	 * @param original The path to the original file.
+	 * @param dest The path to the destination file.
+	 * @param generatedCodeFile The path to the generated code file.
+	 * @param coord The coordinates of the scop.
+	 * @param bundle The bundle containing the code to generate.
+	 */
 	void sandwichCode(const std::filesystem::path &original, const std::filesystem::path &dest,
 					  const std::filesystem::path &generatedCodeFile, osl_coordinates_p coord, const Bundle &bundle);
 
+	/**
+	 * @brief Run the code formatter on a file.
+	 * @param targetFile The path to the target file.
+	 */
 	void runFormatter(const std::filesystem::path &targetFile);
 };
 

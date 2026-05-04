@@ -1,9 +1,17 @@
+#
+# Pesto - A polyhedral loop nest optimizer
+#
+# SPDX-License-Identifier: MIT
+#
+# Copyright (c) 2024 Clément Rossetti
+#
+
+
 # ##################################################################################################
 # libpesto
 # ##################################################################################################
 
 set(PESTO_SOURCES
-    src/Bundle.cpp
     src/ParamTilingUtility.cpp
     src/PassManager.cpp
     src/PlutoWrapper.cpp

@@ -1,5 +1,11 @@
-#ifndef PESTO_CONFIG_H
-#define PESTO_CONFIG_H
+/*
+ * Pesto - A polyhedral loop nest optimizer
+ *
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2024 Clément Rossetti
+ */
+
+#pragma once
 
 // clang-format off
 #define PESTO_VERSION_MAJOR @PESTO_VERSION_MAJOR@
@@ -8,8 +14,5 @@
 
 #define PESTO_VERSION_STRING "@PESTO_VERSION@"
 
-// clang-format off
 #define _PESTO_TEMPLATE_SCHEDULE_PATH "@PESTO_TEMPLATE_SCHEDULE@"
 // clang-format on
-
-#endif // PESTO_CONFIG_H

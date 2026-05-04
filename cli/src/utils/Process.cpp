@@ -1,4 +1,11 @@
 
+/*
+ * Pesto - A polyhedral loop nest optimizer
+ *
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2024 Clément Rossetti
+ */
+
 #include <cstring>
 #include <sstream>
 #include <stdexcept>

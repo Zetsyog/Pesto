@@ -1,3 +1,10 @@
+/*
+ * Pesto - A polyhedral loop nest optimizer
+ *
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2024 Clément Rossetti
+ */
+
 #include <pesto/ir/ClastIR.hpp>
 
 const std::string pesto::ir::ClastIR::ID = "clast";
