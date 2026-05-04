@@ -197,7 +197,7 @@ function run_test() {
         D3=$(sed "$((i * 3 + 2))q;d" <<<"$div_list")
 
         rm -f "$benchmark/$compared_target"
-        command=("${MAKE}" -C "$benchmark" "${compared_target}" CC="$CC" PESTO="$PESTO" EXTRA_FLAGS="$EXTRA_FLAGS -DDIV0=$D1 -DDIV1=$D2 -DDIV2=$D3")
+        command=("${MAKE}" -C "$benchmark" "${compared_target}" -B "CC=$CC" "PESTO=$PESTO" "EXTRA_FLAGS=$EXTRA_FLAGS -DDIV0=$D1 -DDIV1=$D2 -DDIV2=$D3")
         echo -e "${INFO} Compile pesto program ${D1}x${D2}x${D3}"
         if ! "${command[@]}" >/dev/null 2>&1; then
             echo -e "[ ${RED}  FAIL  ${RESET} ] Compilation failed: ${command[*]}"
