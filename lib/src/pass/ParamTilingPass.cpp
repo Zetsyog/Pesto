@@ -122,22 +122,22 @@ Bundle pesto::pass::ClastParamTilingPass::apply(Bundle &&bundle) {
 		varDeclData.addVar(var);
 	}
 
-	auto trahrheDomains = ptileUtil.getTrahrheDomains();
+	auto trahrheDomains = ptileUtil.getTrahrheDomainList();
+
+	// compute the maximum trahrhe tile level
 	int maxTrahrheTileLevel = 0;
 	for (auto &pair : trahrheDomains) {
-		// print trahrhe domain
-		logger->debug("Trahrhe domain = {}", pair.second.c_str());
 		if (pair.first > maxTrahrheTileLevel) {
 			maxTrahrheTileLevel = pair.first;
 		}
 	}
 	for (int i = 0; i <= maxTrahrheTileLevel; i++) {
-		macroData.list.push_back("#ifndef DIV" + std::to_string(i) +
-								 "\n"
-								 "#define DIV" +
-								 std::to_string(i) +
-								 " 8\n"
-								 "#endif");
+		macroData.nonProcessedList.push_back("#ifndef DIV" + std::to_string(i) +
+											 "\n"
+											 "#define DIV" +
+											 std::to_string(i) +
+											 " 8\n"
+											 "#endif");
 	}
 
 	if (this->gen_trahrhe) {
@@ -153,15 +153,14 @@ Bundle pesto::pass::ClastParamTilingPass::apply(Bundle &&bundle) {
 		}
 
 		for (auto &pair : trahrheDomains) {
-			std::string header_filename =
-				filename + "trahrhe.n" + std::to_string(0) + ".g" + std::to_string(domainCount) + ".h";
+			std::string header_filename = filename + "trahrhe." + std::to_string(domainCount) + ".h";
 
 			trahrhe_context_t *trahrhe_ctx = trahrhe_context_alloc();
 			trahrhe_context_use_dichotomy(trahrhe_ctx, this->trahrhe_use_dichotomy);
 			trahrhe_context_set_verbosity(trahrhe_ctx, TRAHRHE_VERBOSITY_INFO);
 			trahrhe_context_parse_input_domain(trahrhe_ctx, (char *)pair.second.c_str());
 			trahrhe_context_set_tile_level(trahrhe_ctx, pair.first);
-
+			trahrhe_context_set_gen_header_level(trahrhe_ctx, -1);
 			size_t trahrhe_len = 0;
 			char **trahrhe_expr = trahrhe_get_inverted_polynomials_expr(trahrhe_ctx, &trahrhe_len);
 			if (trahrhe_len == 0) {
@@ -170,6 +169,9 @@ Bundle pesto::pass::ClastParamTilingPass::apply(Bundle &&bundle) {
 			}
 			std::string header_path = (outputDir / header_filename).string();
 			logger->debug("trahrhe header = {}", header_path.c_str());
+			logger->debug("trahrhe level  = {}", pair.first);
+			logger->debug("trahrhe domain = {}", pair.second.c_str());
+
 			FILE *fp = fopen(header_path.c_str(), "w");
 			if (fp == NULL) {
 				logger->error("Error: Could not open file {}", header_filename.c_str());

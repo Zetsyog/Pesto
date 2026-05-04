@@ -48,12 +48,14 @@ class NameHelper {
 	std::string tileArrayName();
 	std::string scheduleName();
 
+	std::string innerForIteratorName();
+
   private:
 	int depth;
-	std::string sep;
-	std::string prefix;
-	std::string outterForIt;
-	std::string innerForIt;
+	std::string sep_;
+	std::string prefix_;
+	std::string outterForIt_;
+	std::string innerForIt_;
 };
 
 namespace codegen {
@@ -107,7 +109,6 @@ class ParamTilingCodegen {
 	TilingData &data;
 	ParamTilingType tilingType;
 	struct clast_for &outterFor;
-	struct clast_for &innerFor;
 	std::size_t tilingDepth;
 	isl_set *innerDomain;
 
@@ -117,8 +118,8 @@ class ParamTilingCodegen {
 	VolumeCheckStrategy volumeCheckStrategy;
 	std::string volumeCheckThreshold;
 
-	NameHelper nameHelper;
-	NameHelper trahrheNameHelper;
+	NameHelper &nameHelper;
+	NameHelper &trahrheNameHelper;
 
 	void genHeaderStmt(std::ostream &os);
 	void genBodyStmt(std::ostream &os);

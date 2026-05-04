@@ -280,7 +280,7 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 	auto &macroData = bundle.metadata.get<pesto::bundle::metadata::Macro>();
 	auto &varDeclData = bundle.metadata.get<pesto::bundle::metadata::VarDecl>();
 
-	macroData.list.push_back("#include <omp.h>");
+	macroData.preprocessedList.push_back("#include <omp.h>");
 
 	// TODO: remove (debug)
 	isl_set_dump(innerDomain);
@@ -581,7 +581,7 @@ void TpzTilingPass::generateTrahrheHeaders(pesto::bundle::metadata::Macro &macro
 
 	fclose(fp);
 
-	macroData.list.push_back("#include \"" + header_filename + "\"");
+	macroData.preprocessedList.push_back("#include \"" + header_filename + "\"");
 
 	trahrhe_context_free(trahrhe_ctx);
 error:

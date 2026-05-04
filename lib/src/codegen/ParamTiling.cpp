@@ -5,11 +5,13 @@
  * Copyright (c) 2024 Clément Rossetti
  */
 
+#include <algorithm>
 #include <stdlib.h>
 #include <string.h>
 
 #include <fstream>
 #include <string>
+#include <vector>
 
 #include <isl/aff.h>
 #include <isl/set.h>
@@ -29,8 +31,7 @@ ParamTilingCodegen::ParamTilingCodegen(StmtGroup &group, TilingData &data, int n
 	: group(group)
 	, data(data)
 	, tilingType(ParamTilingType::ALGEBRAIC)
-	, outterFor(*data.outter_for)
-	, innerFor(*data.inner_for)
+	, outterFor(*data.outer_for)
 	, tilingDepth(data.tiling_depth)
 	, innerDomain(nullptr)
 	, boundComputeMethod(BoundComputeMethod::FILL_LAST)
@@ -38,13 +39,10 @@ ParamTilingCodegen::ParamTilingCodegen(StmtGroup &group, TilingData &data, int n
 	, boundCorrectionStrategy(BoundCorrectionStrategy::NO_CORRECTION)
 	, volumeCheckStrategy(VolumeCheckStrategy::NO_CHECK)
 	, volumeCheckThreshold("")
-	, nameHelper(tilingDepth, outterFor.iterator, innerFor.iterator)
-	, trahrheNameHelper(tilingDepth, outterFor.iterator, innerFor.iterator) {
+	, nameHelper(*data.nameHelper)
+	, trahrheNameHelper(*data.trahrheNameHelper) {
 	this->innerDomain = isl_set_copy(innerDomain);
 	isl_set_free(innerDomain);
-	this->nameHelper.setPrefix("g" + std::to_string(group.id));
-	this->trahrheNameHelper.setPrefix("n" + std::to_string(nestId) + this->nameHelper.getSeparator() + "g" +
-									  std::to_string(group.id));
 	this->volumeCheckThreshold = this->nameHelper.divName() + " * 1000";
 	this->logger = pesto::log::get_logger("param-tiling-codegen");
 }
@@ -123,12 +121,15 @@ void ParamTilingCodegen::genHeaderStmtAlgebraic(std::ostream &os) {
 		os << isl_set_get_dim_name(this->innerDomain, isl_dim_param, i);
 	}
 	for (std::size_t i = 0; i < this->tilingDepth; i += 1) {
-		auto &data = this->group.tilingData[i];
-		NameHelper helper = NameHelper(data.tiling_depth, data.outter_for->iterator, data.inner_for->iterator);
-		helper.setPrefix(this->nameHelper.getPrefix());
-		helper.setSeparator(this->nameHelper.getSeparator());
-		os << ", " << helper.innerForLBName();
-		os << ", " << helper.innerForUBName();
+		auto dataIt = std::find_if(this->group.tilingData.begin(), this->group.tilingData.end(),
+								   [i](const std::unique_ptr<TilingData> &d) {
+									   size_t depth = static_cast<size_t>(d->tiling_depth);
+									   return depth == i;
+								   });
+		assert(dataIt != this->group.tilingData.end());
+		auto &data = *dataIt;
+		os << ", " << data->nameHelper->innerForLBName();
+		os << ", " << data->nameHelper->innerForUBName();
 	}
 	os << ");" << this->endline;
 	os << this->nameHelper.targetVolName() << " = ";
@@ -221,13 +222,16 @@ void ParamTilingCodegen::genBodyStmtAlgebraic(std::ostream &os) {
 		os << ", " << isl_set_get_dim_name(this->innerDomain, isl_dim_param, i);
 	}
 
-	for (std::size_t i = 0; i < this->tilingDepth; i += 1) {
-		auto &data = this->group.tilingData[i];
-		NameHelper helper = NameHelper(data.tiling_depth, data.outter_for->iterator, data.inner_for->iterator);
-		helper.setPrefix(this->nameHelper.getPrefix());
-		helper.setSeparator(this->nameHelper.getSeparator());
-		os << ", " << helper.innerForLBName();
-		os << ", " << helper.innerForUBName();
+	for (size_t i = 0; i < this->tilingDepth; i += 1) {
+		auto dataIt = std::find_if(this->group.tilingData.begin(), this->group.tilingData.end(),
+								   [i](const std::unique_ptr<TilingData> &d) {
+									   size_t depth = static_cast<size_t>(d->tiling_depth);
+									   return depth == i;
+								   });
+		assert(dataIt != this->group.tilingData.end());
+		auto &data = *dataIt;
+		os << ", " << data->nameHelper->innerForLBName();
+		os << ", " << data->nameHelper->innerForUBName();
 	}
 	os << ")";
 	if (this->boundComputeMethod == BoundComputeMethod::FILL_FIRST) {
@@ -242,12 +246,15 @@ void ParamTilingCodegen::genBodyStmtAlgebraic(std::ostream &os) {
 		os << ", " << isl_set_get_dim_name(this->innerDomain, isl_dim_param, i);
 	}
 	for (std::size_t i = 0; i < this->tilingDepth; i += 1) {
-		auto &data = this->group.tilingData[i];
-		NameHelper helper = NameHelper(data.tiling_depth, data.outter_for->iterator, data.inner_for->iterator);
-		helper.setPrefix(this->nameHelper.getPrefix());
-		helper.setSeparator(this->nameHelper.getSeparator());
-		os << ", " << helper.innerForLBName();
-		os << ", " << helper.innerForUBName();
+		auto dataIt = std::find_if(this->group.tilingData.begin(), this->group.tilingData.end(),
+								   [i](const std::unique_ptr<TilingData> &d) {
+									   size_t depth = static_cast<size_t>(d->tiling_depth);
+									   return depth == i;
+								   });
+		assert(dataIt != this->group.tilingData.end());
+		auto &data = *dataIt;
+		os << ", " << data->nameHelper->innerForLBName();
+		os << ", " << data->nameHelper->innerForUBName();
 	}
 	os << ")";
 	if (this->boundComputeMethod == BoundComputeMethod::FILL_LAST) {
@@ -312,7 +319,7 @@ void ParamTilingCodegen::genHeaderStmtScheduled(std::ostream &os) {
 	}
 	if (this->tilingDepth == 1) {
 		os << this->nameHelper.outerForUBName() << " = " << scheduleName << ".fronts["
-		   << this->group.tilingData[0].outter_for->iterator << "].len - 1;" << this->endline;
+		   << this->group.tilingData[0]->outer_for->iterator << "].len - 1;" << this->endline;
 	}
 }
 
@@ -328,13 +335,13 @@ void ParamTilingCodegen::genBodyStmtScheduled(std::ostream &os) {
 	std::string tileArrayName = this->trahrheNameHelper.tileArrayName();
 	std::string scheduleName = this->trahrheNameHelper.scheduleName();
 
-	auto &outterData = this->group.tilingData[0];
+	auto &outerData = this->group.tilingData[0];
 	NameHelper outterHelper =
-		NameHelper(outterData.tiling_depth, outterData.outter_for->iterator, outterData.inner_for->iterator);
+		NameHelper(outerData->tiling_depth, outerData->outer_for->iterator, this->nameHelper.innerForIteratorName());
 	outterHelper.setPrefix(this->nameHelper.getPrefix());
 	outterHelper.setSeparator(this->nameHelper.getSeparator());
 	std::string scheduleAccessName =
-		scheduleName + ".fronts[" + outterData.outter_for->iterator + "].tiles[" + this->outterFor.iterator + "]";
+		scheduleName + ".fronts[" + outerData->outer_for->iterator + "].tiles[" + this->outterFor.iterator + "]";
 
 	os << outterHelper.innerForLBName() << " = " << scheduleAccessName << "->lb0;" << this->endline;
 	os << outterHelper.innerForUBName() << " = " << scheduleAccessName << "->ub0;" << this->endline;
@@ -363,14 +370,7 @@ void ParamTilingCodegen::genScheduleHeaderFile(std::ostream &os) {
 	std::string varType = "long int";
 	isl_size npar = isl_set_dim(this->innerDomain, isl_dim_param);
 
-	TilingData &t1Data = this->group.tilingData[1];
-	NameHelper t1NameHelper = NameHelper(1, t1Data.outter_for->iterator, t1Data.inner_for->iterator);
-	t1NameHelper.setPrefix("");
-	t1NameHelper.setSeparator(this->nameHelper.getSeparator());
-	NameHelper t1TrahrheHelper = NameHelper(1, t1Data.outter_for->iterator, t1Data.inner_for->iterator);
-	t1TrahrheHelper.setPrefix(this->trahrheNameHelper.getPrefix());
-	t1TrahrheHelper.setSeparator(this->trahrheNameHelper.getSeparator());
-
+	TilingData &t1Data = *this->group.tilingData[1];
 	// multi include guard
 	os << "#ifndef " << headerMacro << std::endl;
 	os << "#define " << headerMacro << std::endl;
@@ -408,7 +408,8 @@ void ParamTilingCodegen::genScheduleHeaderFile(std::ostream &os) {
 	   << this->nameHelper.divName() << ";" << this->endline;
 
 	INDENT_TABS(os, 1);
-	os << varType << " " << t1NameHelper.pcMaxName() << ", " << t1NameHelper.targetVolName() << ";" << this->endline;
+	os << varType << " " << t1Data.nameHelper->pcMaxName() << ", " << t1Data.nameHelper->targetVolName() << ";"
+	   << this->endline;
 
 	INDENT_TABS(os, 1);
 
@@ -418,7 +419,7 @@ void ParamTilingCodegen::genScheduleHeaderFile(std::ostream &os) {
 
 	os << "#pragma omp parallel for firstprivate(" << this->nameHelper.pcMaxName() << ", "
 	   << this->nameHelper.targetVolName() << ") " //
-	   << "private(" << t1NameHelper.pcMaxName() << ", " << t1NameHelper.targetVolName() << ", "
+	   << "private(" << t1Data.nameHelper->pcMaxName() << ", " << t1Data.nameHelper->targetVolName() << ", "
 	   << this->nameHelper.innerForLBName() << ", " << this->nameHelper.innerForUBName() << ")" << this->endline;
 	INDENT_TABS(os, 1);
 	os << "for(" << varType << " __pesto_t0 = 0; __pesto_t0 < " << this->nameHelper.divName() << "; ++__pesto_t0) {"
@@ -447,7 +448,7 @@ void ParamTilingCodegen::genScheduleHeaderFile(std::ostream &os) {
 	os << "}" << this->endline;
 
 	INDENT_TABS(os, 2);
-	os << t1NameHelper.pcMaxName() << " = " << t1TrahrheHelper.ehrhartFnName() << "(";
+	os << t1Data.nameHelper->pcMaxName() << " = " << t1Data.trahrheNameHelper->ehrhartFnName() << "(";
 	for (isl_size i = 0; i < npar; i += 1) {
 		if (i != 0) {
 			os << ", ";
@@ -458,11 +459,11 @@ void ParamTilingCodegen::genScheduleHeaderFile(std::ostream &os) {
 	   << this->endline;
 
 	INDENT_TABS(os, 2);
-	os << t1NameHelper.targetVolName() << " = " << t1NameHelper.pcMaxName() << " / " << t1NameHelper.divName() << ";"
-	   << this->endline;
+	os << t1Data.nameHelper->targetVolName() << " = " << t1Data.nameHelper->pcMaxName() << " / "
+	   << t1Data.nameHelper->divName() << ";" << this->endline;
 
 	INDENT_TABS(os, 2);
-	os << "for(" << varType << " __pesto_t1 = 0; __pesto_t1 < " << t1NameHelper.divName() << "; ++__pesto_t1) {"
+	os << "for(" << varType << " __pesto_t1 = 0; __pesto_t1 < " << t1Data.nameHelper->divName() << "; ++__pesto_t1) {"
 	   << this->endline;
 
 	INDENT_TABS(os, 3);
@@ -474,16 +475,16 @@ void ParamTilingCodegen::genScheduleHeaderFile(std::ostream &os) {
 	INDENT_TABS(os, 3);
 	os << "tileArray[__pesto_t0][__pesto_t1].ub0 = " << this->nameHelper.innerForUBName() << ";" << this->endline;
 	INDENT_TABS(os, 3);
-	os << "tileArray[__pesto_t0][__pesto_t1].lb1 = " << t1TrahrheHelper.trahrheFnName() << "(max(1, __pesto_t1 * "
-	   << t1NameHelper.targetVolName() << ")";
+	os << "tileArray[__pesto_t0][__pesto_t1].lb1 = " << t1Data.trahrheNameHelper->trahrheFnName()
+	   << "(max(1, __pesto_t1 * " << t1Data.nameHelper->targetVolName() << ")";
 	for (isl_size i = 0; i < npar; i += 1) {
 		os << ", " << isl_set_get_dim_name(this->innerDomain, isl_dim_param, i);
 	}
 	os << ", " << this->nameHelper.innerForLBName() << ", " << this->nameHelper.innerForUBName() << ");"
 	   << this->endline;
 	INDENT_TABS(os, 3);
-	os << "tileArray[__pesto_t0][__pesto_t1].ub1 = " << t1TrahrheHelper.trahrheFnName() << "(min("
-	   << t1NameHelper.pcMaxName() << ", (__pesto_t1 + 1) * " << t1NameHelper.targetVolName() << ")";
+	os << "tileArray[__pesto_t0][__pesto_t1].ub1 = " << t1Data.trahrheNameHelper->trahrheFnName() << "(min("
+	   << t1Data.nameHelper->pcMaxName() << ", (__pesto_t1 + 1) * " << t1Data.nameHelper->targetVolName() << ")";
 	for (isl_size i = 0; i < npar; i += 1) {
 		os << ", " << isl_set_get_dim_name(this->innerDomain, isl_dim_param, i);
 	}
@@ -492,9 +493,9 @@ void ParamTilingCodegen::genScheduleHeaderFile(std::ostream &os) {
 	INDENT_TABS(os, 3);
 	os << "tileArray[__pesto_t0][__pesto_t1].marked = 0;" << this->endline;
 	INDENT_TABS(os, 3);
-	os << "if(__pesto_t1 == " << t1NameHelper.divName() << " - 1) {" << this->endline;
+	os << "if(__pesto_t1 == " << t1Data.nameHelper->divName() << " - 1) {" << this->endline;
 	INDENT_TABS(os, 4);
-	os << "tileArray[__pesto_t0][__pesto_t1].ub1 = " << this->group.tilingData[1].innerForUBExpr << ";"
+	os << "tileArray[__pesto_t0][__pesto_t1].ub1 = " << (*this->group.tilingData[1]).innerForUBExpr << ";"
 	   << this->endline;
 	INDENT_TABS(os, 3);
 	os << "}" << this->endline;
@@ -514,62 +515,62 @@ using pesto::ptile::NameHelper;
 
 NameHelper::NameHelper(int depth, std::string outterForIt, std::string innerForIt)
 	: depth(depth)
-	, sep("_")
-	, prefix("")
-	, outterForIt(outterForIt)
-	, innerForIt(innerForIt) //
+	, sep_("_")
+	, prefix_("")
+	, outterForIt_(outterForIt)
+	, innerForIt_(innerForIt) //
 {}
 
 NameHelper::~NameHelper() {}
 
 std::string &NameHelper::getSeparator() {
-	return this->sep;
+	return this->sep_;
 }
 std::string &NameHelper::getPrefix() {
-	return this->prefix;
+	return this->prefix_;
 }
 std::string NameHelper::getPrefixStr() {
-	return (this->prefix != "" ? this->prefix + this->sep : "");
+	return (this->prefix_ != "" ? this->prefix_ + this->sep_ : "");
 }
 
 void NameHelper::setSeparator(std::string sep) {
-	this->sep = sep;
+	this->sep_ = sep;
 }
 void NameHelper::setPrefix(std::string prefix) {
-	this->prefix = prefix;
+	this->prefix_ = prefix;
 }
 
 std::string NameHelper::outerForLBName() {
-	return this->getPrefixStr() + "lb" + this->outterForIt;
+	return this->getPrefixStr() + "lb" + this->outterForIt_;
 }
 std::string NameHelper::outerForUBName() {
-	return this->getPrefixStr() + "ub" + this->outterForIt;
+	return this->getPrefixStr() + "ub" + this->outterForIt_;
 }
 std::string NameHelper::innerForLBName() {
-	return this->getPrefixStr() + "lb" + this->innerForIt;
+	return this->getPrefixStr() + "lb" + this->innerForIt_;
 }
 std::string NameHelper::innerForUBName() {
-	return this->getPrefixStr() + "ub" + this->innerForIt;
+	return this->getPrefixStr() + "ub" + this->innerForIt_;
 }
 std::string NameHelper::divName() {
 	return "DIV" + std::to_string(this->depth);
 }
 std::string NameHelper::targetVolName() {
-	return this->getPrefixStr() + "TARGET" + this->sep + "VOL" + this->sep + "L" + std::to_string(this->depth);
+	return this->getPrefixStr() + "TARGET" + this->sep_ + "VOL" + this->sep_ + "L" + std::to_string(this->depth);
 }
 std::string NameHelper::pcMaxName() {
-	return this->getPrefixStr() + this->innerForIt + this->sep + "pcmax";
+	return this->trahrheIteratorName() + this->sep_ + "pcmax";
 }
 std::string NameHelper::ehrhartFnName() {
-	std::string itName = this->getPrefixStr() + this->innerForIt;
-	return itName + this->sep + "Ehrhart";
+	std::string itName = this->trahrheIteratorName();
+	return itName + this->sep_ + "Ehrhart";
 }
 std::string NameHelper::trahrheFnName() {
-	std::string itName = this->getPrefixStr() + this->innerForIt;
-	return itName + this->sep + "trahrhe" + this->sep + itName;
+	std::string itName = this->trahrheIteratorName();
+	return itName + this->sep_ + "trahrhe" + this->sep_ + itName;
 }
 std::string NameHelper::trahrheIteratorName() {
-	return this->getPrefixStr() + this->innerForIt;
+	return this->getPrefixStr() + this->innerForIt_;
 }
 
 std::string NameHelper::scheduleName() {
@@ -577,4 +578,8 @@ std::string NameHelper::scheduleName() {
 }
 std::string NameHelper::tileArrayName() {
 	return this->getPrefixStr() + "tiles";
+}
+
+std::string NameHelper::innerForIteratorName() {
+	return this->innerForIt_;
 }

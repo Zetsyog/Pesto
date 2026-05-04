@@ -13,7 +13,7 @@ static std::vector<spdlog::sink_ptr> g_sinks;
 // Helper to initialise the sinks exactly once.
 static void init_sinks() {
 	// Console sink – coloured, thread‑safe
-	auto console = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+	auto console = std::make_shared<spdlog::sinks::stderr_color_sink_mt>();
 	console->set_pattern("[%T] [%^%l%$] [%n] %v");
 
 	g_sinks = {console};

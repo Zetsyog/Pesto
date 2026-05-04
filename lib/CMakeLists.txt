@@ -62,6 +62,7 @@ target_link_libraries(
     spdlog
     pluto
     cloog
+    osl
     trahrhe
     ${GMP_LIBRARIES}
 )

@@ -70,19 +70,6 @@ Bundle CloogCodegenPass::apply(Bundle &&bundle) {
 		throw std::runtime_error("Failed to open output file for writing variable declarations");
 	}
 
-	// Write statements macros
-	auto &macro = bundle.metadata.get<pesto::bundle::metadata::Macro>();
-	for (const auto &macroLine : macro.list) {
-		outFile << macroLine << std::endl;
-	}
-
-	// Write variable declarations at the top of the file
-	outFile << "/* Variable declarations */" << std::endl;
-	// TODO: group variable declaration
-	for (auto &varId : varDecl.vars()) {
-		outFile << varDecl.typeName << " " << varId << ";" << std::endl;
-	}
-
 	outFile.close();
 
 	assert(options != nullptr);

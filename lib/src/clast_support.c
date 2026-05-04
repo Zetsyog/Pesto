@@ -124,139 +124,6 @@ struct clast_stmt *clast_insert_before(struct clast_stmt *root, struct clast_stm
 	return NULL;
 }
 
-int clast_for_is_outter_tile_loop(__isl_keep isl_set *set, struct clast_for *for_stmt, int tilesize) {
-	assert(for_stmt->domain != NULL);
-
-	isl_set *domain = isl_set_copy(set);
-
-	int n_dim = isl_set_dim(isl_set_from_cloog_domain(for_stmt->domain), isl_dim_set);
-	int idx = n_dim - 1;
-
-	// only keep constraints involving the iterator
-	// domain = isl_set_drop_constraints_not_involving_dims(domain, isl_dim_set,
-	// 													 idx, 1);
-
-	isl_basic_set_list *bset_list = isl_set_get_basic_set_list(domain);
-	isl_size n_bset = isl_basic_set_list_n_basic_set(bset_list);
-
-	int is_outter_tile = 0;
-
-	for (int i = 0; i < n_bset; i += 1) {
-		isl_basic_set *bset = isl_basic_set_list_get_at(bset_list, i);
-		isl_constraint_list *cst_list = isl_basic_set_get_constraint_list(bset);
-		isl_size n_cst = isl_constraint_list_n_constraint(cst_list);
-
-		for (int j = 0; j < n_cst; j += 1) {
-			isl_constraint *cst = isl_constraint_list_get_at(cst_list, j);
-			// if there is a constraint of the form
-			// -32 * t[k] + t[idx] >= 0
-			// or - t[idx] + 32 * t[k] + 31 >= 0
-			// then this loop is tiled by the k-th dimension
-
-			isl_val *val = isl_constraint_get_coefficient_val(cst, isl_dim_set, idx);
-
-			if (isl_val_eq_si(val, tilesize) || isl_val_eq_si(val, -tilesize)) {
-				is_outter_tile = 1;
-			}
-
-			isl_val_free(val);
-
-			isl_constraint_free(cst);
-			if (is_outter_tile == 1) {
-				break;
-			}
-		}
-		isl_constraint_list_free(cst_list);
-		isl_basic_set_free(bset);
-		if (is_outter_tile == 1) {
-			break;
-		}
-	}
-
-	isl_basic_set_list_free(bset_list);
-	isl_set_free(domain);
-	return is_outter_tile;
-}
-
-int clast_for_get_outter_tile_depth(__isl_keep isl_set *domain, struct clast_stmt *root, struct clast_for *outter_for,
-									int tilesize) {
-	int depth = 0;
-	while ((outter_for = clast_get_parent_clast_for(root, (struct clast_stmt *)outter_for)) != NULL) {
-		if (clast_for_is_outter_tile_loop(domain, outter_for, tilesize)) {
-			depth += 1;
-		}
-	}
-	return depth;
-}
-
-int clast_for_is_inner_tile_loop(struct clast_for *for_stmt, int tile_size) {
-	return clast_for_get_inner_tile_outter_dim(for_stmt, tile_size) != -1;
-}
-
-int clast_for_get_inner_tile_outter_dim(struct clast_for *for_stmt, int tile_size) {
-	assert(for_stmt->domain != NULL);
-
-	isl_set *set = isl_set_from_cloog_domain(for_stmt->domain);
-
-	isl_set *domain = isl_set_copy(set);
-
-	int n_dim = isl_set_dim(domain, isl_dim_set);
-	int idx = n_dim - 1;
-
-	// only keep constraints involving the iterator
-	domain = isl_set_drop_constraints_not_involving_dims(domain, isl_dim_set, idx, 1);
-
-	isl_basic_set_list *bset_list = isl_set_get_basic_set_list(domain);
-	isl_size n_bset = isl_basic_set_list_n_basic_set(bset_list);
-
-	int corresponding_outter_dim = -1;
-
-	for (int i = 0; i < n_bset; i += 1) {
-		isl_basic_set *bset = isl_basic_set_list_get_at(bset_list, i);
-		isl_constraint_list *cst_list = isl_basic_set_get_constraint_list(bset);
-		isl_size n_cst = isl_constraint_list_n_constraint(cst_list);
-
-		for (int j = 0; j < n_cst; j += 1) {
-			isl_constraint *cst = isl_constraint_list_get_at(cst_list, j);
-			// if there is a constraint of the form
-			// -32 * t[k] + t[idx] >= 0
-			// or - t[idx] + 32 * t[k] + 31 >= 0
-			// then this loop is tiled by the k-th dimension
-
-			// first we iterate over all the dimensions
-			for (int k = 0; k < n_dim; k += 1) {
-				if (k == idx) {
-					continue;
-				}
-				isl_val *kval = isl_constraint_get_coefficient_val(cst, isl_dim_set, k);
-				isl_val *idxval = isl_constraint_get_coefficient_val(cst, isl_dim_set, idx);
-
-				if (isl_val_eq_si(idxval, 1) && isl_val_eq_si(kval, -tile_size)) {
-					corresponding_outter_dim = k;
-				}
-
-				isl_val_free(kval);
-				isl_val_free(idxval);
-
-				if (corresponding_outter_dim != -1) {
-					break;
-				}
-			}
-			isl_constraint_free(cst);
-		}
-		isl_constraint_list_free(cst_list);
-		isl_basic_set_free(bset);
-		if (corresponding_outter_dim != -1) {
-			break;
-		}
-	}
-
-	isl_basic_set_list_free(bset_list);
-	isl_set_free(domain);
-
-	return corresponding_outter_dim;
-}
-
 struct clast_user_stmt **clast_get_user_stmt_list(struct clast_stmt *root, int *size) {
 	struct clast_user_stmt **stmts = NULL;
 	*size = 0;
@@ -315,21 +182,15 @@ struct clast_for *clast_get_parent_clast_for(struct clast_stmt *root, struct cla
 	return _clast_get_parent_for(root, stmt, NULL);
 }
 
-struct clast_for *clast_get_outter_tiling_for(struct clast_stmt *root, struct clast_for *inner_for, int tile_size) {
-	int outter_tile_idx = clast_for_get_inner_tile_outter_dim(inner_for, tile_size);
-	if (outter_tile_idx == -1) {
-		return NULL;
-	}
-	struct clast_for *parent = clast_get_parent_clast_for(root, (struct clast_stmt *)inner_for);
-	while (parent != NULL) {
-		isl_set *set = isl_set_from_cloog_domain(parent->domain);
-		isl_size ndim = isl_set_dim(set, isl_dim_set);
-		if (ndim - 1 == outter_tile_idx) {
-			return parent;
+int clast_is_parent_clast_for(struct clast_stmt *root, struct clast_for *parent, struct clast_for *child) {
+	struct clast_for *current_parent = child;
+	while (current_parent != NULL) {
+		if (current_parent == parent) {
+			return 1;
 		}
-		parent = clast_get_parent_clast_for(root, (struct clast_stmt *)parent);
+		current_parent = clast_get_parent_clast_for(root, (struct clast_stmt *)current_parent);
 	}
-	return NULL;
+	return 0;
 }
 
 int clast_for_depth(struct clast_stmt *root, struct clast_for *for_stmt) {
@@ -533,8 +394,7 @@ struct clast_expr *clast_bound_from_isl_set(CloogNames *names, __isl_keep isl_se
 
 		if (bound_fn(cst, isl_dim_set, dim)) {
 			struct clast_expr *expr =
-				clast_bound_from_constraint(cloog_constraint_from_isl_constraint(cst), ndim, names);
-
+				clast_bound_from_constraint(cloog_constraint_from_isl_constraint(cst), dim + 1, names);
 			if (result_expr == NULL) {
 				result_expr = expr;
 			} else {
@@ -928,4 +788,25 @@ void clast_root_develop_user_stmt_substitutions(struct clast_root *root) {
 	}
 
 	free(stmts);
+}
+
+struct clast_for *clast_get_outermost_tiling_for(struct clast_stmt *root, struct clast_stmt *stmt) {
+	struct clast_for *parent_for = clast_get_parent_clast_for(root, stmt);
+	struct clast_for *outermost_extern_for = NULL;
+	for (struct clast_for *current_for = parent_for; current_for != NULL;
+		 current_for = clast_get_parent_clast_for(root, &(current_for->stmt))) {
+		struct clast_for *outer_for = clast_find_outter_tiling_for(root, current_for);
+		if (outer_for == NULL) {
+			continue;
+		}
+		if (outermost_extern_for == NULL) {
+			outermost_extern_for = outer_for;
+			continue;
+		}
+		if (isl_set_n_dim(isl_set_from_cloog_domain(outer_for->domain)) <
+			isl_set_n_dim(isl_set_from_cloog_domain(outermost_extern_for->domain))) {
+			outermost_extern_for = outer_for;
+		}
+	}
+	return outermost_extern_for;
 }

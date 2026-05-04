@@ -25,18 +25,6 @@ namespace pesto {
 
 namespace pass {
 
-struct StmtGroup {
-	int id;
-	std::vector<struct clast_stmt *> stmts;
-	struct clast_for *parent_for;
-};
-
-struct tiling_info {
-	int depth;
-	struct clast_for *inner_for;
-	struct clast_for *outter_for;
-};
-
 /**
  * A pass that performs a parametric tiling over the Clast of each OslScop
  */

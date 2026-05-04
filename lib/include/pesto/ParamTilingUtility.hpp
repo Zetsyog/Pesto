@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -39,33 +40,62 @@ enum class VolumeCheckTrigger {
  * Also holds the tiling depth and the codegen data
  */
 struct TilingData {
-	struct clast_for *outter_for;
+	int id;
+	struct clast_for *outer_for;
 	struct clast_for *inner_for;
 	int tiling_depth;
 	unsigned int head_stmt_id;
 	unsigned int body_stmt_id;
 	std::string innerForLBExpr;
 	std::string innerForUBExpr;
+
+	// codegen helper
+	std::unique_ptr<ptile::NameHelper> nameHelper;
+	std::unique_ptr<ptile::NameHelper> trahrheNameHelper;
 };
 
 struct StmtGroup {
+  public:
 	int id;
 	std::vector<struct clast_user_stmt *> stmts;
-	struct clast_for *parent_for;
+	/**
+	 * The parent for of the statements in the group
+	 */
+	struct clast_for *stmt_parent_for;
 
-	struct clast_for *first_tiling_for;
+	/**
+	 * The first inner for of the group
+	 */
+	struct clast_for *first_inner_for;
+	/**
+	 * The outermost for of the group
+	 * It is the loop iterating over tiles common to all statements in the group
+	 */
+	struct clast_for *outermost_for;
+
+	/**
+	 * The number of dimensions that have been moved to the tiling space
+	 */
+	size_t movedDimensionsCount = 0;
+	/**
+	 * The domain representing the inner loop nest, without the tiling dimensions
+	 * This will be used to generate trahrhe expressions, and compute back original loop bounds
+	 */
+	isl_set *untiled_domain;
 
 	/**
 	 * A vector of TilingData
 	 */
-	std::vector<TilingData> tilingData;
+	std::vector<std::unique_ptr<TilingData>> tilingData;
 
 	/**
 	 * Holds domain information to pass to trahrhe software
 	 * First element is the number of algebraically tiled dimensions
 	 * Second element is the domain in isl string format
 	 */
-	std::pair<int, std::string> trahrheDomain;
+	std::vector<std::pair<int, std::string>> trahrheDomains;
+
+	~StmtGroup();
 };
 
 /**
@@ -121,7 +151,7 @@ class ParamTilingUtility {
 
 	std::vector<std::string> getVarList();
 
-	std::vector<std::pair<int, std::string>> getTrahrheDomains();
+	std::vector<std::pair<int, std::string>> getTrahrheDomainList();
 
 	void setTileSizeTarget(int tilesize);
 	int getTileSizeTarget();
@@ -146,7 +176,7 @@ class ParamTilingUtility {
 	/* str utilities */
 	std::vector<std::shared_ptr<std::string>> names; /* those string should survive till the end of pesto */
 
-	std::vector<std::pair<int, std::string>> trahrheDomains; /* trahrhe domains */
+	std::vector<std::pair<int, std::string>> trahrheDomainList_; /* trahrhe domains */
 
 	/* code gen */
 	int id;
@@ -157,13 +187,13 @@ class ParamTilingUtility {
 	ptile::codegen::BoundCorrectionStrategy boundCorrectionStrategy;
 	ptile::codegen::VolumeCheckStrategy volumeCheckStrategy;
 	VolumeCheckTrigger volumeCheckTrigger;
-	std::string volumeCheckThreshold;
+	std::optional<std::string> volumeCheckThreshold;
 
 	/* Logging */
 	std::shared_ptr<spdlog::logger> logger;
 
 	/* Methods */
-	std::vector<StmtGroup> computeStmtGroups(CloogProgram *cloogProgram, struct clast_root *root);
+	std::vector<std::unique_ptr<StmtGroup>> computeStmtGroups(CloogProgram *cloogProgram, struct clast_root *root);
 
 	void tileGroup(CloogProgram *cloogProgram, CloogOptions *cloogOptions, struct clast_root *root, StmtGroup &group);
 
@@ -171,8 +201,7 @@ class ParamTilingUtility {
 
 	int islFirstTilingDimIdx(StmtGroup &group);
 
-	void insertStatements(CloogOptions *cloogOptions, struct clast_root *root, struct StmtGroup &group,
-						  TilingData &data);
+	void insertStatements(CloogOptions *cloogOptions, struct clast_root *root, TilingData &data);
 
 	void replaceInnerForBounds(CloogProgram *cloogProgram, struct StmtGroup &group, TilingData &data);
 
@@ -180,32 +209,27 @@ class ParamTilingUtility {
 
 	void generateStatements(CloogProgram *cloogProgram, StmtGroup &group);
 
-	__isl_give isl_set *dropTilingConstraints(__isl_take isl_set *set, struct StmtGroup &group);
+	__isl_give isl_set *dropTilingConstraints(__isl_take isl_set *set, StmtGroup &group);
 
-	__isl_give isl_set *moveNonTiledDimensionsToParameters(__isl_take isl_set *set, TilingData &data,
-														   struct StmtGroup &group);
-
-	size_t movedDimensionsCount(CloogProgram *cloogProgram, struct StmtGroup &group, TilingData &data);
+	__isl_give isl_set *moveNonTiledDimensionsToParameters(__isl_take isl_set *set, StmtGroup &group);
 
 	void declareVariable(std::string varName);
 
-	void declareGroupVariables(struct StmtGroup &group);
+	void declareGroupVariables(StmtGroup &group);
 
 	void computeTrahrheDomain(CloogProgram *cloogProgram, StmtGroup &group);
 
 	void updateOmpPragma(StmtGroup &group);
 
-	__isl_give isl_set *extractIslInnerTiledDomain(StmtGroup &group, __isl_take isl_set *domain, std::size_t ndim);
-
-	__isl_give isl_set *getInnerDomain(CloogProgram *cloogProgram, StmtGroup &group, TilingData &data,
-									   bool moveNonTiledDimensions);
-
-	ptile::NameHelper getNameHelper(StmtGroup &group, TilingData &data);
-	ptile::NameHelper getTrahrheNameHelper(StmtGroup &group, TilingData &data);
+	__isl_give isl_set *removeTilingDimensions(StmtGroup &group, __isl_take isl_set *domain, int maxTilingDepth);
 
 	ptile::codegen::ParamTilingCodegen getCodegen(CloogProgram *cloogProgram, StmtGroup &group, TilingData &data);
 
-	TilingData computeTilingDataBoundExpr(CloogProgram *cloogProgram, StmtGroup &group, TilingData &data);
+	void computeTilingDataBoundExpr(CloogProgram *cloogProgram, StmtGroup &group, TilingData &data);
+
+	int computeDataTilingDepth(StmtGroup &group, TilingData &data);
+
+	void computeUntiledDomain(CloogProgram *cloogProgram, StmtGroup &group);
 };
 
 } // namespace pesto

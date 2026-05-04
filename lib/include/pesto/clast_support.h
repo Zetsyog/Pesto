@@ -60,31 +60,6 @@ struct clast_stmt **clast_get_next_ptr(struct clast_stmt *stmt);
 
 struct clast_user_stmt *pesto_clast_create_stmt(CloogOptions *cloogOptions, CloogDomain *domain, unsigned int id);
 
-int clast_for_is_outter_tile_loop(__isl_keep isl_set *domain, struct clast_for *for_stmt, int tilesize);
-
-int clast_for_get_outter_tile_depth(__isl_keep isl_set *domain, struct clast_stmt *root, struct clast_for *outter_for,
-									int tilesize);
-
-int clast_for_is_inner_tile_loop(struct clast_for *for_stmt, int tile_size);
-
-/**
- * For a given clast_for, return the index of the isl_dimension
- * that reprensent the corresponding outter tiling dimension
- * @param for_stmt
- * @param tile_size the size of the done tiling
- * @return index of the outter tiling dimension or -1 if the loop is not tiled
- */
-int clast_for_get_inner_tile_outter_dim(struct clast_for *for_stmt, int tile_size);
-
-/**
- * For a given clast_for, return the corresponding outter tiling clast_for
- * @param root the root of the syntax tree
- * @param inner_for the inner tiling loop
- * @param tile_size hint on the tile size used for tiling
- * @return the outter tiling loop or NULL if the loop is not tiled
- */
-struct clast_for *clast_get_outter_tiling_for(struct clast_stmt *root, struct clast_for *inner_for, int tile_size);
-
 /**
  * For a given clast, traverse the syntax tree and return all the user
  * statements
@@ -100,6 +75,15 @@ struct clast_user_stmt **clast_get_user_stmt_list(struct clast_stmt *root, int *
  * @return the parent loop or NULL if the statement is not in a loop
  */
 struct clast_for *clast_get_parent_clast_for(struct clast_stmt *root, struct clast_stmt *stmt);
+
+/**
+ * Check if a given for loop is a child of another for loop
+ * @param root the root of the syntax tree
+ * @param parent the potential parent loop
+ * @param child the potential child loop
+ * @return true if parent is a parent of child, false otherwise
+ */
+int clast_is_parent_clast_for(struct clast_stmt *root, struct clast_for *parent, struct clast_for *child);
 
 /**
  * Compute the depth of a given clast_for inside the syntax tree
@@ -145,6 +129,17 @@ struct clast_expr *clast_bound_from_isl_set(CloogNames *names, __isl_keep isl_se
  * @note the function will return NULL if no outter for is found
  */
 struct clast_for *clast_find_outter_tiling_for(struct clast_stmt *root, struct clast_for *inner_for);
+
+/**
+ * @brief search for the outermost tiling for of the given statement
+ * This function will search among all the clast for that contains @param stmt
+ * and return the one that is the outermost and iterating over a tile space
+ * @param root the root of the clast tree
+ * @param stmt the statement to search for
+ * @return struct clast_for* the outermost for that contains the statement and iterates over a tile space
+ * @note the function will return NULL if no outter for is found
+ */
+struct clast_for *clast_get_outermost_tiling_for(struct clast_stmt *root, struct clast_stmt *stmt);
 
 /**
  * @brief insert a clast_for that encloses the given statement

@@ -13,6 +13,7 @@
 
 #include <isl/aff.h>
 #include <isl/ctx.h>
+#include <isl/options.h>
 #include <isl/set.h>
 
 #include <cloog/isl/cloog.h>
@@ -32,8 +33,9 @@ pesto::ParamTilingUtility::ParamTilingUtility()
 	, boundCorrectionStrategy(ptile::codegen::BoundCorrectionStrategy::NO_CORRECTION)
 	, volumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::DYNAMIC_TILE_UNTIL_THRESHOLD)
 	, volumeCheckTrigger(VolumeCheckTrigger::FIRST_OUTTER_ITERATOR_DEPENDENCY)
-	, volumeCheckThreshold("") {
+	, volumeCheckThreshold(std::nullopt) {
 	this->ctx = isl_ctx_alloc();
+	isl_options_set_on_error(this->ctx, ISL_ON_ERROR_ABORT);
 	this->printer = isl_printer_to_str(this->ctx);
 	this->logger = pesto::log::get_logger("param-tiling");
 }
@@ -51,7 +53,7 @@ void pesto::ParamTilingUtility::apply(CloogProgram *cloogProgram, CloogOptions *
 	this->insertedStmts = 0;
 	this->error = false;
 	this->errorMessage = "";
-	this->trahrheDomains.clear();
+	this->trahrheDomainList_.clear();
 	if (root == nullptr) {
 		this->error = true;
 		this->errorMessage = "Clast root is null";
@@ -78,11 +80,14 @@ void pesto::ParamTilingUtility::apply(CloogProgram *cloogProgram, CloogOptions *
 	for (auto &group : stmtGroups) {
 		// First we need to associate for each tiled dimension its inner and outter
 		// for
-		this->associateTilingFor(root, group);
+		this->associateTilingFor(root, *group);
+
+		// compute the domain of each group without the tiling dimensions, this will be used for trahrhe
+		this->computeUntiledDomain(cloogProgram, *group);
 
 		// compute tiling data bound expressions
-		for (auto &data : group.tilingData) {
-			this->computeTilingDataBoundExpr(cloogProgram, group, data);
+		for (auto &data : group->tilingData) {
+			this->computeTilingDataBoundExpr(cloogProgram, *group, *data);
 		}
 	}
 
@@ -90,39 +95,18 @@ void pesto::ParamTilingUtility::apply(CloogProgram *cloogProgram, CloogOptions *
 
 	// then for each statement group we apply the tiling
 	for (auto &group : stmtGroups) {
-		this->tileGroup(cloogProgram, cloogOptions, root, group);
-	}
-
-	this->logger->info("Fetching trahrhe domains...");
-	for (auto &group : stmtGroups) {
-		// ignore groups that are not tiled
-		if (group.trahrheDomain.first == 0)
-			continue;
-		this->trahrheDomains.push_back(group.trahrheDomain);
+		this->tileGroup(cloogProgram, cloogOptions, root, *group);
 	}
 }
 
-std::vector<pesto::StmtGroup> pesto::ParamTilingUtility::computeStmtGroups(CloogProgram *cloogProgram,
-																		   struct clast_root *root) {
+std::vector<std::unique_ptr<pesto::StmtGroup>> pesto::ParamTilingUtility::computeStmtGroups(CloogProgram *cloogProgram,
+																							struct clast_root *root) {
 	int stmt_count = 0;
 	// this is a list of pointer of user statements in the clast
 	// they will be freed with the clast root so no need for memory management
 	// here
 	struct clast_user_stmt **stmt = clast_get_user_stmt_list((struct clast_stmt *)root, &stmt_count);
-	std::vector<StmtGroup> stmtGroups;
-
-	for (CloogLoop *loop = cloogProgram->loop; loop != NULL; loop = loop->inner) {
-		isl_set *domain = isl_set_from_cloog_domain(loop->domain);
-		if (logger->level() <= spdlog::level::debug) {
-			this->printer = isl_printer_print_set(this->printer, domain);
-			char *str = isl_printer_get_str(this->printer);
-			this->printer = isl_printer_flush(this->printer);
-			this->logger->debug("Groupe domain: {}", str);
-		}
-		if (loop->block) {
-			this->logger->debug("block!");
-		}
-	}
+	std::vector<std::unique_ptr<StmtGroup>> stmtGroups;
 
 	this->logger->info("Found {} statements in clast", stmt_count);
 	if (stmt_count == 0) {
@@ -165,7 +149,7 @@ std::vector<pesto::StmtGroup> pesto::ParamTilingUtility::computeStmtGroups(Cloog
 		// we mark it as processed
 		stmt_to_process.pop_back();
 
-		// get the parent for of the group
+		// get the parent for of the stmt
 		struct clast_for *parent_for = clast_get_parent_clast_for((struct clast_stmt *)root, (struct clast_stmt *)stmt);
 
 		// Check is this statement is inside a for loop
@@ -173,24 +157,39 @@ std::vector<pesto::StmtGroup> pesto::ParamTilingUtility::computeStmtGroups(Cloog
 			// if not we skip it
 			continue;
 		}
+
+		logger->debug("parent for of stmt {} is {}", stmt->statement->number,
+					  parent_for != NULL ? parent_for->iterator : "NULL");
+
+		struct clast_for *outermost_extern_for = clast_get_outermost_tiling_for(&(root->stmt), &(stmt->stmt));
+		if (outermost_extern_for == NULL) {
+			logger->debug("No for loop iterating over tile space found for stmt {}", stmt->statement->number);
+			continue;
+		}
+
 		// the statement is inside a for loop
 		// we create a group that will contain this statement and all the other statements inside the same for
-		StmtGroup group;
-		group.stmts.push_back(stmt);
-		group.parent_for = parent_for;
-		group.id = stmtGroups.size();
-		group.first_tiling_for = NULL;
+		auto group = std::make_unique<StmtGroup>();
+		group->stmts.push_back(stmt);
+		group->stmt_parent_for = parent_for;
+		group->id = stmtGroups.size();
+		group->first_inner_for = NULL;
+		group->outermost_for = outermost_extern_for;
 
 		isl_set *parent_domain = isl_set_from_cloog_domain(parent_for->domain);
 
 		for (struct clast_for *current_for = parent_for; current_for != NULL;
 			 current_for = clast_get_parent_clast_for((struct clast_stmt *)root, (struct clast_stmt *)current_for)) {
+
 			isl_size current_ndim = isl_set_dim(isl_set_from_cloog_domain(current_for->domain), isl_dim_set);
 			if (isl_set_is_tiling_dim(parent_domain, current_ndim - 1) == isl_bool_true) {
-				group.first_tiling_for = current_for;
+				group->first_inner_for = current_for;
 				break;
 			}
 		}
+
+		logger->debug("first tiling for of group {} is {}", group->id,
+					  group->first_inner_for != NULL ? group->first_inner_for->iterator : "NULL");
 
 		// for each statement that has not been processed yet
 		for (std::vector<struct clast_user_stmt *>::iterator it = stmt_to_process.begin();
@@ -200,20 +199,30 @@ std::vector<pesto::StmtGroup> pesto::ParamTilingUtility::computeStmtGroups(Cloog
 					 clast_get_parent_clast_for((struct clast_stmt *)root, (struct clast_stmt *)*it);
 				 current_for != nullptr; current_for = clast_get_parent_clast_for((struct clast_stmt *)root,
 																				  (struct clast_stmt *)current_for)) {
-				if (current_for == group.first_tiling_for) {
+				struct clast_for *stmt_outermost_extern_for =
+					clast_get_outermost_tiling_for(&(root->stmt), &(current_for->stmt));
+				logger->debug("Comparing parent for of stmt {} with group {} parent for: {} vs {}",
+							  (*it)->statement->number, group->id,
+							  stmt_outermost_extern_for != NULL ? stmt_outermost_extern_for->iterator : "NULL",
+							  group->outermost_for != NULL ? group->outermost_for->iterator : "NULL");
+				if (stmt_outermost_extern_for == group->outermost_for) {
+					logger->debug("stmt {} has the same outermost tiling for as group {}, adding it to the group",
+								  (*it)->statement->number, group->id);
+				}
+				if (current_for == group->first_inner_for) {
 					add = true;
 					break;
 				}
 			}
 			if (add) {
-				group.stmts.push_back(*it);
+				group->stmts.push_back(*it);
 				it = stmt_to_process.erase(it);
 			} else {
 				++it;
 			}
 		}
 
-		isl_set *group_domain = isl_set_copy(isl_set_from_cloog_domain(group.parent_for->domain));
+		isl_set *group_domain = isl_set_copy(isl_set_from_cloog_domain(group->stmt_parent_for->domain));
 		// define param names
 		for (int i = 0; i < cloogProgram->names->nb_parameters; i += 1) {
 			group_domain = isl_set_set_dim_name(group_domain, isl_dim_param, i, cloogProgram->names->parameters[i]);
@@ -249,19 +258,21 @@ std::vector<pesto::StmtGroup> pesto::ParamTilingUtility::computeStmtGroups(Cloog
 		}
 
 		// append group to the list of groups
-		stmtGroups.push_back(group);
+		stmtGroups.push_back(std::move(group));
 	}
 	free(stmt);
 
 	this->insertedStmts = stmt_count;
 
 	for (auto &group : stmtGroups) {
-		this->logger->debug("group {}", group.id);
-		this->logger->debug("parent for: {}", group.parent_for->iterator);
+		this->logger->debug("group {}", group->id);
+		this->logger->debug("parent for: {}", group->stmt_parent_for->iterator);
 		this->logger->debug("first tiling for: {}",
-							group.first_tiling_for != NULL ? group.first_tiling_for->iterator : "NULL");
+							group->first_inner_for != NULL ? group->first_inner_for->iterator : "NULL");
+		this->logger->debug("outermost tiling for: {}",
+							group->outermost_for != NULL ? group->outermost_for->iterator : "NULL");
 		this->logger->debug("stmts: ");
-		for (auto stmt : group.stmts) {
+		for (auto stmt : group->stmts) {
 			this->logger->debug("\t{}", stmt->statement->number);
 		}
 	}
@@ -271,7 +282,9 @@ std::vector<pesto::StmtGroup> pesto::ParamTilingUtility::computeStmtGroups(Cloog
 
 void pesto::ParamTilingUtility::tileGroup(CloogProgram *cloogProgram, CloogOptions *cloogOptions,
 										  struct clast_root *root, StmtGroup &group) {
-	isl_set *group_domain = isl_set_copy(isl_set_from_cloog_domain(group.parent_for->domain));
+	isl_set *group_domain = isl_set_copy(isl_set_from_cloog_domain(group.stmt_parent_for->domain));
+
+	logger->debug("Tiling group {} ", group.id);
 
 	int tiling_dim_count = isl_set_count_tiling_dimensions(group_domain);
 
@@ -281,23 +294,19 @@ void pesto::ParamTilingUtility::tileGroup(CloogProgram *cloogProgram, CloogOptio
 		return;
 	}
 
-	for (auto &data : group.tilingData) {
-		this->logger->debug("Found tiling for pair : {} is outter of: {}", data.outter_for->iterator,
-							data.inner_for->iterator);
-	}
-
-	// Then we need to sort the tiling_for ascendingly of the depth of the
-	// outter for
-
 	// Then for each outter for (from outter most to inner most)
 	for (auto &data : group.tilingData) {
-		this->insertStatements(cloogOptions, root, group, data);
-		this->replaceOutterForBounds(group, data);
-		this->replaceInnerForBounds(cloogProgram, group, data);
-	}
+		logger->debug("Tiling for {} with outer iterator {} at depth {} ", data->id, data->outer_for->iterator,
+					  data->tiling_depth);
 
+		this->insertStatements(cloogOptions, root, *data);
+		this->replaceOutterForBounds(group, *data);
+
+		this->replaceInnerForBounds(cloogProgram, group, *data);
+	}
 	this->computeTrahrheDomain(cloogProgram, group);
 
+	logger->debug("Generating stmts for group {}", group.id);
 	this->generateStatements(cloogProgram, group);
 	this->declareGroupVariables(group);
 
@@ -307,36 +316,75 @@ void pesto::ParamTilingUtility::tileGroup(CloogProgram *cloogProgram, CloogOptio
 	isl_set_free(group_domain);
 }
 
-std::string pesto::ParamTilingUtility::getErrorMessage() { return this->errorMessage; }
+std::string pesto::ParamTilingUtility::getErrorMessage() {
+	return this->errorMessage;
+}
 
-bool pesto::ParamTilingUtility::hasError() { return this->error; }
+bool pesto::ParamTilingUtility::hasError() {
+	return this->error;
+}
 
 void pesto::ParamTilingUtility::associateTilingFor(struct clast_root *root, StmtGroup &group) {
-	for (struct clast_for *current_for = group.parent_for; current_for != NULL;
-		 current_for = clast_get_parent_clast_for(&(root->stmt), &(current_for->stmt))) {
-		struct clast_for *outter_for = clast_find_outter_tiling_for(&(root->stmt), current_for);
-		if (outter_for == nullptr) {
-			continue;
+	for (auto *stmt : group.stmts) {
+		for (struct clast_for *current_for = clast_get_parent_clast_for(&(root->stmt), &(stmt->stmt));
+			 current_for != NULL; current_for = clast_get_parent_clast_for(&(root->stmt), &(current_for->stmt))) {
+			struct clast_for *outer_for = clast_find_outter_tiling_for(&(root->stmt), current_for);
+
+			for (auto &data : group.tilingData) {
+				if (data->outer_for == outer_for || data->inner_for == current_for) {
+					// this for is already associated to a tiling data, we skip it
+					outer_for = nullptr;
+					break;
+				}
+			}
+
+			if (outer_for == nullptr) {
+				continue;
+			}
+
+			auto data = std::make_unique<TilingData>();
+			data->id = group.tilingData.size();
+			data->outer_for = outer_for;
+			data->inner_for = current_for;
+
+			data->tiling_depth = this->computeDataTilingDepth(group, *data);
+
+			group.tilingData.push_back(std::move(data));
 		}
-		TilingData data;
-		data.outter_for = outter_for;
-		data.inner_for = current_for;
-		group.tilingData.push_back(data);
+	}
+
+	// compute tiling depth for each tiling data
+	for (auto &data : group.tilingData) {
+		data->tiling_depth = this->computeDataTilingDepth(group, *data);
+
+		// create name helper for this tiling data
+		data->nameHelper = std::make_unique<ptile::NameHelper>(data->tiling_depth, data->outer_for->iterator,
+															   data->inner_for->iterator);
+		data->nameHelper->setPrefix("g" + std::to_string(group.id) + "_id" + std::to_string(data->id));
+
+		data->trahrheNameHelper = std::make_unique<ptile::NameHelper>(data->tiling_depth, data->outer_for->iterator,
+																	  data->inner_for->iterator);
+		data->trahrheNameHelper->setPrefix("g" + std::to_string(group.id) + data->nameHelper->getSeparator() + "id" +
+										   std::to_string(data->id));
 	}
 
 	// sort the tiling data by depth of the outter for
-	std::sort(group.tilingData.begin(), group.tilingData.end(), [](const TilingData &a, const TilingData &b) {
-		return isl_set_n_dim(isl_set_from_cloog_domain(a.outter_for->domain)) <
-			   isl_set_n_dim(isl_set_from_cloog_domain(b.outter_for->domain));
-	});
+	std::sort(group.tilingData.begin(), group.tilingData.end(),
+			  [](const std::unique_ptr<TilingData> &a, const std::unique_ptr<TilingData> &b) {
+				  return a->tiling_depth < b->tiling_depth; // sort by depth of the outter for, ascending
+			  });
 
-	// update the tiling depth
-	for (std::size_t i = 0; i < group.tilingData.size(); i++) {
-		group.tilingData[i].tiling_depth = i;
+	logger->debug("Tiling data for group {}:", group.id);
+	for (auto &data : group.tilingData) {
+
+		this->logger->debug("\ttiling data {}:  outter for: {}, inner for: {}, depth: {}", data->id,
+							data->outer_for->iterator, data->inner_for->iterator, data->tiling_depth);
 	}
 }
 
-void pesto::ParamTilingUtility::pushTilingType(ParamTilingType type) { this->tilingTypes.push_back(type); }
+void pesto::ParamTilingUtility::pushTilingType(ParamTilingType type) {
+	this->tilingTypes.push_back(type);
+}
 
 pesto::ParamTilingType pesto::ParamTilingUtility::getTilingType(std::size_t depth) {
 	// default is algebraic
@@ -354,32 +402,28 @@ pesto::ParamTilingType pesto::ParamTilingUtility::getTilingType(std::size_t dept
 int pesto::ParamTilingUtility::islFirstTilingDimIdx(StmtGroup &group) {
 	int firstTilingDim = 1000;
 	for (auto &data : group.tilingData) {
-		int dim = isl_set_n_dim(isl_set_from_cloog_domain(data.outter_for->domain));
+		int dim = isl_set_n_dim(isl_set_from_cloog_domain(data->outer_for->domain));
 		firstTilingDim = dim < firstTilingDim ? dim : firstTilingDim;
 	}
 	return firstTilingDim - 1;
 }
 
-void pesto::ParamTilingUtility::insertStatements(CloogOptions *cloogOptions, struct clast_root *root, StmtGroup &group,
+void pesto::ParamTilingUtility::insertStatements(CloogOptions *cloogOptions, struct clast_root *root,
 												 TilingData &data) {
-	struct clast_for *outter_for = data.outter_for;
-	int tiling_depth = data.tiling_depth;
+	struct clast_for *outter_for = data.outer_for;
 
-	group.tilingData[tiling_depth].head_stmt_id = ++(this->insertedStmts);
-	group.tilingData[tiling_depth].body_stmt_id = ++(this->insertedStmts);
+	data.head_stmt_id = ++(this->insertedStmts);
+	data.body_stmt_id = ++(this->insertedStmts);
 
-	struct clast_user_stmt *header_stmt =
-		pesto_clast_create_stmt(cloogOptions, NULL, group.tilingData[tiling_depth].head_stmt_id);
+	struct clast_user_stmt *header_stmt = pesto_clast_create_stmt(cloogOptions, NULL, data.head_stmt_id);
 	clast_insert_before((struct clast_stmt *)root, (struct clast_stmt *)outter_for, (struct clast_stmt *)header_stmt);
 
-	struct clast_user_stmt *body_stmt =
-		pesto_clast_create_stmt(cloogOptions, NULL, group.tilingData[tiling_depth].body_stmt_id);
+	struct clast_user_stmt *body_stmt = pesto_clast_create_stmt(cloogOptions, NULL, data.body_stmt_id);
 	clast_insert_indepth((struct clast_stmt *)outter_for, (struct clast_stmt *)body_stmt);
 }
 
 void pesto::ParamTilingUtility::replaceInnerForBounds(CloogProgram *cloogProgram, StmtGroup &group, TilingData &data) {
 	struct clast_for *inner_for = data.inner_for;
-	int tiling_depth = data.tiling_depth;
 
 	free_clast_expr(inner_for->LB);
 	free_clast_expr(inner_for->UB);
@@ -396,15 +440,11 @@ void pesto::ParamTilingUtility::replaceInnerForBounds(CloogProgram *cloogProgram
 
 	isl_set_free(domain);
 
-	auto &tilingData = group.tilingData[tiling_depth];
-
-	ptile::NameHelper nameHelper = this->getNameHelper(group, tilingData);
-
-	auto lb_ptr = std::make_shared<std::string>(nameHelper.innerForLBName());
+	auto lb_ptr = std::make_shared<std::string>(data.nameHelper->innerForLBName());
 	struct clast_name *param_lb = new_clast_name(lb_ptr->c_str());
 	this->names.push_back(lb_ptr);
 
-	auto ub_ptr = std::make_shared<std::string>(nameHelper.innerForUBName());
+	auto ub_ptr = std::make_shared<std::string>(data.nameHelper->innerForUBName());
 	struct clast_name *param_ub = new_clast_name(ub_ptr->c_str());
 	this->names.push_back(ub_ptr);
 
@@ -430,21 +470,19 @@ void pesto::ParamTilingUtility::replaceInnerForBounds(CloogProgram *cloogProgram
 }
 
 void pesto::ParamTilingUtility::replaceOutterForBounds(StmtGroup &group, TilingData &data) {
-	struct clast_for *outter_for = data.outter_for;
+	struct clast_for *outer_for = data.outer_for;
 
-	free_clast_expr(outter_for->LB);
-	free_clast_expr(outter_for->UB);
-	outter_for->LB = NULL;
-	outter_for->UB = NULL;
+	free_clast_expr(outer_for->LB);
+	free_clast_expr(outer_for->UB);
+	outer_for->LB = NULL;
+	outer_for->UB = NULL;
 
 	cloog_int_t zero;
 	cloog_int_init(zero);
-	outter_for->LB = (struct clast_expr *)new_clast_term(zero, NULL);
+	outer_for->LB = (struct clast_expr *)new_clast_term(zero, NULL);
 
-	ptile::NameHelper nameHelper = this->getNameHelper(group, data);
-
-	auto ub_ptr = std::make_shared<std::string>(nameHelper.outerForUBName());
-	outter_for->UB = (struct clast_expr *)new_clast_name(ub_ptr->c_str());
+	auto ub_ptr = std::make_shared<std::string>(data.nameHelper->outerForUBName());
+	outer_for->UB = (struct clast_expr *)new_clast_name(ub_ptr->c_str());
 	this->names.push_back(ub_ptr);
 }
 
@@ -452,18 +490,17 @@ void pesto::ParamTilingUtility::generateStatements(CloogProgram *cloogProgram, S
 	using StmtType = ptile::codegen::StmtType;
 
 	for (auto &data : group.tilingData) {
-
-		ptile::codegen::ParamTilingCodegen codegen = this->getCodegen(cloogProgram, group, data);
-		this->logger->debug("Generating statements... ({}, {})", data.head_stmt_id, data.body_stmt_id);
+		ptile::codegen::ParamTilingCodegen codegen = this->getCodegen(cloogProgram, group, *data);
+		this->logger->debug("Generating statements... ({}, {})", data->head_stmt_id, data->body_stmt_id);
 		for (std::size_t i = 0; i < 2; ++i) {
 			std::ostringstream oss;
 			codegen.genStmt(oss, i == 0 ? StmtType::HEAD : StmtType::BODY);
 			this->statements.push_back(
-				std::make_pair(i == 0 ? data.head_stmt_id : data.body_stmt_id, std::string(oss.str())));
+				std::make_pair(i == 0 ? data->head_stmt_id : data->body_stmt_id, std::string(oss.str())));
 		}
 
-		if (this->getTilingType(data.tiling_depth) == ParamTilingType::SCHEDULED &&
-			this->getTilingType(data.tiling_depth + 1) == ParamTilingType::SCHEDULED) {
+		if (this->getTilingType(data->tiling_depth) == ParamTilingType::SCHEDULED &&
+			this->getTilingType(data->tiling_depth + 1) == ParamTilingType::SCHEDULED) {
 			codegen.setEndline("\n");
 			std::ofstream ofs;
 			ofs.open("schedule.h", std::ios::out);
@@ -484,7 +521,7 @@ isl_set *pesto::ParamTilingUtility::dropTilingConstraints(__isl_take isl_set *se
 	for (auto riter = group.tilingData.rbegin(); riter != group.tilingData.rend(); ++riter) {
 		auto &data = *riter;
 
-		int ndim = isl_set_dim(isl_set_from_cloog_domain(data.outter_for->domain), isl_dim_set);
+		int ndim = isl_set_dim(isl_set_from_cloog_domain(data->outer_for->domain), isl_dim_set);
 
 		res = isl_set_drop_constraints_involving_dims(res, isl_dim_set, ndim - 1, 1);
 	}
@@ -492,13 +529,21 @@ isl_set *pesto::ParamTilingUtility::dropTilingConstraints(__isl_take isl_set *se
 	return res;
 }
 
-std::vector<std::shared_ptr<std::string>> pesto::ParamTilingUtility::getNames() { return this->names; }
+std::vector<std::shared_ptr<std::string>> pesto::ParamTilingUtility::getNames() {
+	return this->names;
+}
 
-std::vector<std::pair<int, std::string>> pesto::ParamTilingUtility::getStatements() { return this->statements; }
+std::vector<std::pair<int, std::string>> pesto::ParamTilingUtility::getStatements() {
+	return this->statements;
+}
 
-void pesto::ParamTilingUtility::setIdTrahrhePrefix(int id) { this->id = id; }
+void pesto::ParamTilingUtility::setIdTrahrhePrefix(int id) {
+	this->id = id;
+}
 
-std::vector<std::string> pesto::ParamTilingUtility::getVarList() { return this->varList; }
+std::vector<std::string> pesto::ParamTilingUtility::getVarList() {
+	return this->varList;
+}
 
 void pesto::ParamTilingUtility::declareVariable(std::string var) {
 	// we do not want to declare the same variable twice
@@ -510,13 +555,13 @@ void pesto::ParamTilingUtility::declareVariable(std::string var) {
 
 void pesto::ParamTilingUtility::declareGroupVariables(StmtGroup &group) {
 	for (auto &data : group.tilingData) {
-		auto nameHelper = this->getNameHelper(group, data);
+		auto &nameHelper = data->nameHelper;
 
-		this->declareVariable(nameHelper.pcMaxName());
-		this->declareVariable(nameHelper.targetVolName());
-		this->declareVariable(nameHelper.outerForUBName());
-		this->declareVariable(nameHelper.innerForLBName());
-		this->declareVariable(nameHelper.innerForUBName());
+		this->declareVariable(nameHelper->pcMaxName());
+		this->declareVariable(nameHelper->targetVolName());
+		this->declareVariable(nameHelper->outerForUBName());
+		this->declareVariable(nameHelper->innerForLBName());
+		this->declareVariable(nameHelper->innerForUBName());
 	}
 }
 
@@ -525,10 +570,10 @@ void pesto::ParamTilingUtility::updateOmpPragma(StmtGroup &group) {
 	struct clast_for *parallel_for = nullptr;
 	int tiling_depth = -1;
 	for (auto &data : group.tilingData) {
-		struct clast_for *outter_for = data.outter_for;
+		struct clast_for *outter_for = data->outer_for;
 		if (outter_for->parallel & CLAST_PARALLEL_OMP) {
 			parallel_for = outter_for;
-			tiling_depth = data.tiling_depth;
+			tiling_depth = data->tiling_depth;
 			break;
 		}
 	}
@@ -542,12 +587,12 @@ void pesto::ParamTilingUtility::updateOmpPragma(StmtGroup &group) {
 	parallel_for->parallel = CLAST_PARALLEL_OMP | CLAST_PARALLEL_USER;
 	std::string userDirectiveStr = "omp parallel for firstprivate(";
 
-	auto nameHelper = this->getNameHelper(group, group.tilingData[0]);
+	auto &nameHelper = group.tilingData[0]->nameHelper;
 
 	// omp firstprivate directive
-	userDirectiveStr += nameHelper.outerForUBName() + ", ";
-	userDirectiveStr += nameHelper.pcMaxName() + ", ";
-	userDirectiveStr += nameHelper.targetVolName() + ") \\\n";
+	userDirectiveStr += nameHelper->outerForUBName() + ", ";
+	userDirectiveStr += nameHelper->pcMaxName() + ", ";
+	userDirectiveStr += nameHelper->targetVolName() + ") \\\n";
 
 	parallel_for->user_directive = strdup(userDirectiveStr.c_str());
 
@@ -561,70 +606,104 @@ void pesto::ParamTilingUtility::updateOmpPragma(StmtGroup &group) {
 	if (privateVarsStr != "") {
 		privateVarsStr += ", ";
 	}
-	nameHelper = this->getNameHelper(group, group.tilingData[tiling_depth]);
+	auto &parallelNameHelper = group.tilingData[tiling_depth]->nameHelper;
 
-	privateVarsStr += nameHelper.innerForLBName();
-	privateVarsStr += ", " + nameHelper.innerForUBName();
+	privateVarsStr += parallelNameHelper->innerForLBName();
+	privateVarsStr += ", " + parallelNameHelper->innerForUBName();
 
 	if (this->getTilingType(tiling_depth) == ParamTilingType::SCHEDULED &&
 		this->getTilingType(tiling_depth - 1) == ParamTilingType::SCHEDULED) {
-		auto outterHelper = this->getNameHelper(group, group.tilingData[tiling_depth - 1]);
-		privateVarsStr += ", " + outterHelper.innerForLBName();
-		privateVarsStr += ", " + outterHelper.innerForUBName();
+		auto &outerHelper = group.tilingData[tiling_depth - 1]->nameHelper;
+		privateVarsStr += ", " + outerHelper->innerForLBName();
+		privateVarsStr += ", " + outerHelper->innerForUBName();
 	}
 
-	for (std::size_t i = tiling_depth + 1; i < group.tilingData.size(); i += 1) {
-		nameHelper = this->getNameHelper(group, group.tilingData[i]);
+	for (auto &data : group.tilingData) {
+		if (data->tiling_depth <= tiling_depth) {
+			continue;
+		}
+		auto &nameHelper = *data->nameHelper;
 		privateVarsStr += ", " + nameHelper.outerForUBName();
 		privateVarsStr += ", " + nameHelper.pcMaxName();
 		privateVarsStr += ", " + nameHelper.targetVolName();
 		privateVarsStr += ", " + nameHelper.innerForLBName();
 		privateVarsStr += ", " + nameHelper.innerForUBName();
 	}
+
 	parallel_for->private_vars = strdup(privateVarsStr.c_str());
 }
 
 void pesto::ParamTilingUtility::computeTrahrheDomain(CloogProgram *cloogProgram, StmtGroup &group) {
-	isl_set *domain = this->getInnerDomain(cloogProgram, group, group.tilingData.back(), true);
-	// rename the dimension
-	for (std::size_t i = 0; i < group.tilingData.size(); i += 1) {
-		auto &data = group.tilingData[i];
-		ptile::NameHelper trahrheNameHelper = this->getTrahrheNameHelper(group, data);
-		domain = isl_set_set_dim_name(domain, isl_dim_set, i, trahrheNameHelper.trahrheIteratorName().c_str());
+	int max_tiling_depth = 0;
+	for (auto &data : group.tilingData) {
+		max_tiling_depth = std::max(max_tiling_depth, data->tiling_depth);
 	}
 
-	int ntiled_dim = 0;
-	for (std::size_t i = 0; i < group.tilingData.size(); i += 1) {
-		if (this->getTilingType(i) == ParamTilingType::ALGEBRAIC ||
-			this->getTilingType(i) == ParamTilingType::SCHEDULED) {
-			ntiled_dim += 1;
+	isl_set *trahrheDomain = isl_set_copy(group.untiled_domain);
+
+	// // define param names
+	// for (int i = 0; i < cloogProgram->names->nb_parameters; i += 1) {
+	// 	trahrheDomain = isl_set_set_dim_name(trahrheDomain, isl_dim_param, i, cloogProgram->names->parameters[i]);
+	// }
+
+	// for (isl_size i = 0; i < isl_set_n_dim(trahrheDomain); i += 1) {
+	// 	trahrheDomain = isl_set_set_dim_name(trahrheDomain, isl_dim_set, i, cloogProgram->names->scattering[i]);
+	// }
+
+	isl_set_dump(trahrheDomain);
+
+	// remove scalar dims
+	isl_size ndim = isl_set_dim(trahrheDomain, isl_dim_set);
+	for (isl_size i = 0; i < ndim; i++) {
+		if (isl_set_is_dim_scalar(trahrheDomain, i)) {
+			trahrheDomain = isl_set_remove_dims(trahrheDomain, isl_dim_set, i, 1);
+			i -= 1;
+			ndim = isl_set_dim(trahrheDomain, isl_dim_set);
 		}
 	}
 
-	if (this->getTilingType(0) == ParamTilingType::LAST_DIM_RECT && group.tilingData.size() > 1) {
-		ntiled_dim += group.tilingData.size() - 1;
+	// trahrheDomain = this->moveNonTiledDimensionsToParameters(trahrheDomain, data, group);
+
+	// trahrheDomain = this->removeTilingDimensions(group, trahrheDomain, -1);
+
+	for (auto &itData : group.tilingData) {
+		trahrheDomain = isl_set_set_dim_name(trahrheDomain, isl_dim_set, itData->tiling_depth,
+											 itData->trahrheNameHelper->trahrheIteratorName().c_str());
 	}
 
 	isl_printer *printer = isl_printer_to_str(ctx);
 
-	printer = isl_printer_print_set(printer, domain);
+	printer = isl_printer_print_set(printer, trahrheDomain);
 
 	char *str = isl_printer_get_str(printer);
 
-	group.trahrheDomain.first = ntiled_dim;
-	group.trahrheDomain.second = std::string(str);
+	logger->debug("Computed trahrhe domain for group {}, trahrhe depth {}:\n\t{}", group.id, max_tiling_depth + 1, str);
+
+	this->trahrheDomainList_.push_back(std::make_pair(max_tiling_depth + 1, std::string(str)));
 
 	free(str);
 	isl_printer_free(printer);
 
-	isl_set_free(domain);
+	isl_set_free(trahrheDomain);
 }
 
-std::vector<std::pair<int, std::string>> pesto::ParamTilingUtility::getTrahrheDomains() { return trahrheDomains; }
+std::vector<std::pair<int, std::string>> pesto::ParamTilingUtility::getTrahrheDomainList() {
+	return trahrheDomainList_;
+}
 
-__isl_give isl_set *pesto::ParamTilingUtility::extractIslInnerTiledDomain(StmtGroup &group, __isl_take isl_set *domain,
-																		  std::size_t ndim) {
-	assert(ndim <= group.tilingData.size());
+__isl_give isl_set *pesto::ParamTilingUtility::removeTilingDimensions(StmtGroup &group, __isl_take isl_set *domain,
+																	  int maxTilingDepth) {
+	// assert(ndim <= group.tilingData.size());
+	isl_ctx *ctx = isl_set_get_ctx(domain);
+	isl_options_set_on_error(ctx, ISL_ON_ERROR_ABORT);
+
+	// remove scalar dims
+	for (int i = 0; i < isl_set_dim(domain, isl_dim_set); i++) {
+		if (isl_set_is_dim_scalar(domain, i)) {
+			domain = isl_set_remove_dims(domain, isl_dim_set, i, 1);
+			i -= 1;
+		}
+	}
 
 	// we are going to build a map
 	// that will transform the current dimensions to keep only the tiled
@@ -634,26 +713,62 @@ __isl_give isl_set *pesto::ParamTilingUtility::extractIslInnerTiledDomain(StmtGr
 
 	// we move all dimensions to input dimensions
 	trans = isl_map_move_dims(trans, isl_dim_in, 0, isl_dim_set, 0, isl_map_dim(trans, isl_dim_set));
-	// we have as much output dimensions as tiled dimensions
-	trans = isl_map_add_dims(trans, isl_dim_out, ndim);
 
-	// for each tiled dimensionss
-	for (std::size_t i = 0; i < ndim; i += 1) {
-		auto &data = group.tilingData[i];
+	for (int i = 0; i < isl_map_dim(trans, isl_dim_in); i += 1) {
+		int inner_idx = -1;
+		bool should_skip = false;
+		// look if this dimension corresponds to an inner tiling iterator
+		for (auto &itData : group.tilingData) {
+			int itOuterIdx = isl_map_find_dim_by_name(trans, isl_dim_in, itData->outer_for->iterator);
+			int itInnerIdx = isl_map_find_dim_by_name(trans, isl_dim_in, itData->inner_for->iterator);
+			if (itInnerIdx != -1 && itOuterIdx == i) {
+				inner_idx = itInnerIdx;
+				should_skip = false;
+				break;
+			}
+			if (itInnerIdx == i) {
+				should_skip = true;
+				break;
+			}
+		}
 
-		// we add a constraint [input_dim] = [output_dim]
-		// where [input_dim] is the dimension in the original set
-		// and [output_dim] is the corresponding dimension in the new space
+		if (should_skip) {
+			continue;
+		}
+		// we add a new output dim
+		trans = isl_map_add_dims(trans, isl_dim_out, 1);
+		int out_idx = isl_map_dim(trans, isl_dim_out) - 1;
+
 		isl_constraint *cst = isl_constraint_alloc_equality(isl_local_space_from_space(isl_map_get_space(trans)));
+		cst = isl_constraint_set_coefficient_si(cst, isl_dim_in, inner_idx != -1 ? inner_idx : i, -1);
+		cst = isl_constraint_set_coefficient_si(cst, isl_dim_out, out_idx, 1);
 
-		int in_idx = isl_map_find_dim_by_name(trans, isl_dim_in, data.inner_for->iterator);
-		cst = isl_constraint_set_coefficient_si(cst, isl_dim_in, in_idx, -1);
-		cst = isl_constraint_set_coefficient_si(cst, isl_dim_out, i, 1);
 		trans = isl_map_add_constraint(trans, cst);
+
+		trans = isl_map_set_dim_name(trans, isl_dim_out, out_idx,
+									 isl_map_get_dim_name(trans, isl_dim_in, inner_idx != -1 ? inner_idx : i));
 	}
+
+	// for (auto &itData : group.tilingData) {
+	// 	isl_constraint *cst = isl_constraint_alloc_equality(isl_local_space_from_space(isl_map_get_space(trans)));
+
+	// 	int in_idx = isl_map_find_dim_by_name(trans, isl_dim_in, itData->inner_for->iterator);
+
+	// 	cst = isl_constraint_set_coefficient_si(cst, isl_dim_in, in_idx, -1);
+	// 	cst = isl_constraint_set_coefficient_si(cst, isl_dim_out, itData->tiling_depth, 1);
+
+	// 	trans = isl_map_add_constraint(trans, cst);
+
+	// 	trans = isl_map_set_dim_name(trans, isl_dim_out, itData->tiling_depth,
+	// 								 isl_map_get_dim_name(trans, isl_dim_in, in_idx));
+	// }
+
+	assert(!isl_map_is_empty(trans));
 
 	// apply the map to original domain
 	isl_set *out = isl_set_apply(domain, trans);
+
+	assert(!isl_set_is_empty(out));
 
 	return out;
 }
@@ -662,13 +777,18 @@ void pesto::ParamTilingUtility::setBoundComputingMethod(pesto::ptile::codegen::B
 	this->boundComputeMethod = method;
 }
 
-void pesto::ParamTilingUtility::setTileSizeTarget(int size) { this->tilesizeTarget = size; }
-int pesto::ParamTilingUtility::getTileSizeTarget() { return this->tilesizeTarget; }
+void pesto::ParamTilingUtility::setTileSizeTarget(int size) {
+	this->tilesizeTarget = size;
+}
+int pesto::ParamTilingUtility::getTileSizeTarget() {
+	return this->tilesizeTarget;
+}
 
 __isl_give isl_set *pesto::ParamTilingUtility::moveNonTiledDimensionsToParameters(__isl_take isl_set *set,
-																				  TilingData &data, StmtGroup &group) {
+																				  StmtGroup &group) {
 	isl_set *domain = isl_set_copy(set);
 	isl_set_free(set);
+	size_t count = 0;
 
 	isl_size ndim = isl_set_dim(domain, isl_dim_set);
 	// TODO: move untiled dimensions as parameters
@@ -680,25 +800,29 @@ __isl_give isl_set *pesto::ParamTilingUtility::moveNonTiledDimensionsToParameter
 		if (!isl_set_involves_dims(domain, isl_dim_set, i, 1)) {
 			continue;
 		}
-		bool is_tiled = false;
+		bool should_move = true;
+		int innermost_outer_tiling_dim_idx = 0;
 		// search if this dimension is tiled
-		for (std::size_t j = 0; j < group.tilingData.size(); j += 1) {
-			auto &it_data = group.tilingData[j];
-			int in_idx = isl_set_find_dim_by_name(domain, isl_dim_set, it_data.inner_for->iterator);
-			int out_idx = isl_set_find_dim_by_name(domain, isl_dim_set, it_data.outter_for->iterator);
-			if (i == in_idx || i == out_idx) {
-				is_tiled = true;
+		for (auto &it_data : group.tilingData) {
+			int in_idx = -1;
+			in_idx = isl_set_find_dim_by_name(domain, isl_dim_set, it_data->inner_for->iterator);
+
+			if (in_idx == i) {
+				should_move = false;
+				break;
+			}
+			int out_idx = isl_set_find_dim_by_name(domain, isl_dim_set, it_data->outer_for->iterator);
+			innermost_outer_tiling_dim_idx = std::max(innermost_outer_tiling_dim_idx, out_idx);
+			if (i == out_idx) {
+				should_move = false;
 				break;
 			}
 		}
-		// if the dimension is tiled we keep it as it is
-		if (is_tiled) {
+		if (i > innermost_outer_tiling_dim_idx) {
 			continue;
 		}
-		int tiling_for_idx = isl_set_find_dim_by_name(domain, isl_dim_set, data.outter_for->iterator);
-		if (i > tiling_for_idx) {
-			// if the dimension is after the tiling dimension, we keep it as it is
-			// because the tiling loop will not depend on it
+		// if the dimension is tiled we keep it as it is
+		if (!should_move) {
 			continue;
 		}
 
@@ -707,39 +831,11 @@ __isl_give isl_set *pesto::ParamTilingUtility::moveNonTiledDimensionsToParameter
 		domain = isl_set_move_dims(domain, isl_dim_param, npar, isl_dim_set, i, 1);
 		i -= 1;
 		ndim = isl_set_dim(domain, isl_dim_set);
+		count += 1;
 	}
+
+	group.movedDimensionsCount = count;
 	return domain;
-}
-
-__isl_give isl_set *pesto::ParamTilingUtility::getInnerDomain(CloogProgram *cloogProgram, StmtGroup &group,
-															  TilingData &data, bool moveNonTiledDimensions) {
-	isl_set *inner_domain = isl_set_copy(isl_set_from_cloog_domain(group.parent_for->domain));
-	// define param names
-	for (int i = 0; i < cloogProgram->names->nb_parameters; i += 1) {
-		inner_domain = isl_set_set_dim_name(inner_domain, isl_dim_param, i, cloogProgram->names->parameters[i]);
-	}
-
-	for (isl_size i = 0; i < isl_set_n_dim(inner_domain); i += 1) {
-		inner_domain = isl_set_set_dim_name(inner_domain, isl_dim_set, i, cloogProgram->names->scattering[i]);
-	}
-	if (moveNonTiledDimensions) {
-		inner_domain = this->moveNonTiledDimensionsToParameters(inner_domain, data, group);
-	}
-	inner_domain = this->extractIslInnerTiledDomain(group, inner_domain, data.tiling_depth + 1);
-
-	return inner_domain;
-}
-
-pesto::ptile::NameHelper pesto::ParamTilingUtility::getNameHelper(StmtGroup &group, TilingData &data) {
-	ptile::NameHelper nameHelper(data.tiling_depth, data.outter_for->iterator, data.inner_for->iterator);
-	nameHelper.setPrefix("g" + std::to_string(group.id));
-	return nameHelper;
-}
-
-pesto::ptile::NameHelper pesto::ParamTilingUtility::getTrahrheNameHelper(StmtGroup &group, TilingData &data) {
-	ptile::NameHelper helper = this->getNameHelper(group, data);
-	helper.setPrefix("n" + std::to_string(this->id) + helper.getSeparator() + "g" + std::to_string(group.id));
-	return helper;
 }
 
 void pesto::ParamTilingUtility::setBoundCorrectionStrategy(pesto::ptile::codegen::BoundCorrectionStrategy strategy) {
@@ -751,27 +847,28 @@ void pesto::ParamTilingUtility::setVolumeCheckStrategy(pesto::ptile::codegen::Vo
 
 pesto::ptile::codegen::ParamTilingCodegen pesto::ParamTilingUtility::getCodegen(CloogProgram *cloogProgram,
 																				StmtGroup &group, TilingData &data) {
-	ptile::codegen::ParamTilingCodegen codegen(group, data, this->id,
-											   this->getInnerDomain(cloogProgram, group, data, true));
+	ptile::codegen::ParamTilingCodegen codegen(group, data, this->id, isl_set_copy(group.untiled_domain));
 	codegen.setBoundComputeMethod(this->boundComputeMethod);
 	codegen.setBoundCorrectionStrategy(this->boundCorrectionStrategy);
 	codegen.setTilingType(this->getTilingType(data.tiling_depth));
-	codegen.setVolumeCheckThreshold(this->volumeCheckThreshold);
+	if (this->volumeCheckThreshold.has_value() && !this->volumeCheckThreshold.value().empty()) {
+		codegen.setVolumeCheckThreshold(this->volumeCheckThreshold.value());
+	}
 
 	if (this->volumeCheckTrigger == VolumeCheckTrigger::ALWAYS) {
 		codegen.setVolumeCheckStrategy(this->volumeCheckStrategy);
 	} else if (this->volumeCheckTrigger == VolumeCheckTrigger::FIRST_OUTTER_ITERATOR_DEPENDENCY) {
-		size_t movedDimCount = this->movedDimensionsCount(cloogProgram, group, data);
+		size_t movedDimCount = group.movedDimensionsCount;
 		if (movedDimCount == 0) {
 			codegen.setVolumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::NO_CHECK);
 		} else {
 			this->logger->debug("Moved dimensions count: {}", movedDimCount);
 			bool isFirstDependency = true;
 			for (auto &tdata : group.tilingData) {
-				if (tdata.tiling_depth >= data.tiling_depth) {
+				if (tdata->tiling_depth >= data.tiling_depth) {
 					continue;
 				}
-				size_t iMovedDimCount = this->movedDimensionsCount(cloogProgram, group, tdata);
+				size_t iMovedDimCount = group.movedDimensionsCount;
 				if (iMovedDimCount > 0) {
 					isFirstDependency = false;
 					break;
@@ -797,18 +894,9 @@ void pesto::ParamTilingUtility::setVolumeCheckThreshold(std::string threshold) {
 	this->volumeCheckThreshold = threshold;
 }
 
-size_t pesto::ParamTilingUtility::movedDimensionsCount(CloogProgram *cloogProgram, StmtGroup &group, TilingData &data) {
-	isl_set *orig_inner_domain = this->getInnerDomain(cloogProgram, group, data, false);
-	isl_size orig_npar = isl_set_dim(orig_inner_domain, isl_dim_param);
-	isl_set_free(orig_inner_domain);
-	isl_set *inner_domain = this->getInnerDomain(cloogProgram, group, data, true);
-	isl_size inner_npar = isl_set_dim(inner_domain, isl_dim_param);
-	isl_set_free(inner_domain);
-
-	return inner_npar - orig_npar;
+void pesto::ParamTilingUtility::clearTilingTypes() {
+	this->tilingTypes.clear();
 }
-
-void pesto::ParamTilingUtility::clearTilingTypes() { this->tilingTypes.clear(); }
 
 std::optional<std::filesystem::path> pesto::ParamTilingUtility::getGeneratedScheduleHeaderFile() {
 	if (!(this->getTilingType(0) == ParamTilingType::SCHEDULED &&
@@ -818,14 +906,15 @@ std::optional<std::filesystem::path> pesto::ParamTilingUtility::getGeneratedSche
 	return std::filesystem::path("schedule.h");
 }
 
-pesto::TilingData pesto::ParamTilingUtility::computeTilingDataBoundExpr(CloogProgram *cloogProgram, StmtGroup &group,
-																		TilingData &data) {
+void pesto::ParamTilingUtility::computeTilingDataBoundExpr(CloogProgram *cloogProgram, StmtGroup &group,
+														   TilingData &data) {
 	using ptile::NameHelper;
 
+	logger->debug("Computing for loop bounds for tiling data {} of group {} ", data.id, group.id);
+
 	// compute loop bound expr
-	std::string innerForIt = std::string(data.inner_for->iterator);
-	std::string outterForIt = std::string(data.outter_for->iterator);
-	isl_set *innerDomain = this->getInnerDomain(cloogProgram, group, data, true);
+	std::string outterForIt = std::string(data.outer_for->iterator);
+	isl_set *innerDomain = isl_set_copy(group.untiled_domain);
 
 	// [0] is for lower bound, [1] is for upper bound
 	CloogOptions *cloogOptions = cloog_options_malloc(nullptr);
@@ -847,16 +936,22 @@ pesto::TilingData pesto::ParamTilingUtility::computeTilingDataBoundExpr(CloogPro
 		names->scattering = (char **)calloc(names->nb_scattering, sizeof(char *));
 		for (isl_size j = 0; j < names->nb_scattering; j += 1) {
 			auto &data = group.tilingData[j];
-			NameHelper helper = NameHelper(data.tiling_depth, data.outter_for->iterator, data.inner_for->iterator);
-			helper.setPrefix("g" + std::to_string(group.id));
-			helper.setSeparator("_");
-			std::string bound = i == 0 ? helper.innerForLBName() : helper.innerForUBName();
+			std::string bound = i == 0 ? data->nameHelper->innerForLBName() : data->nameHelper->innerForUBName();
 			names->scattering[j] = strdup(bound.c_str());
 		}
 	}
 
+	// project dimensions that are after the current dimensions to avoid dependency on them (as they won't be computed
+	// yet when we compute the bound for the current dimension)
+	int ndim = isl_set_dim(innerDomain, isl_dim_set);
+	if (data.tiling_depth + 1 < ndim) {
+		innerDomain =
+			isl_set_project_out(innerDomain, isl_dim_set, data.tiling_depth + 1, ndim - data.tiling_depth - 1);
+	}
+
 	char *buffer = (char *)calloc(512, sizeof(char));
 	FILE *fd = fmemopen(buffer, 512, "w");
+
 	for (std::size_t i = 0; i < 2; ++i) {
 		struct clast_expr *expr = clast_bound_from_isl_set(namesList[i], innerDomain, i, data.tiling_depth);
 		if (expr != NULL) {
@@ -881,6 +976,67 @@ pesto::TilingData pesto::ParamTilingUtility::computeTilingDataBoundExpr(CloogPro
 	cloog_options_free(cloogOptions);
 
 	isl_set_free(innerDomain);
+}
 
-	return data;
+int pesto::ParamTilingUtility::computeDataTilingDepth(StmtGroup &group, TilingData &data) {
+	int depth = 0;
+	for (auto &itData : group.tilingData) {
+		if (itData->outer_for == data.outer_for) {
+			continue;
+		}
+		if (clast_is_parent_clast_for(&(group.outermost_for->stmt), itData->outer_for, data.outer_for)) {
+			depth += 1;
+		}
+	}
+	return depth;
+}
+
+void pesto::ParamTilingUtility::computeUntiledDomain(CloogProgram *cloogProgram, StmtGroup &group) {
+	logger->debug("Computing untiled domain for group {}", group.id);
+
+	isl_set *inner_domain = isl_set_copy(isl_set_from_cloog_domain(group.stmt_parent_for->domain));
+
+	assert(inner_domain != nullptr);
+
+	// define param names
+	for (int i = 0; i < cloogProgram->names->nb_parameters; i += 1) {
+		inner_domain = isl_set_set_dim_name(inner_domain, isl_dim_param, i, cloogProgram->names->parameters[i]);
+	}
+
+	for (isl_size i = 0; i < isl_set_n_dim(inner_domain); i += 1) {
+		inner_domain = isl_set_set_dim_name(inner_domain, isl_dim_set, i, cloogProgram->names->scattering[i]);
+	}
+
+	isl_set_dump(inner_domain);
+
+	// move non tiled dimensions to parameters
+	inner_domain = this->moveNonTiledDimensionsToParameters(inner_domain, group);
+
+	logger->debug("After moving non-tiled dimensions to parameters:");
+	isl_set_dump(inner_domain);
+
+	inner_domain = this->removeTilingDimensions(group, inner_domain, -1);
+
+	logger->debug("After removing tiling dimensions:");
+	isl_set_dump(inner_domain);
+
+	assert(inner_domain != nullptr || "inner domain is null");
+	assert(!isl_set_is_empty(inner_domain));
+
+	if (logger->level() <= spdlog::level::debug) {
+		isl_printer *printer = isl_printer_to_str(ctx);
+		printer = isl_printer_print_set(printer, inner_domain);
+		char *str = isl_printer_get_str(printer);
+		logger->debug("Untiled domain of group {}:\n{}", group.id, str);
+		isl_printer_free(printer);
+		free(str);
+	}
+
+	group.untiled_domain = inner_domain;
+}
+
+pesto::StmtGroup::~StmtGroup() {
+	if (this->untiled_domain != nullptr) {
+		isl_set_free(this->untiled_domain);
+	}
 }

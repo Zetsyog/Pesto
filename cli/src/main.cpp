@@ -158,15 +158,8 @@ int main(int argc, char **argv) {
 
 		passManager = std::make_unique<pesto::PassManager>();
 
-		// register all the passes
-		// order matter
-		passManager->addPass(std::make_unique<pass::ParamContextPass>(10));
-		passManager->addPass(std::make_unique<pass::PlutoAutoTransformPass>());
+		// by default, we run pluto and then generate code with cloog
 		passManager->addPass(std::make_unique<pass::PlutoTilingPass>());
-		passManager->addPass(std::make_unique<pass::DumpOslPass>("debug."));
-		passManager->addPass(std::make_unique<pass::GenClastPass>());
-		passManager->addPass(std::make_unique<pass::ClastParamTilingPass>());
-		// TODO: should codegen be a pass? Or whole different component ?
 		passManager->addPass(std::make_unique<pass::CloogCodegenPass>());
 	}
 
@@ -188,15 +181,42 @@ int main(int argc, char **argv) {
 		logger->info("Done");
 		return 0;
 	}
-
 	logger->info("Generated output file: {}", bundleOutputFile.value().string().c_str());
 
-	logger->info("Running preprocessor on file {}", bundleOutputFile.value().string().c_str());
+	auto &macro = bundle.metadata.get<pesto::bundle::metadata::Macro>();
+	std::filesystem::path bundleOutputWithMacros = bundleOutputFile.value().string() + ".input.c";
+	{
+		std::ofstream out(bundleOutputWithMacros);
+		// Write statements macros
+		for (const auto &macroLine : macro.preprocessedList) {
+			out << macroLine << std::endl;
+		}
+
+		// Write variable declarations at the top of the file
+		auto &varDecl = bundle.metadata.get<pesto::bundle::metadata::VarDecl>();
+		out << "/* Variable declarations */" << std::endl;
+		// TODO: group variable declaration
+		for (auto &varId : varDecl.vars()) {
+			out << varDecl.typeName << " " << varId << ";" << std::endl;
+		}
+
+		// copy rest of the bundle output file content
+		std::ifstream bundleOutput(bundleOutputFile.value());
+		std::string line;
+		while (std::getline(bundleOutput, line)) {
+			out << line << std::endl;
+		}
+
+		out.close();
+		logger->info("Generated file with macros: {}", bundleOutputWithMacros.string().c_str());
+	}
+
+	logger->info("Running preprocessor on file {}", bundleOutputWithMacros.string().c_str());
 	auto processedFile = std::filesystem::path(bundleOutputFile.value().string() + ".pre");
 
 	using namespace pesto::utils;
 	auto result = Process{}
-					  .command({ppCommand, "-E", "-P", bundleOutputFile.value().string()})
+					  .command({ppCommand, "-E", "-P", bundleOutputWithMacros.string()})
 					  .stdout_to(process::RedirectTo::file(processedFile.string()))
 					  .stderr_to(process::RedirectTo::null())
 					  .run();
@@ -216,6 +236,10 @@ int main(int argc, char **argv) {
 			auto &headerProduct = dynamic_cast<pesto::bundle::byproduct::HeaderFile &>(*byproduct);
 			outputFile << "#include \"" << headerProduct.path().filename().string() << "\"" << std::endl;
 		}
+	}
+
+	for (auto &macroLine : macro.nonProcessedList) {
+		outputFile << macroLine << std::endl;
 	}
 
 	std::string line;
