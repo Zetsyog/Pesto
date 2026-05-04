@@ -5,6 +5,7 @@
 # Sources files
 set(PESTOBIN_SOURCES
     src/main.cpp
+    src/CLI.cpp
     src/Options.cpp
     src/utils/Process.cpp
     src/passbuilder/ClastCustomVecPragmaPB.cpp
