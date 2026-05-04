@@ -396,9 +396,11 @@ void CLI::sandwichCode(const std::filesystem::path &input, const std::filesystem
 
 void CLI::runFormatter(const std::filesystem::path &target) {
 	using namespace pesto::utils;
-	std::vector<std::string> cmd = {formatCommand_, target.string()};
+	std::vector<std::string> cmd = {formatCommand_, "-i", target.string()};
 	process::Result result =
 		Process{}.command(cmd).stdout_to(process::RedirectTo::null()).stderr_to(process::RedirectTo::null()).run();
+
+	logger->debug("Running formatter command: {}", fmt::join(cmd, " "));
 
 	if (result.exit_code != 0) {
 		logger->error("Code formatting failed: exit code {}", result.exit_code);
