@@ -31,6 +31,9 @@
 #include <pesto/ir/Scop2Isl.hpp>
 #include <pesto/macros.h>
 #include <pesto/maths/Maths.hpp>
+#include <pesto/metadata/FileInfo.hpp>
+#include <pesto/metadata/Macro.hpp>
+#include <pesto/metadata/VarDecl.hpp>
 #include <pesto/pass/CodegenPasses.hpp>
 #include <pesto/pass/OslPass.hpp>
 #include <pesto/pass/PlutoPass.hpp>
@@ -40,7 +43,7 @@ using pesto::Bundle;
 using pesto::pass::TpzTilingPass;
 using pesto::pass::ptile::ClastTilingPair;
 
-TpzTilingPass::TpzTilingPass() : IPass("tpz-tiling"), outputFile(".") {
+TpzTilingPass::TpzTilingPass() : IPass("tpz-tiling") {
 	this->ctx = isl_ctx_alloc();
 	this->printer = isl_printer_to_str(this->ctx);
 }
@@ -117,9 +120,16 @@ void TpzTilingPass::tileClastFor(Bundle &bundle, struct clast_for *clastFor, pes
 	std::vector<ClastTilingPair> clastTilingPairs = this->computeTilingPairs(*clastIR, clastFor);
 
 	isl_set *innerDomain = this->computeInnerDomain(*clastIR, clastTilingPairs);
-	isl_set_dump(innerDomain);
 
-	this->insertOuterForLoop(*clastIR, clastTilingPairs);
+	if (logger->level() <= spdlog::level::debug) {
+		this->printer = isl_printer_print_set(this->printer, innerDomain);
+		char *set_str = isl_printer_get_str(printer);
+		logger->debug("Computed inner domain: {}", set_str);
+		free(set_str);
+		this->printer = isl_printer_flush(this->printer);
+	}
+
+	this->insertOuterForLoop(bundle, clastTilingPairs);
 
 	// duplicate ast at depth 1
 	ClastTilingPair &trapezoidalPair = clastTilingPairs[1];
@@ -175,8 +185,17 @@ void TpzTilingPass::tileClastFor(Bundle &bundle, struct clast_for *clastFor, pes
 		free(set_str);
 		this->printer = isl_printer_flush(this->printer);
 	}
-	this->generateTrahrheHeaders(macroData, innerDomain);
+	this->generateTrahrheHeaders(bundle, innerDomain);
 	logger->debug("Trahrhe header generation done.");
+
+	for (std::size_t i = 0; i < clastTilingPairs.size(); ++i) {
+		macroData.nonProcessedList.push_back("#ifndef DIV" + std::to_string(i) +
+											 "\n"
+											 "#define DIV" +
+											 std::to_string(i) +
+											 " 8\n"
+											 "#endif");
+	}
 
 	isl_set_free(innerDomain);
 }
@@ -209,13 +228,14 @@ std::vector<pesto::pass::ptile::ClastTilingPair> TpzTilingPass::computeTilingPai
 	return clastTilingPairs;
 }
 
-void TpzTilingPass::insertOuterForLoop(pesto::ir::ClastIR &clastIR,
-									   std::vector<ptile::ClastTilingPair> &clastTilingPairs) {
+void TpzTilingPass::insertOuterForLoop(Bundle &bundle, std::vector<ptile::ClastTilingPair> &clastTilingPairs) {
 	using pesto::ptile::NameHelper;
+	assert(bundle.get_ir()->id() == pesto::ir::ClastIR::ID);
+	auto *clastIR = dynamic_cast<pesto::ir::ClastIR *>(bundle.get_ir());
 
-	struct clast_root *root = (struct clast_root *)clastIR.get();
-	CloogOptions *cloogOptions = clastIR.getCloogOptions();
-	// auto varDeclData = scop.metadata.getOrCreate<VarDeclMetadata>().lock();
+	struct clast_root *root = (struct clast_root *)clastIR->get();
+	CloogOptions *cloogOptions = clastIR->getCloogOptions();
+	auto &varDecl = bundle.metadata.get<pesto::bundle::metadata::VarDecl>();
 	struct clast_for *outermostFor = clastTilingPairs[0].innerFor;
 
 	CloogDomain *enclosingDomain =
@@ -239,9 +259,9 @@ void TpzTilingPass::insertOuterForLoop(pesto::ir::ClastIR &clastIR,
 
 		logger->debug("Creating outer for loop with iterator: {}", it_name->c_str());
 
-		// varDeclData.addVar(*it_name);
-		// varDeclData.addVar(nameHelper.outerForLBName());
-		// varDeclData.addVar(nameHelper.outerForUBName());
+		varDecl.addVar(*it_name);
+		varDecl.addVar(nameHelper.outerForLBName());
+		varDecl.addVar(nameHelper.outerForUBName());
 
 		enclosing_for->iterator = it_name->c_str(); // Set the iterator name for the enclosing loop
 
@@ -280,7 +300,7 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 	auto &macroData = bundle.metadata.get<pesto::bundle::metadata::Macro>();
 	auto &varDeclData = bundle.metadata.get<pesto::bundle::metadata::VarDecl>();
 
-	macroData.preprocessedList.push_back("#include <omp.h>");
+	macroData.nonProcessedList.push_back("#include <omp.h>");
 
 	// TODO: remove (debug)
 	isl_set_dump(innerDomain);
@@ -543,14 +563,18 @@ __isl_give isl_set *TpzTilingPass::computeInnerDomain(pesto::ir::ClastIR &clastI
 	return set;
 }
 
-void TpzTilingPass::generateTrahrheHeaders(pesto::bundle::metadata::Macro &macroData, isl_set *innerDomain) {
+void TpzTilingPass::generateTrahrheHeaders(pesto::Bundle &bundle, isl_set *innerDomain) {
+	auto &macroData = bundle.metadata.get<pesto::bundle::metadata::Macro>();
+
 	std::filesystem::path outputDir = ".";
 	std::string filename = "header.";
-	if (!this->outputFile.stem().string().empty()) {
-		filename = this->outputFile.stem().string() + ".";
-	}
-	if (this->outputFile.has_parent_path()) {
-		outputDir = this->outputFile.parent_path();
+
+	if (bundle.metadata.has<pesto::bundle::metadata::FileInfo>()) {
+		auto &fileinfo = bundle.metadata.get<pesto::bundle::metadata::FileInfo>();
+		filename = fileinfo.output.stem().string() + ".";
+		if (fileinfo.output.has_parent_path()) {
+			outputDir = fileinfo.output.parent_path();
+		}
 	}
 
 	std::string header_filename = filename + "trahrhe.n" + std::to_string(0) + ".h";
@@ -577,11 +601,13 @@ void TpzTilingPass::generateTrahrheHeaders(pesto::bundle::metadata::Macro &macro
 		goto error;
 	}
 
+	logger->info("Generating trahrhe header: {}", header_filename.c_str());
+
 	trahrhe_generate_header(trahrhe_ctx, fp, trahrhe_len, trahrhe_expr);
 
 	fclose(fp);
 
-	macroData.preprocessedList.push_back("#include \"" + header_filename + "\"");
+	macroData.nonProcessedList.push_back("#include \"" + header_filename + "\"");
 
 	trahrhe_context_free(trahrhe_ctx);
 error:

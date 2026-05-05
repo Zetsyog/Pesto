@@ -46,6 +46,7 @@ class TpzTilingPass : public IPass {
 	virtual ~TpzTilingPass();
 
 	virtual Bundle apply(Bundle &&bundle) override;
+
 	virtual std::set<std::string> inputIR() const override {
 		return {pesto::ir::OpenScopIR::ID};
 	}
@@ -64,8 +65,6 @@ class TpzTilingPass : public IPass {
 	std::vector<std::unique_ptr<std::string>> stringKeepAlive;
 	int insertedStmts;
 
-	std::filesystem::path outputFile;
-
 	/* options */
 	bool useMinVolume = false;
 	/* end options*/
@@ -74,12 +73,12 @@ class TpzTilingPass : public IPass {
 
 	std::vector<ptile::ClastTilingPair> computeTilingPairs(pesto::ir::ClastIR &clastIR, struct clast_for *clastFor);
 
-	void insertOuterForLoop(pesto::ir::ClastIR &clastIR, std::vector<ptile::ClastTilingPair> &clastTilingPairs);
+	void insertOuterForLoop(pesto::Bundle &bundle, std::vector<ptile::ClastTilingPair> &clastTilingPairs);
 
 	__isl_give isl_set *computeInnerDomain(pesto::ir::ClastIR &clastIR,
 										   std::vector<ptile::ClastTilingPair> &clastTilingPairs);
 
-	void generateTrahrheHeaders(pesto::bundle::metadata::Macro &macroData, isl_set *innerDomain);
+	void generateTrahrheHeaders(pesto::Bundle &bundle, isl_set *innerDomain);
 
 	void codegen(Bundle &bundle, std::vector<ptile::ClastTilingPair> &clastTilingPairs, isl_set *innerDomain,
 				 pesto::maths::Vec2i slope);
