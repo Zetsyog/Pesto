@@ -14,32 +14,42 @@
 
 using namespace pesto;
 
-Options::Options() : _configPath(std::nullopt), _readScop(0), _debug(0), _printUsage(0), _printVersion(0), _indent(0) {}
+Options::Options() : configPath_(std::nullopt), readScop_(0), debug_(0), printUsage_(0), printVersion_(0), indent_(0) {}
 
 bool Options::readScop() {
-	return this->_readScop != 0;
+	return this->readScop_ != 0;
 }
 std::filesystem::path Options::inputPath() {
-	return this->input;
+	// input path is required, should have been checked in build()
+	if (!input_.has_value()) {
+		throw std::runtime_error("Input path is not set");
+	}
+	return this->input_.value();
 }
 std::filesystem::path Options::outputPath() {
-	return this->output;
+	// output path is optional, if not set it will be derived from input path
+	// this case should not exist at this point, as output path is set to a default value in build() if not provided by
+	// user
+	if (!output_.has_value()) {
+		throw std::runtime_error("Output path is not set");
+	}
+	return this->output_.value();
 }
 std::optional<std::string> Options::configPath() {
-	return this->_configPath;
+	return this->configPath_;
 }
 bool Options::debug() {
-	return this->_debug != 0;
+	return this->debug_ != 0;
 }
 bool Options::printUsage() {
-	return this->_printUsage != 0;
+	return this->printUsage_ != 0;
 }
 bool Options::printVersion() {
-	return this->_printVersion != 0;
+	return this->printVersion_ != 0;
 }
 
 bool Options::indent() {
-	return this->_indent != 0;
+	return this->indent_ != 0;
 }
 
 std::unique_ptr<Options> Options::build(int argc, char **argv) {
@@ -47,13 +57,13 @@ std::unique_ptr<Options> Options::build(int argc, char **argv) {
 
 	int c;
 	while (1) {
-		static struct option long_options[] = {{"readscop", no_argument, &opt->_readScop, 1},
+		static struct option long_options[] = {{"readscop", no_argument, &opt->readScop_, 1},
 											   {"config", required_argument, 0, 'c'},
 											   {"output", required_argument, 0, 'o'},
 											   {"indent", no_argument, 0, 'i'},
 											   {"help", no_argument, 0, 'h'},
 											   {"version", no_argument, 0, 'v'},
-											   {"debug", no_argument, &opt->_debug, 1},
+											   {"debug", no_argument, &opt->debug_, 1},
 											   {0, 0, 0, 0}};
 
 		int option_index = 0;
@@ -68,19 +78,19 @@ std::unique_ptr<Options> Options::build(int argc, char **argv) {
 		case 0:
 			break;
 		case 'c':
-			opt->_configPath = std::string(optarg);
+			opt->configPath_ = std::string(optarg);
 			break;
 		case 'o':
-			opt->output = optarg;
+			opt->output_ = optarg;
 			break;
 		case 'i':
-			opt->_indent = 1;
+			opt->indent_ = 1;
 			break;
 		case 'h':
-			opt->_printUsage = 1;
+			opt->printUsage_ = 1;
 			break;
 		case 'v':
-			opt->_printVersion = 1;
+			opt->printVersion_ = 1;
 			break;
 		case '?':
 			// getopt already printed a message
@@ -93,7 +103,11 @@ std::unique_ptr<Options> Options::build(int argc, char **argv) {
 		throw std::runtime_error("Missing input file");
 	}
 	// TODO: warning if too many args
-	opt->input = std::string(argv[optind]);
+	opt->input_ = argv[optind];
+
+	if (opt->output_ == std::nullopt) {
+		opt->output_ = opt->input_->stem().string() + ".pesto.c";
+	}
 
 	return opt;
 }

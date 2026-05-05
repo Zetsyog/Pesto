@@ -31,14 +31,14 @@ class Options {
 	bool indent();
 
   private:
-	std::filesystem::path input;
-	std::filesystem::path output;
-	std::optional<std::string> _configPath;
-	int _readScop;
-	int _debug;
-	int _printUsage;
-	int _printVersion;
-	int _indent;
+	std::optional<std::filesystem::path> input_;
+	std::optional<std::filesystem::path> output_;
+	std::optional<std::string> configPath_;
+	int readScop_;
+	int debug_;
+	int printUsage_;
+	int printVersion_;
+	int indent_;
 };
 
 } // namespace pesto
