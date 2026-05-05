@@ -1,4 +1,4 @@
-FROM debian:bookworm-slim
+FROM debian:trixie-slim
 
 # Install dependencies
 RUN apt-get update && apt-get install -y \
@@ -44,4 +44,4 @@ ENV CXX=g++
 RUN cmake -B build && cmake --build ./build -j
 
 # Set the environment variable
-ENV PESTO=/pesto/build/pesto
+ENV PESTO=/pesto/build/cli/pesto
