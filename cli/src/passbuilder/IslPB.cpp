@@ -18,6 +18,7 @@ std::unique_ptr<pesto::pass::IPass> IslPB::build(PassManagerBuilder &builder, co
 	using pesto::pass::IslPass;
 
 	(void)builder;
+	(void)j;
 
 	std::unique_ptr<IslPass> pass = std::make_unique<IslPass>();
 
