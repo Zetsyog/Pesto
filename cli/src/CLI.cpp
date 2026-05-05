@@ -403,8 +403,7 @@ void CLI::runFormatter(const std::filesystem::path &target) {
 	logger->debug("Running formatter command: {}", fmt::join(cmd, " "));
 
 	if (result.exit_code != 0) {
-		logger->error("Code formatting failed: exit code {}", result.exit_code);
-		logger->error("Command: {}", fmt::join(cmd, " "));
-		exit(1);
+		logger->warn("Code formatting failed: exit code {}", result.exit_code);
+		logger->warn("Command: {}", fmt::join(cmd, " "));
 	}
 }
