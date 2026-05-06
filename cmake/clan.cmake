@@ -18,8 +18,8 @@ file(MAKE_DIRECTORY ${CLAN_PREFIX}/install/include)
 
 externalproject_add(
     clan-src
-    GIT_REPOSITORY https://github.com/periscop/clan.git
-    GIT_TAG 0.8.1 #
+    GIT_REPOSITORY https://github.com/Fley14/clan.git
+    GIT_TAG cc911383c37624af7cf874d36b99ad3c092daafc #
     GIT_SUBMODULES_RECURSE false
     GIT_SUBMODULES ""
     PREFIX ${CLAN_PREFIX}

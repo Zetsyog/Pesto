@@ -29,7 +29,7 @@ file(MAKE_DIRECTORY ${PLUTO_PREFIX}/install/include)
 externalproject_add(
     pluto-src
     GIT_REPOSITORY https://gitlab.inria.fr/crossett/pluto-openscop.git
-    GIT_TAG cadc93545848af99d2db4f4e7a20cfc4a9868194 #
+    GIT_TAG dacbfd98ee9b71de6c7ed52c1c68495a972937b4 #
     GIT_SUBMODULES ""
     GIT_SUBMODULES_RECURSE false
     PREFIX ${PLUTO_PREFIX}

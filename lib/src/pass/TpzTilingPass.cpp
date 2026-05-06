@@ -12,6 +12,7 @@
 #include <isl/flow.h>
 #include <isl/maybe_pw_aff.h>
 #include <isl/multi.h>
+#include <isl/options.h>
 #include <isl/printer.h>
 #include <isl/schedule.h>
 #include <isl/schedule_node.h>
@@ -45,6 +46,7 @@ using pesto::pass::ptile::ClastTilingPair;
 
 TpzTilingPass::TpzTilingPass() : IPass("tpz-tiling") {
 	this->ctx = isl_ctx_alloc();
+	isl_options_set_on_error(this->ctx, ISL_ON_ERROR_ABORT);
 	this->printer = isl_printer_to_str(this->ctx);
 }
 
@@ -59,6 +61,9 @@ Bundle TpzTilingPass::apply(Bundle &&bundle) {
 	auto *scopIR = dynamic_cast<pesto::ir::OpenScopIR *>(bundle.get_ir());
 	osl_scop_p scop = scopIR->c_scop();
 
+	logger->debug("Starting trapezoidal tiling pass on scop");
+
+	logger->debug("Computing dependency distance vectors");
 	std::optional<pesto::maths::Vec2i> slope = this->computeDepDistanceVector(scop);
 
 	if (!slope.has_value()) {
@@ -793,6 +798,8 @@ void TpzTilingPass::insertOmpPragmas(pesto::ir::ClastIR &clastIR,
 
 std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(osl_scop_p scop) {
 	using pesto::ir::converter::Scop2Isl;
+
+	// osl_scop_print(stdout, scop);
 
 	Scop2Isl irHelper(this->ctx);
 	irHelper.convert(scop);

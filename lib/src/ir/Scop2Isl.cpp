@@ -14,6 +14,8 @@
 #include <isl/union_set.h>
 #include <isl/val.h>
 
+#include <osl/osl.h>
+
 #include <pesto/ir/Scop2Isl.hpp>
 
 using pesto::ir::converter::Scop2Isl;
@@ -62,11 +64,11 @@ static int osl_relation_get_row_id_for_nth_dimension(osl_relation_p relation, in
 		}
 	}
 	if (nb_ndims_found == 0) {
-		fprintf(stderr, "error: specified dimension not found");
+		fprintf(stderr, "error: dimension %d not found\n", ndim);
 		exit(1);
 	}
 	if (nb_ndims_found > 1) {
-		fprintf(stderr, "error: specified dimension occurs multiple times");
+		fprintf(stderr, "error: dimension occurs multiple times\n");
 		exit(1);
 	}
 
@@ -302,6 +304,51 @@ static __isl_give isl_union_map *osl_access_list_to_isl_union_map(osl_relation_l
 	return res;
 }
 
+/*
+ * Checks if a row in an OSL relation has local dimensions
+ */
+static int osl_relation_row_has_local_dim(osl_relation_p relation, int row) {
+	for (size_t j = 0; j < relation->nb_local_dims; j++) {
+		if (!osl_int_zero(relation->precision,
+						  relation->m[row][relation->nb_output_dims + relation->nb_input_dims + j])) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+/*
+ * Remove all inequalities rows from an OSL relation.
+ */
+static void osl_relation_remove_inequalities(osl_relation_p relation) {
+	for (int i = 0; i < relation->nb_rows; i++) {
+		// if row is an inequality, remove it as the converter cannot handle
+		// inequalities
+		if (osl_int_one(relation->precision, relation->m[i][0])) {
+			osl_relation_remove_row(relation, i);
+			i--;
+		}
+	}
+}
+
+/*
+ * Remove all inequalities from a list of OSL relations.
+ */
+static void osl_relation_list_remove_inequalities(osl_relation_list_p list) {
+	for (osl_relation_list_p tmp = list; tmp; tmp = tmp->next) {
+		osl_relation_remove_inequalities(tmp->elt);
+	}
+}
+
+/*
+ * Sanitizes the access relations in a list by removing inequality constraints.
+ */
+static void sanitize_stmt_access_relation(osl_relation_list_p list) {
+	// remove inequalities from the access relations as the converter cannot
+	// handle inequalities is this ok??
+	osl_relation_list_remove_inequalities(list);
+}
+
 /* END  osl_pluto.c */
 
 Scop2Isl::Scop2Isl(isl_ctx *ctx)
@@ -381,21 +428,32 @@ void Scop2Isl::convert(osl_scop_p scop) {
 		osl_relation_list_p mayWriteList = osl_relation_list_filter(stmt->access, OSL_TYPE_MAY_WRITE);
 		osl_relation_list_p writeList = osl_relation_list_filter(stmt->access, OSL_TYPE_WRITE);
 
+		osl_relation_list_p sanitizedReadList = osl_relation_list_clone(readList);
+		osl_relation_list_p sanitizedMayWriteList = osl_relation_list_clone(mayWriteList);
+		osl_relation_list_p sanitizedWriteList = osl_relation_list_clone(writeList);
+		sanitize_stmt_access_relation(sanitizedReadList);
+		sanitize_stmt_access_relation(sanitizedMayWriteList);
+		sanitize_stmt_access_relation(sanitizedWriteList);
+
 		osl_arrays_p arrays = (osl_arrays_p)osl_generic_lookup(this->scop->extension, OSL_URI_ARRAYS);
 		if (arrays) {
 			names->arrays = osl_arrays_to_strings(arrays);
 		}
 
 		isl_union_map *read_i =
-			osl_access_list_to_isl_union_map(readList, isl_set_copy(domain_i), names->arrays->string);
+			osl_access_list_to_isl_union_map(sanitizedReadList, isl_set_copy(domain_i), names->arrays->string);
 		isl_union_map *write_i =
-			osl_access_list_to_isl_union_map(writeList, isl_set_copy(domain_i), names->arrays->string);
+			osl_access_list_to_isl_union_map(sanitizedWriteList, isl_set_copy(domain_i), names->arrays->string);
 		isl_union_map *mayWrite_i =
-			osl_access_list_to_isl_union_map(mayWriteList, isl_set_copy(domain_i), names->arrays->string);
+			osl_access_list_to_isl_union_map(sanitizedMayWriteList, isl_set_copy(domain_i), names->arrays->string);
 
 		this->reads = isl_union_map_union(this->reads, read_i);
 		this->writes = isl_union_map_union(this->writes, write_i);
 		this->may_writes = isl_union_map_union(this->may_writes, mayWrite_i);
+
+		osl_relation_list_free(sanitizedReadList);
+		osl_relation_list_free(sanitizedMayWriteList);
+		osl_relation_list_free(sanitizedWriteList);
 
 		isl_set_free(domain_i);
 		isl_map_free(schedule_i);
