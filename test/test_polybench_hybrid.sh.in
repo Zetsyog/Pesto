@@ -28,7 +28,7 @@ BENCHMARKS=(
 print_header "Pesto CLI Test Suite - Polybench" "Hybrid algebraic tiling tests"
 
 for benchmark in "${BENCHMARKS[@]}"; do
-    run_test "$benchmark" "original" "hybrid"
+    run_test "$benchmark" "baseline" "hybrid"
     cleanup_test "$benchmark"
 done
 

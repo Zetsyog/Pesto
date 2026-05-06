@@ -21,6 +21,8 @@ BENCHMARKS=(
     "linear-algebra/solvers/durbin"
     "linear-algebra/solvers/gramschmidt"
     "linear-algebra/solvers/lu"
+    "linear-algebra/solvers/ludcmp"
+    "linear-algebra/solvers/trisolv"
     "medley/deriche"
     "medley/nussinov"
     "stencils/adi"
@@ -29,7 +31,7 @@ BENCHMARKS=(
 print_header "Pesto CLI Test Suite - Polybench" "Algebraic tiling tests"
 
 for benchmark in "${BENCHMARKS[@]}"; do
-    run_test "$benchmark" "original" "atiled"
+    run_test "$benchmark" "baseline" "atiled"
     cleanup_test "$benchmark"
 done
 

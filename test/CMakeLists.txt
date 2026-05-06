@@ -1,6 +1,18 @@
 # unit tests (Google Test)
 add_subdirectory(GTest)
 
+# Pesto bench repository
+message(STATUS "Fetching pesto-bench repository")
+
+set(PESTO_BENCH_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/pesto-bench)
+
+fetchcontent_populate(
+    pesto-bench
+    GIT_REPOSITORY https://github.com/Zetsyog/pesto-bench.git #
+    GIT_TAG 74bff55064139e76c03837e8f23576c59fc6a7b2
+    SOURCE_DIR ${PESTO_BENCH_SOURCE_DIR}
+)
+
 # Polybench tests
 set(PESTO_TEST_POLYBENCH_SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/test_polybench.sh")
 set(PESTO_TEST_POLYBENCH_ALGEBRAIC_BIN "${CMAKE_CURRENT_BINARY_DIR}/test_polybench_algebraic.sh")
@@ -20,12 +32,19 @@ set(PESTO_TEST_POLYBENCH_TILE_DIVIDER_MAX
     32
     CACHE STRING "Specify maximum tile divider size for polybench tests"
 )
+set(PESTO_TEST_POLYBENCH_RUNS_PER_BENCH
+    5
+    CACHE STRING "Specify number of runs for each configuration in polybench tests"
+)
 
 message(STATUS "Polybench tests with dataset: ${PESTO_TEST_POLYBENCH_DATASET}")
 message(
     STATUS
     "Polybench tests with tile divider range: ${PESTO_TEST_POLYBENCH_TILE_DIVIDER_MIN} - ${PESTO_TEST_POLYBENCH_TILE_DIVIDER_MAX}"
 )
+message(STATUS "Polybench tests with number of runs: ${PESTO_TEST_POLYBENCH_RUNS_PER_BENCH}")
+
+set(PESTO_TEST_POLYBENCH_DIR "${PESTO_BENCH_SOURCE_DIR}/polybench")
 
 configure_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/test_polybench.sh.in
@@ -65,7 +84,9 @@ foreach(test_bin IN ITEMS
         ${target-name}
         COMMAND bash ${test_bin}
         DEPENDS pesto-cli
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/polybench-4.2.1/
+        WORKING_DIRECTORY ${PESTO_BENCH_SOURCE_DIR}/polybench/
     )
 endforeach()
+
+
 

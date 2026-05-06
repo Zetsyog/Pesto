@@ -14,7 +14,7 @@ BENCHMARKS=(
 print_header "Pesto CLI Test Suite - Polybench" "Dynamic scheduling tiling tests"
 
 for benchmark in "${BENCHMARKS[@]}"; do
-    run_test "$benchmark" "original" "atiled"
+    run_test "$benchmark" "baseline" "atiled"
     cleanup_test "$benchmark"
 done
 

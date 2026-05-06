@@ -17,7 +17,7 @@ EXTRA_FLAGS="$EXTRA_FLAGS -DD1_MIN_VOL=200000"
 print_header "Pesto CLI Test Suite - Polybench" "Trapezoidal algebraic tiling tests"
 
 for benchmark in "${BENCHMARKS[@]}"; do
-    run_test "$benchmark" "original" "trapez"
+    run_test "$benchmark" "baseline" "trapez"
     cleanup_test "$benchmark"
 done
 

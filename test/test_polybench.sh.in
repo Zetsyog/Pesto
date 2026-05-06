@@ -6,7 +6,10 @@ MAKE="make"
 DATASET_SIZE=@PESTO_TEST_POLYBENCH_DATASET@
 MIN_TILE_SIZE=@PESTO_TEST_POLYBENCH_TILE_DIVIDER_MIN@
 MAX_TILE_SIZE=@PESTO_TEST_POLYBENCH_TILE_DIVIDER_MAX@
-RUN_NB=5
+RUN_NB=@PESTO_TEST_POLYBENCH_RUNS_PER_BENCH@
+POLYBENCH_DIR=@PESTO_TEST_POLYBENCH_DIR@
+
+ROOT_DIR="$(realpath $POLYBENCH_DIR/..)"
 
 # for cleanup only
 ALL_BENCHMARKS=(
@@ -164,8 +167,12 @@ function run_test() {
     echo ""
     echo -e "[   ${BLUE}TEST${RESET}   ] $benchmark"
 
+    echo -e "${INFO} Cleaning "
+    command=("${MAKE}" -C "$POLYBENCH_DIR/$benchmark" "clean" "ROOT_DIR=$ROOT_DIR")
+    "${command[@]}" >/dev/null 2>&1
+
     # compile vanilla program
-    command=("${MAKE}" -C "$benchmark" "$baseline_target" -B EXTRA_FLAGS="$EXTRA_FLAGS")
+    command=("${MAKE}" -C "$POLYBENCH_DIR/$benchmark" "$baseline_target" -B EXTRA_FLAGS="$EXTRA_FLAGS" "ROOT_DIR=$ROOT_DIR")
     echo -e "${INFO} Compiling baseline"
     if ! "${command[@]}"; then
         echo -e "[ ${RED}  FAIL  ${RESET} ] Compilation failed: ${command[*]}"
@@ -174,15 +181,15 @@ function run_test() {
     fi
 
     # run the program
-    command=("./$benchmark/$baseline_target")
-    output_dump="$benchmark/$baseline_target.dump"
+    command=("$POLYBENCH_DIR/$benchmark/$baseline_target")
+    output_dump="$POLYBENCH_DIR/$benchmark/$baseline_target.dump"
     echo -e "${INFO} Run command: ${command[*]}"
     if ! "${command[@]}" 2>"$output_dump" >/dev/null; then
         echo -e "[ ${RED}  FAIL  ${RESET} ] Execution failed: ${command[*]}"
         fail_count=$((fail_count + 1))
         return 1
     fi
-    expected_output=$(sha256sum "$benchmark/$baseline_target.dump" | cut -d' ' -f1)
+    expected_output=$(sha256sum "$POLYBENCH_DIR/$benchmark/$baseline_target.dump" | cut -d' ' -f1)
     echo -e "${INFO} Expected output hash: $expected_output"
 
     # compile and run pesto program $RUN_NB times with random divider sizes
@@ -196,23 +203,23 @@ function run_test() {
         D2=$(sed "$((i * 3 + 1))q;d" <<<"$div_list")
         D3=$(sed "$((i * 3 + 2))q;d" <<<"$div_list")
 
-        rm -f "$benchmark/$compared_target"
-        command=("${MAKE}" -C "$benchmark" "${compared_target}" -B "CC=$CC" "PESTO=$PESTO" "EXTRA_FLAGS=$EXTRA_FLAGS -DDIV0=$D1 -DDIV1=$D2 -DDIV2=$D3")
+        rm -f "$POLYBENCH_DIR/$benchmark/$compared_target"
+        command=("${MAKE}" -C "$POLYBENCH_DIR/$benchmark" "${compared_target}" -B "CC=$CC" "PESTO=$PESTO" "EXTRA_FLAGS=$EXTRA_FLAGS -DDIV0=$D1 -DDIV1=$D2 -DDIV2=$D3" "ROOT_DIR=$ROOT_DIR")
         echo -e "${INFO} Compile pesto program ${D1}x${D2}x${D3}"
         if ! "${command[@]}" >/dev/null 2>&1; then
             echo -e "[ ${RED}  FAIL  ${RESET} ] Compilation failed: ${command[*]}"
             fail_count=$((fail_count + 1))
             return 1
         fi
-        command=("./$benchmark/$compared_target")
-        output_dump="$benchmark/${compared_target}.dump"
+        command=("$POLYBENCH_DIR/$benchmark/$compared_target")
+        output_dump="$POLYBENCH_DIR/$benchmark/${compared_target}.dump"
         echo -e "${INFO} Run command: ${command[*]}"
         if ! "${command[@]}" 2>"$output_dump" >/dev/null; then
             echo -e "[ ${RED}  FAIL  ${RESET} ] Execution failed"
             fail_count=$((fail_count + 1))
             return 1
         fi
-        output=$(sha256sum "$benchmark/${compared_target}.dump" | cut -d' ' -f1)
+        output=$(sha256sum "$POLYBENCH_DIR/$benchmark/${compared_target}.dump" | cut -d' ' -f1)
         if [[ "$output" != "$expected_output" ]]; then
             echo -e "[ ${RED}  FAIL  ${RESET} ] Output differs from expected result"
             echo -e "[ ${RED}  DIFF  ${RESET} ] Expected: \"$expected_output\""
@@ -226,7 +233,7 @@ function run_test() {
     pass_count=$((pass_count + 1))
 
     echo -e "${INFO} Cleaning "
-    command=("${MAKE}" -C "$benchmark" "clean")
+    command=("${MAKE}" -C "$POLYBENCH_DIR/$benchmark" "clean" "ROOT_DIR=$ROOT_DIR")
     "${command[@]}" >/dev/null 2>&1
     return 0
 }
