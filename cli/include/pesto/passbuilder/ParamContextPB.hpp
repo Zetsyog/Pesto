@@ -16,6 +16,11 @@ namespace builder {
 
 class ParamContextPB : public IPassBuilder {
   public:
+	static const std::string &getID() {
+		static const std::string uuid = "param-context";
+		return uuid;
+	};
+
 	ParamContextPB();
 	virtual ~ParamContextPB();
 

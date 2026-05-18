@@ -18,7 +18,6 @@
 #include <pesto/PassManager.hpp>
 #include <pesto/Utils.hpp>
 #include <pesto/bundle/Bundle.hpp>
-#include <pesto/macros.h>
 #include <pesto/pass/Pass.hpp>
 
 /*

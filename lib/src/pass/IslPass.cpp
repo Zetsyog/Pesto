@@ -19,7 +19,6 @@
 #include <pesto/ir/Isl2Scop.hpp>
 #include <pesto/ir/OpenScopIR.hpp>
 #include <pesto/ir/Scop2Isl.hpp>
-#include <pesto/macros.h>
 #include <pesto/pass/IslPass.hpp>
 
 using pesto::pass::IslPass;

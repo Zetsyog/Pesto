@@ -10,7 +10,9 @@
 
 using namespace pesto::builder;
 
-OslDumpPB::OslDumpPB() {}
+OslDumpPB::OslDumpPB() {
+	logger = log::get_logger("pb/dump-osl");
+}
 
 OslDumpPB::~OslDumpPB() {}
 

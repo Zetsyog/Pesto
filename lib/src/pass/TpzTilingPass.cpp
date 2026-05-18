@@ -30,7 +30,6 @@
 #include <pesto/codegen/ParamTiling.hpp>
 #include <pesto/ir/Isl2Scop.hpp>
 #include <pesto/ir/Scop2Isl.hpp>
-#include <pesto/macros.h>
 #include <pesto/maths/Maths.hpp>
 #include <pesto/metadata/FileInfo.hpp>
 #include <pesto/metadata/Macro.hpp>
@@ -86,7 +85,7 @@ Bundle TpzTilingPass::apply(Bundle &&bundle) {
 		logger->error("Clast generation failed");
 		throw std::runtime_error("Clast generation failed");
 	}
-	if (bundle.get_ir()->id() != pesto::ir::ClastIR::ID) {
+	if (bundle.get_ir()->id() != pesto::ir::ClastIR::getID()) {
 		logger->error("Expected ClastIR after GenClastPass, got {}", bundle.get_ir()->id().c_str());
 		throw std::runtime_error("Unexpected IR after GenClastPass");
 	}
@@ -114,7 +113,7 @@ void TpzTilingPass::tileClastFor(Bundle &bundle, struct clast_for *clastFor, pes
 	using pesto::pass::ptile::ClastTilingPair;
 	using namespace pesto::bundle;
 
-	assert(bundle.get_ir()->id() == pesto::ir::ClastIR::ID);
+	assert(bundle.get_ir()->id() == pesto::ir::ClastIR::getID());
 	auto *clastIR = dynamic_cast<pesto::ir::ClastIR *>(bundle.get_ir());
 
 	struct clast_root *root = (struct clast_root *)clastIR->get();
@@ -235,7 +234,7 @@ std::vector<pesto::pass::ptile::ClastTilingPair> TpzTilingPass::computeTilingPai
 
 void TpzTilingPass::insertOuterForLoop(Bundle &bundle, std::vector<ptile::ClastTilingPair> &clastTilingPairs) {
 	using pesto::ptile::NameHelper;
-	assert(bundle.get_ir()->id() == pesto::ir::ClastIR::ID);
+	assert(bundle.get_ir()->id() == pesto::ir::ClastIR::getID());
 	auto *clastIR = dynamic_cast<pesto::ir::ClastIR *>(bundle.get_ir());
 
 	struct clast_root *root = (struct clast_root *)clastIR->get();

@@ -10,7 +10,9 @@
 
 using namespace pesto::builder;
 
-TpzTilingPB::TpzTilingPB() { logger = log::get_logger("pb/tpz-tiling"); }
+TpzTilingPB::TpzTilingPB() {
+	logger = log::get_logger("pb/tpz-tiling");
+}
 
 TpzTilingPB::~TpzTilingPB() {}
 

@@ -125,6 +125,8 @@ class ClastParamTilingPass : public IPass {
 	 */
 	void pushTilingType(pesto::ParamTilingType type);
 
+	void setGenClastPass(std::unique_ptr<GenClastPass> pass);
+
 	/**
 	 * @brief clear the list of tiling types
 	 */

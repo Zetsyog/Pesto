@@ -18,6 +18,11 @@ namespace builder {
 
 class ClastCustomVecPragmaPB : public IPassBuilder {
   public:
+	static const std::string &getID() {
+		static const std::string uuid = "clast-custom-vec-pragma";
+		return uuid;
+	};
+
 	ClastCustomVecPragmaPB();
 	virtual ~ClastCustomVecPragmaPB();
 

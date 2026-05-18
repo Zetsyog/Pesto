@@ -53,10 +53,10 @@ PlutoOptions &PlutoPass::getOptions() {
 }
 
 std::set<std::string> PlutoPass::inputIR() const {
-	return {pesto::ir::OpenScopIR::ID};
+	return {pesto::ir::OpenScopIR::getID()};
 }
 std::string PlutoPass::outputIR() const {
-	return pesto::ir::OpenScopIR::ID;
+	return pesto::ir::OpenScopIR::getID();
 }
 
 pesto::Bundle PlutoPass::apply(pesto::Bundle &&bundle) {

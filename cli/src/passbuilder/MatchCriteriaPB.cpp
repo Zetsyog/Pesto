@@ -12,7 +12,9 @@ using namespace pesto::builder;
 
 using pesto::pass::MatchCriteriaPass;
 
-MatchCriteriaPB::MatchCriteriaPB() {}
+MatchCriteriaPB::MatchCriteriaPB() {
+	logger = log::get_logger("pb/match-criteria");
+}
 
 MatchCriteriaPB::~MatchCriteriaPB() {}
 

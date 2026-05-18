@@ -17,6 +17,11 @@ namespace builder {
 
 class ClastParamTilingPB : public IPassBuilder {
   public:
+	static const std::string &getID() {
+		static const std::string uuid = "clast-param-tiling";
+		return uuid;
+	};
+
 	ClastParamTilingPB();
 	virtual ~ClastParamTilingPB();
 

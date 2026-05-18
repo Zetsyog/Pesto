@@ -10,7 +10,9 @@
 
 using namespace pesto::builder;
 
-GenClastPB::GenClastPB() { logger = log::get_logger("pb/gen-clast"); }
+GenClastPB::GenClastPB() {
+	logger = log::get_logger("pb/gen-clast");
+}
 
 GenClastPB::~GenClastPB() {}
 

@@ -17,6 +17,11 @@ namespace builder {
 
 class CloogCodegenPB : public IPassBuilder {
   public:
+	static const std::string &getID() {
+		static const std::string uuid = "codegen-cloog";
+		return uuid;
+	};
+
 	CloogCodegenPB();
 	virtual ~CloogCodegenPB();
 

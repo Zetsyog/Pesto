@@ -25,7 +25,7 @@ CloogCodegenPass::CloogCodegenPass() : IPass("codegen-cloog"), genClastPass() {}
 CloogCodegenPass::~CloogCodegenPass() {}
 
 std::set<std::string> CloogCodegenPass::inputIR() const {
-	return {pesto::ir::OpenScopIR::ID, pesto::ir::ClastIR::ID};
+	return {pesto::ir::OpenScopIR::getID(), pesto::ir::ClastIR::getID()};
 }
 
 std::string CloogCodegenPass::outputIR() const {
@@ -36,12 +36,12 @@ Bundle CloogCodegenPass::apply(Bundle &&bundle) {
 	std::filesystem::path outputPath(".output.cloog.c");
 	std::string path = outputPath.string();
 
-	if (bundle.ir_id() == pesto::ir::OpenScopIR::ID) {
+	if (bundle.ir_id() == pesto::ir::OpenScopIR::getID()) {
 		logger->info("Applying GenClastPass to generate Cloog AST from OpenScopIR");
 		bundle = this->genClastPass->apply(std::move(bundle));
 	}
 
-	if (bundle.ir_id() != pesto::ir::ClastIR::ID) {
+	if (bundle.ir_id() != pesto::ir::ClastIR::getID()) {
 		logger->error("CloogCodegenPass: expected ClastIR after GenClastPass, got {}", bundle.ir_id().c_str());
 		throw std::runtime_error("CloogCodegenPass: expected ClastIR after GenClastPass");
 	}

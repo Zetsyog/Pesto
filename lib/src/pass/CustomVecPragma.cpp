@@ -21,11 +21,11 @@ CustomVecPragma::CustomVecPragma() : pesto::pass::IPass("clast-vec-pragma"), pra
 CustomVecPragma::~CustomVecPragma() {}
 
 std::set<std::string> CustomVecPragma::inputIR() const {
-	return {pesto::ir::ClastIR::ID};
+	return {pesto::ir::ClastIR::getID()};
 }
 
 std::string CustomVecPragma::outputIR() const {
-	return pesto::ir::ClastIR::ID;
+	return pesto::ir::ClastIR::getID();
 }
 
 void FindVecLoopRecursive(std::function<void(clast_for *)> callback, clast_stmt *stmt) {

@@ -15,6 +15,11 @@ namespace builder {
 
 class MatchCriteriaPB : public IPassBuilder {
   public:
+	static const std::string &getID() {
+		static const std::string uuid = "match";
+		return uuid;
+	};
+
 	MatchCriteriaPB();
 	virtual ~MatchCriteriaPB();
 

@@ -17,6 +17,11 @@ namespace builder {
 
 class IslPB : public IPassBuilder {
   public:
+	static const std::string &getID() {
+		static const std::string uuid = "dev-isl";
+		return uuid;
+	};
+
 	IslPB();
 	virtual ~IslPB();
 

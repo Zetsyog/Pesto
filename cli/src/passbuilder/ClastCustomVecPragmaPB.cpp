@@ -10,7 +10,9 @@
 
 using namespace pesto::builder;
 
-ClastCustomVecPragmaPB::ClastCustomVecPragmaPB() { logger = log::get_logger("pb/custom-vec-pragma"); }
+ClastCustomVecPragmaPB::ClastCustomVecPragmaPB() {
+	logger = log::get_logger("pb/custom-vec-pragma");
+}
 
 ClastCustomVecPragmaPB::~ClastCustomVecPragmaPB() {}
 

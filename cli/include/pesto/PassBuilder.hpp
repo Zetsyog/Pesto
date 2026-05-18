@@ -8,6 +8,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 
 #include <nlohmann/json.hpp>
 
@@ -21,6 +22,7 @@ namespace pesto {
 namespace builder {
 
 class PassManagerBuilder;
+
 /**
  * Interface for a pass builder
  * This object is responsible for building a pass from a json object
@@ -92,10 +94,10 @@ class PassManagerBuilder {
 	 * @param uuid the uuid of the pass builder
 	 * @return A pointer to the pass builder
 	 */
-	std::unique_ptr<IPassBuilder> &getPassBuilder(std::string uuid);
+	std::optional<std::reference_wrapper<pesto::builder::IPassBuilder>> getPassBuilder(std::string uuid);
 
   private:
-	std::unordered_map<std::string, std::unique_ptr<IPassBuilder>> builders;
+	std::unordered_map<std::string, std::unique_ptr<pesto::builder::IPassBuilder>> builders;
 	std::shared_ptr<spdlog::logger> logger;
 };
 

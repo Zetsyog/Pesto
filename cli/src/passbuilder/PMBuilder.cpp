@@ -8,8 +8,6 @@
 #include <fstream>
 #include <iostream>
 
-#include <pesto/macros.h>
-
 #include <pesto/PassBuilder.hpp>
 #include <pesto/passbuilder/ClastCustomVecPragmaPB.hpp>
 #include <pesto/passbuilder/ClastParamTilingPB.hpp>
@@ -34,16 +32,16 @@ std::unique_ptr<PassManagerBuilder> PassManagerBuilder::createDefault() {
 	std::unique_ptr<PassManagerBuilder> pm = std::make_unique<PassManagerBuilder>();
 
 	// Register the pass builders
-	pm->registerPassBuilder(PESTO_UUID_PASS_CLAST_GEN, std::make_unique<GenClastPB>());
-	pm->registerPassBuilder(PESTO_UUID_PASS_GEN_CLOOG, std::make_unique<CloogCodegenPB>());
-	pm->registerPassBuilder(PESTO_UUID_PASS_PLUTO_GENERIC, std::make_unique<PlutoPB>());
-	pm->registerPassBuilder(PESTO_UUID_PASS_PARAM_TILING, std::make_unique<ClastParamTilingPB>());
-	pm->registerPassBuilder(PESTO_UUID_PASS_PARAM_CONTEXT, std::make_unique<ParamContextPB>());
-	pm->registerPassBuilder(PESTO_UUID_PASS_MATCH_CRITERIA, std::make_unique<MatchCriteriaPB>());
-	pm->registerPassBuilder(PESTO_UUID_PASS_CLAST_CUSTOM_VEC_PRAGMA, std::make_unique<ClastCustomVecPragmaPB>());
-	pm->registerPassBuilder(PESTO_UUID_PASS_DUMP_OSL, std::make_unique<OslDumpPB>());
-	pm->registerPassBuilder(PESTO_UUID_PASS_ISL, std::make_unique<IslPB>());
-	pm->registerPassBuilder(PESTO_UUID_PASS_SPLIT_TILING, std::make_unique<TpzTilingPB>());
+	pm->registerPassBuilder(GenClastPB::getID(), std::make_unique<GenClastPB>());
+	pm->registerPassBuilder(CloogCodegenPB::getID(), std::make_unique<CloogCodegenPB>());
+	pm->registerPassBuilder(PlutoPB::getID(), std::make_unique<PlutoPB>());
+	pm->registerPassBuilder(ClastParamTilingPB::getID(), std::make_unique<ClastParamTilingPB>());
+	pm->registerPassBuilder(ParamContextPB::getID(), std::make_unique<ParamContextPB>());
+	pm->registerPassBuilder(MatchCriteriaPB::getID(), std::make_unique<MatchCriteriaPB>());
+	pm->registerPassBuilder(ClastCustomVecPragmaPB::getID(), std::make_unique<ClastCustomVecPragmaPB>());
+	pm->registerPassBuilder(OslDumpPB::getID(), std::make_unique<OslDumpPB>());
+	pm->registerPassBuilder(IslPB::getID(), std::make_unique<IslPB>());
+	pm->registerPassBuilder(TpzTilingPB::getID(), std::make_unique<TpzTilingPB>());
 
 	return pm;
 }
@@ -104,18 +102,28 @@ std::unique_ptr<pesto::pass::IPass> PassManagerBuilder::buildPass(const json &j)
 		return nullptr;
 	}
 	std::string uuid = j["uuid"];
-	if (this->hasPassBuilder(uuid) == false) {
+	auto builder = this->getPassBuilder(uuid);
+	if (!builder.has_value()) {
 		logger->error("Could not find pass builder with uuid {}", uuid.c_str());
 		throw std::runtime_error("Parsing error: unknown pass uuid");
 	}
 
-	std::unique_ptr<pesto::pass::IPass> pass = builders[uuid]->build(*this, j);
+	std::unique_ptr<pesto::pass::IPass> pass = builder->get().build(*this, j);
+
+	if (!pass) {
+		logger->error("Pass builder with uuid {} failed to build the pass", uuid.c_str());
+		throw std::runtime_error("Pass builder failed to build the pass");
+	}
 
 	logger->info("Pass '{}' built", uuid.c_str());
 
 	return pass;
 }
 
-std::unique_ptr<IPassBuilder> &PassManagerBuilder::getPassBuilder(std::string uuid) {
-	return builders[uuid];
+std::optional<std::reference_wrapper<IPassBuilder>> PassManagerBuilder::getPassBuilder(std::string uuid) {
+	auto it = builders.find(uuid);
+	if (it != builders.end()) {
+		return std::ref(*it->second);
+	}
+	return std::nullopt;
 }

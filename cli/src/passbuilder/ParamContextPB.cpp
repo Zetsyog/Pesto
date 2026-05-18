@@ -10,7 +10,9 @@
 
 using namespace pesto::builder;
 
-ParamContextPB::ParamContextPB() { logger = log::get_logger("pb/param-context"); }
+ParamContextPB::ParamContextPB() {
+	logger = log::get_logger("pb/param-context");
+}
 
 ParamContextPB::~ParamContextPB() {}
 

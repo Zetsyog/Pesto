@@ -7,7 +7,6 @@
 
 #include <pesto/Logging.hpp>
 #include <pesto/PassManager.hpp>
-#include <pesto/macros.h>
 
 using namespace pesto;
 

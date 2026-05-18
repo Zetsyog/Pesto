@@ -64,11 +64,11 @@ pesto::pass::ClastParamTilingPass::~ClastParamTilingPass() {
 }
 
 std::set<std::string> pesto::pass::ClastParamTilingPass::inputIR() const {
-	return {pesto::ir::OpenScopIR::ID};
+	return {pesto::ir::OpenScopIR::getID()};
 }
 
 std::string pesto::pass::ClastParamTilingPass::outputIR() const {
-	return pesto::ir::ClastIR::ID;
+	return pesto::ir::ClastIR::getID();
 }
 
 Bundle pesto::pass::ClastParamTilingPass::apply(Bundle &&bundle) {
@@ -102,7 +102,7 @@ Bundle pesto::pass::ClastParamTilingPass::apply(Bundle &&bundle) {
 		logger->error("Clast generation failed");
 		throw std::runtime_error("Clast generation failed");
 	}
-	if (bundle.get_ir()->id() != pesto::ir::ClastIR::ID) {
+	if (bundle.get_ir()->id() != pesto::ir::ClastIR::getID()) {
 		logger->error("Expected ClastIR after GenClastPass, got {}", bundle.get_ir()->id().c_str());
 		throw std::runtime_error("Unexpected IR after GenClastPass");
 	}
@@ -1258,6 +1258,10 @@ void ClastParamTilingPass::computeUntiledDomain(CloogProgram *cloogProgram, Stmt
 	}
 
 	group.untiled_domain = inner_domain;
+}
+
+void ClastParamTilingPass::setGenClastPass(std::unique_ptr<GenClastPass> pass) {
+	this->gen_clast_pass = std::move(pass);
 }
 
 pesto::StmtGroup::~StmtGroup() {

@@ -19,7 +19,10 @@ namespace ir {
 
 class ClastIR : public IR {
   public:
-	static const std::string ID;
+	static const std::string &getID() {
+		const static std::string ID = "clast";
+		return ID;
+	}
 
 	std::vector<std::shared_ptr<std::string>> names;
 
@@ -34,7 +37,7 @@ class ClastIR : public IR {
 	virtual ~ClastIR();
 
 	const std::string &id() const override {
-		return ID;
+		return ClastIR::getID();
 	}
 
 	CloogState *getCloogState() const {

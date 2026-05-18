@@ -18,6 +18,11 @@ namespace builder {
 
 class GenClastPB : public IPassBuilder {
   public:
+	static const std::string &getID() {
+		static const std::string uuid = "codegen-clast";
+		return uuid;
+	};
+
 	GenClastPB();
 	virtual ~GenClastPB();
 

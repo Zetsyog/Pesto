@@ -17,6 +17,11 @@ namespace builder {
 
 class TpzTilingPB : public IPassBuilder {
   public:
+	static const std::string &getID() {
+		static const std::string uuid = "isl-tpz-tiling";
+		return uuid;
+	};
+
 	TpzTilingPB();
 	virtual ~TpzTilingPB();
 

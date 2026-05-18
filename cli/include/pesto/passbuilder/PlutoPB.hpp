@@ -18,6 +18,11 @@ namespace builder {
 
 class PlutoPB : public IPassBuilder {
   public:
+	static const std::string &getID() {
+		static const std::string uuid = "pluto";
+		return uuid;
+	};
+
 	PlutoPB();
 	virtual ~PlutoPB();
 

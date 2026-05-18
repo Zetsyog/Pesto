@@ -16,12 +16,15 @@ namespace ir {
 
 class OpenScopIR : public IR {
   public:
-	static const std::string ID;
+	static const std::string &getID() {
+		const static std::string ID = "openscop";
+		return ID;
+	}
 
 	OpenScopIR(osl_scop_p s) : scop_(s, osl_scop_free) {}
 
 	const std::string &id() const override {
-		return ID;
+		return OpenScopIR::getID();
 	}
 
 	osl_scop_p c_scop() const {

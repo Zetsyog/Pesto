@@ -7,8 +7,6 @@
 
 #include <pesto/ir/ClastIR.hpp>
 
-const std::string pesto::ir::ClastIR::ID = "clast";
-
 pesto::ir::ClastIR::~ClastIR() {
 	if (root_) {
 		cloog_clast_free(root_);

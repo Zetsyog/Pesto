@@ -10,7 +10,9 @@
 
 using namespace pesto::builder;
 
-IslPB::IslPB() {}
+IslPB::IslPB() {
+	logger = log::get_logger("pb/isl");
+}
 
 IslPB::~IslPB() {}
 

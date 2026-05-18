@@ -17,6 +17,11 @@ namespace builder {
 
 class OslDumpPB : public IPassBuilder {
   public:
+	static const std::string &getID() {
+		static const std::string uuid = "dump-osl";
+		return uuid;
+	};
+
 	OslDumpPB();
 	virtual ~OslDumpPB();
 

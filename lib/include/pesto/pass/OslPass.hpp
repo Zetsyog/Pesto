@@ -31,10 +31,10 @@ class ParamContextPass : public IPass {
 
 	virtual Bundle apply(Bundle &&bundle) override;
 	virtual std::set<std::string> inputIR() const override {
-		return {pesto::ir::OpenScopIR::ID};
+		return {pesto::ir::OpenScopIR::getID()};
 	};
 	virtual std::string outputIR() const override {
-		return {pesto::ir::OpenScopIR::ID};
+		return {pesto::ir::OpenScopIR::getID()};
 	};
 
   private:
@@ -52,10 +52,10 @@ class DumpOslPass : public IPass {
 
 	virtual Bundle apply(Bundle &&bundle) override;
 	virtual std::set<std::string> inputIR() const override {
-		return {pesto::ir::OpenScopIR::ID};
+		return {pesto::ir::OpenScopIR::getID()};
 	};
 	virtual std::string outputIR() const override {
-		return pesto::ir::OpenScopIR::ID;
+		return pesto::ir::OpenScopIR::getID();
 	};
 
   private:
@@ -70,10 +70,10 @@ class MatchCriteriaPass : public IPass {
 
 	virtual Bundle apply(Bundle &&bundle) override;
 	virtual std::set<std::string> inputIR() const override {
-		return {pesto::ir::OpenScopIR::ID};
+		return {pesto::ir::OpenScopIR::getID()};
 	};
 	virtual std::string outputIR() const override {
-		return {pesto::ir::OpenScopIR::ID};
+		return {pesto::ir::OpenScopIR::getID()};
 	};
 
 	void setCriteria(std::string criteria);

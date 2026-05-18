@@ -7,6 +7,7 @@
 
 #include <pesto/pass/clast/ParamTilingPass.hpp>
 #include <pesto/passbuilder/ClastParamTilingPB.hpp>
+#include <pesto/passbuilder/GenClastPB.hpp>
 
 using namespace pesto::builder;
 
@@ -157,6 +158,26 @@ std::unique_ptr<pesto::pass::IPass> ClastParamTilingPB::build(PassManagerBuilder
 					logger->warn("Unknown volume check option {}. Skipping.", k.c_str());
 				}
 			}
+			continue;
+		}
+		if (key == "cloog") {
+			if (!val.is_object()) {
+				logger->error("Cloog options must be an object. Skipping.");
+				throw std::invalid_argument("Cloog options must be an object");
+			}
+			auto clastPB = builder.getPassBuilder(GenClastPB::getID());
+			if (!clastPB.has_value()) {
+				logger->error(
+					"GenClastPB pass builder not found. Cloog options require GenClastPass to be generated. Skipping.");
+				throw std::runtime_error("GenClastPB pass builder not found");
+			}
+			std::unique_ptr<pass::GenClastPass> clastPass = std::unique_ptr<pass::GenClastPass>(
+				static_cast<pass::GenClastPass *>(clastPB->get().build(builder, val).release()));
+			if (!clastPass) {
+				logger->error("Could not create clast pass for cloog options");
+				throw std::runtime_error("Could not create clast pass for cloog options");
+			}
+			pass->setGenClastPass(std::move(clastPass));
 			continue;
 		}
 

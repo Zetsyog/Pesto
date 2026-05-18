@@ -29,7 +29,9 @@ using namespace pesto::builder;
 		continue;                                                                                                      \
 	}
 
-PlutoPB::PlutoPB() { logger = log::get_logger("pb/pluto"); }
+PlutoPB::PlutoPB() {
+	logger = log::get_logger("pb/pluto");
+}
 
 PlutoPB::~PlutoPB() {}
 
