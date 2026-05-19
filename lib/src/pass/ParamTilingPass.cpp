@@ -402,7 +402,7 @@ std::vector<std::unique_ptr<pesto::StmtGroup>> ClastParamTilingPass::computeStmt
 	// this is a list of pointer of user statements in the clast
 	// they will be freed with the clast root so no need for memory management
 	// here
-	struct clast_user_stmt **stmt = clast_get_user_stmt_list((struct clast_stmt *)root, &stmt_count);
+	struct clast_user_stmt **stmt = clast_get_user_stmt_list(&root->stmt, &stmt_count);
 	std::vector<std::unique_ptr<StmtGroup>> stmtGroups;
 
 	this->logger->info("Found {} statements in clast", stmt_count);
