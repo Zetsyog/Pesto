@@ -52,6 +52,18 @@ bool Options::indent() {
 	return this->indent_ != 0;
 }
 
+bool Options::isValid() {
+	if (this->input_.has_value()) {
+		return true;
+	}
+
+	if (this->printUsage() || this->printVersion()) {
+		return true;
+	}
+
+	return false;
+}
+
 std::unique_ptr<Options> Options::build(int argc, char **argv) {
 	auto opt = std::make_unique<Options>();
 
@@ -99,11 +111,9 @@ std::unique_ptr<Options> Options::build(int argc, char **argv) {
 			throw std::logic_error("Unexpected option");
 		}
 	}
-	if (optind == argc) {
-		throw std::runtime_error("Missing input file");
+	if (optind != argc) {
+		opt->input_ = argv[optind];
 	}
-	// TODO: warning if too many args
-	opt->input_ = argv[optind];
 
 	if (opt->output_ == std::nullopt) {
 		opt->output_ = opt->input_->stem().string() + ".pesto.c";

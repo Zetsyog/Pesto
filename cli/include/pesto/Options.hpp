@@ -30,6 +30,8 @@ class Options {
 	bool printVersion();
 	bool indent();
 
+	bool isValid();
+
   private:
 	std::optional<std::filesystem::path> input_;
 	std::optional<std::filesystem::path> output_;

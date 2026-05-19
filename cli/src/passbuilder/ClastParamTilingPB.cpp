@@ -160,22 +160,22 @@ std::unique_ptr<pesto::pass::IPass> ClastParamTilingPB::build(PassManagerBuilder
 			}
 			continue;
 		}
-		if (key == "cloog") {
+		if (key == "clast") {
 			if (!val.is_object()) {
-				logger->error("Cloog options must be an object. Skipping.");
-				throw std::invalid_argument("Cloog options must be an object");
+				logger->error("'clast' attribute must be an object.");
+				throw std::invalid_argument("'clast' attribute must be an object");
 			}
 			auto clastPB = builder.getPassBuilder(GenClastPB::getID());
 			if (!clastPB.has_value()) {
-				logger->error(
-					"GenClastPB pass builder not found. Cloog options require GenClastPass to be generated. Skipping.");
-				throw std::runtime_error("GenClastPB pass builder not found");
+				logger->error("GenClastPB pass builder not found. 'clast' attribute require GenClastPass to be "
+							  "generated. Make sure to register the correct builder ");
+				throw std::runtime_error("'" + GenClastPB::getID() + "' pass builder not found");
 			}
 			std::unique_ptr<pass::GenClastPass> clastPass = std::unique_ptr<pass::GenClastPass>(
 				static_cast<pass::GenClastPass *>(clastPB->get().build(builder, val).release()));
 			if (!clastPass) {
-				logger->error("Could not create clast pass for cloog options");
-				throw std::runtime_error("Could not create clast pass for cloog options");
+				logger->error("Could not create clast pass for 'clast' options");
+				throw std::runtime_error("Could not create clast pass for 'clast' options");
 			}
 			pass->setGenClastPass(std::move(clastPass));
 			continue;

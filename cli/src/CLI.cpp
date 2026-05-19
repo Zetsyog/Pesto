@@ -72,6 +72,12 @@ int CLI::start(int argc, char **argv) {
 		pesto::log::set_level(spdlog::level::info);
 	}
 
+	if (!options->isValid()) {
+		logger->error("Invalid options");
+		printUsage(std::cerr);
+		return 1;
+	}
+
 	if (options->printUsage()) {
 		printUsage(std::cerr);
 		return 0;
