@@ -302,11 +302,11 @@ void ParamTilingCodegen::setVolumeCheckThreshold(std::string threshold) {
 }
 
 void ParamTilingCodegen::genHeaderStmtScheduled(std::ostream &os) {
-	std::string tileArrayName = this->trahrheNameHelper.tileArrayName();
-	std::string scheduleName = this->trahrheNameHelper.scheduleName();
 	isl_size npar = isl_set_dim(this->innerDomain, isl_dim_param);
 
 	if (this->tilingDepth == 0) {
+		std::string tileArrayName = this->trahrheNameHelper.tileArrayName();
+		std::string scheduleName = this->trahrheNameHelper.scheduleName();
 		os << "SCHEDULE_ALLOC(" << tileArrayName << ", " << scheduleName << ");" << this->endline;
 		os << "SCHEDULE_COMPUTE(" << this->trahrheNameHelper.getPrefix() << ", " << tileArrayName << ", "
 		   << scheduleName;
@@ -318,6 +318,15 @@ void ParamTilingCodegen::genHeaderStmtScheduled(std::ostream &os) {
 		os << this->nameHelper.outerForUBName() << " = " << scheduleName << ".len - 1;" << this->endline;
 	}
 	if (this->tilingDepth == 1) {
+		auto dataIt = std::find_if(this->group.tilingData.begin(), this->group.tilingData.end(),
+								   [](const std::unique_ptr<TilingData> &d) {
+									   size_t depth = static_cast<size_t>(d->tiling_depth);
+									   return depth == 0;
+								   });
+		assert(dataIt != this->group.tilingData.end());
+		auto &data = *dataIt;
+		std::string tileArrayName = data->trahrheNameHelper->tileArrayName();
+		std::string scheduleName = data->trahrheNameHelper->scheduleName();
 		os << this->nameHelper.outerForUBName() << " = " << scheduleName << ".fronts["
 		   << this->group.tilingData[0]->outer_for->iterator << "].len - 1;" << this->endline;
 	}
@@ -332,19 +341,21 @@ void ParamTilingCodegen::genBodyStmtScheduled(std::ostream &os) {
 		return;
 	}
 
-	std::string tileArrayName = this->trahrheNameHelper.tileArrayName();
-	std::string scheduleName = this->trahrheNameHelper.scheduleName();
+	auto dataIt = std::find_if(this->group.tilingData.begin(), this->group.tilingData.end(),
+							   [](const std::unique_ptr<TilingData> &d) {
+								   size_t depth = static_cast<size_t>(d->tiling_depth);
+								   return depth == 0;
+							   });
+	assert(dataIt != this->group.tilingData.end());
+	auto &outerData = *dataIt;
+	std::string tileArrayName = outerData->trahrheNameHelper->tileArrayName();
+	std::string scheduleName = outerData->trahrheNameHelper->scheduleName();
 
-	auto &outerData = this->group.tilingData[0];
-	NameHelper outterHelper =
-		NameHelper(outerData->tiling_depth, outerData->outer_for->iterator, this->nameHelper.innerForIteratorName());
-	outterHelper.setPrefix(this->nameHelper.getPrefix());
-	outterHelper.setSeparator(this->nameHelper.getSeparator());
 	std::string scheduleAccessName =
 		scheduleName + ".fronts[" + outerData->outer_for->iterator + "].tiles[" + this->outterFor.iterator + "]";
 
-	os << outterHelper.innerForLBName() << " = " << scheduleAccessName << "->lb0;" << this->endline;
-	os << outterHelper.innerForUBName() << " = " << scheduleAccessName << "->ub0;" << this->endline;
+	os << outerData->nameHelper->innerForLBName() << " = " << scheduleAccessName << "->lb0;" << this->endline;
+	os << outerData->nameHelper->innerForUBName() << " = " << scheduleAccessName << "->ub0;" << this->endline;
 	os << this->nameHelper.innerForLBName() << " = " << scheduleAccessName << "->lb1;" << this->endline;
 	os << this->nameHelper.innerForUBName() << " = " << scheduleAccessName << "->ub1;" << this->endline;
 }
