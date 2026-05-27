@@ -57,9 +57,11 @@ pesto::pass::ClastParamTilingPass::ClastParamTilingPass()
 	this->gen_clast_pass->codegenContext = 1;
 
 	this->ctx = isl_ctx_alloc();
+	this->printer = isl_printer_to_str(this->ctx);
 }
 
 pesto::pass::ClastParamTilingPass::~ClastParamTilingPass() {
+	isl_printer_free(this->printer);
 	isl_ctx_free(this->ctx);
 }
 
@@ -417,6 +419,18 @@ std::vector<std::unique_ptr<pesto::StmtGroup>> ClastParamTilingPass::computeStmt
 		stmt_to_process.push_back(stmt[i]);
 	}
 
+	// remove all statements that are not tileable from the list of statement to process
+	for (std::vector<struct clast_user_stmt *>::iterator it = stmt_to_process.begin(); it != stmt_to_process.end();) {
+		struct clast_for *outermost_extern_for = clast_get_outermost_tiling_for(&(root->stmt), &((*it)->stmt));
+		if (outermost_extern_for == NULL) {
+			logger->debug("stmt {} is not tileable, no for loop iterating over tile space found",
+						  (*it)->statement->number);
+			it = stmt_to_process.erase(it);
+		} else {
+			++it;
+		}
+	}
+
 	// sort by clast depth
 	// deeper last
 	std::sort(stmt_to_process.begin(), stmt_to_process.end(),
@@ -426,6 +440,8 @@ std::vector<std::unique_ptr<pesto::StmtGroup>> ClastParamTilingPass::computeStmt
 
 				  return clast_for_depth(&(root->stmt), a_parent_for) < clast_for_depth(&(root->stmt), b_parent_for);
 			  });
+
+	this->logger->info("{} statements are tiled", stmt_to_process.size());
 
 	/*
 		The algorithm is as follows:
