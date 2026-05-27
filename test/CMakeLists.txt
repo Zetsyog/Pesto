@@ -9,7 +9,7 @@ set(PESTO_BENCH_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/pesto-bench)
 fetchcontent_populate(
     pesto-bench
     GIT_REPOSITORY https://github.com/Zetsyog/pesto-bench.git #
-    GIT_TAG d57490dc694e4b56e5ea3b42347d2ec8f057da87
+    GIT_TAG 0b92b2d84c5faa8aa0e17c66cbc2e22768342e84
     SOURCE_DIR ${PESTO_BENCH_SOURCE_DIR}
 )
 
