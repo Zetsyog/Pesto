@@ -36,6 +36,10 @@ class GenClastPass : public IPass {
 	int cloogBacktrack;	  // 1 to use backtrack
 	int cloogNoSimplify;  // 1 to not simplify the polyhedra
 	int cloogEsp;
+	// last level to optimize, statement-wise.
+	std::vector<int> stmtLastOptLevel;
+	// first level to optimize, statement-wise.
+	std::vector<int> stmtFirstOptLevel;
 
 	GenClastPass();
 	virtual ~GenClastPass();

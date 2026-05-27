@@ -82,8 +82,52 @@ Bundle GenClastPass::apply(Bundle &&bundle) {
 
 	unsigned int stmtsNb = osl_statement_number(scop->statement);
 
-	cloogOptions->l = cloogL;
-	cloogOptions->f = cloogF;
+	// Sanity checks for statement-wise optimization levels
+	if (this->stmtFirstOptLevel.size() > 0) {
+		if (this->stmtLastOptLevel.size() != stmtsNb) {
+			logger->error(
+				"stmtLastOptLevel size must be equal to the number of statements in the scop. Found {}, expected {}.",
+				this->stmtLastOptLevel.size(), stmtsNb);
+			throw std::invalid_argument("stmtLastOptLevel size must be equal to the number of statements in the scop.");
+		}
+		if (this->stmtFirstOptLevel.size() != stmtsNb) {
+			logger->error(
+				"stmtFirstOptLevel size must be equal to the number of statements in the scop. Found {}, expected {}.",
+				this->stmtFirstOptLevel.size(), stmtsNb);
+			throw std::invalid_argument("stmtFirstOptLevel size must be equal to the number of statements in the scop");
+		}
+		if (this->stmtFirstOptLevel.size() != this->stmtLastOptLevel.size()) {
+			logger->error("stmtFirstOptLevel and stmtLastOptLevel must have the same size. First: {}, Last: {}.",
+						  this->stmtFirstOptLevel.size(), this->stmtLastOptLevel.size());
+			throw std::invalid_argument("stmtFirstOptLevel and stmtLastOptLevel must have the same size");
+		}
+		if (this->stmtFirstOptLevel.size() != stmtsNb) {
+			logger->error("stmtFirstOptLevel and stmtLastOptLevel size must be equal to the number of statements in "
+						  "the scop. Found {}, expected {}.",
+						  this->stmtFirstOptLevel.size(), stmtsNb);
+			throw std::invalid_argument(
+				"stmtFirstOptLevel and stmtLastOptLevel size must be equal to the number of statements in the scop");
+		}
+
+		logger->info("Using statement-wise optimization levels");
+	}
+
+	// Use statement-wise optimization levels if provided, otherwise use the global ones
+	if (this->stmtFirstOptLevel.size() > 0) {
+		cloogOptions->fs_ls_size = this->stmtFirstOptLevel.size();
+
+		cloogOptions->ls = (int *)malloc(cloogOptions->fs_ls_size * sizeof(int));
+		cloogOptions->fs = (int *)malloc(cloogOptions->fs_ls_size * sizeof(int));
+
+		for (int i = 0; i < cloogOptions->fs_ls_size; i++) {
+			cloogOptions->fs[i] = this->stmtFirstOptLevel[i];
+			cloogOptions->ls[i] = this->stmtLastOptLevel[i];
+		}
+	} else {
+		cloogOptions->l = cloogL;
+		cloogOptions->f = cloogF;
+	}
+
 	cloogOptions->stop = cloogStop;
 	cloogOptions->sh = cloogSh;
 	cloogOptions->first_unroll = cloogFirstUnroll;
