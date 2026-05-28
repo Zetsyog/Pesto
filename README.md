@@ -250,7 +250,7 @@ Polybench benchmarks status:
 | `linear-algebra/blas/gemm`           | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
 | `linear-algebra/blas/gemver`         | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
 | `linear-algebra/blas/gesummv`        | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
-| `linear-algebra/blas/symm`           | :x:                | :heavy_check_mark: | :grey_question:    | :x: FAIL                                 |
+| `linear-algebra/blas/symm`           | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
 | `linear-algebra/blas/syr2k`          | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
 | `linear-algebra/blas/syrk`           | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
 | `linear-algebra/blas/trmm`           | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
@@ -268,7 +268,7 @@ Polybench benchmarks status:
 | `linear-algebra/solvers/trisolv`     | :x:                | :x:                | :grey_question:    | :x: FAIL                                 |
 | `medley/deriche`                     | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
 | `medley/floyd-warshall`              | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK (dynamic schedule) |
-| `medley/nussinov`                    | :heavy_check_mark: | :x:                | :grey_question:    | :warning: Partial (hybrid is incorrect)  |
+| `medley/nussinov`                    | :x:                | :x:                | :grey_question:    | :x: FAIL                                 |
 | `stencils/adi`                       | :heavy_check_mark: | :x:                | :grey_question:    | :warning: Partial (hybrid is incorrect)  |
 | `stencils/fdtd-2d`                   | :grey_question:    | :grey_question:    | :heavy_check_mark: | :white_check_mark: OK (tpz)              |
 | `stencils/heat-3d`                   | :grey_question:    | :grey_question:    | :heavy_check_mark: | :white_check_mark: OK (tpz)              |
@@ -279,6 +279,6 @@ Polybench benchmarks status:
 ## Build for development
 
 ```bash
-cmake -B build -DPESTO_BUILD_JOBS=16 -DPESTO_TEST_POLYBENCH_DATASET=MEDIUM_DATASET -DPESTO_TEST_POLYBENCH_TILE_DIVIDER_MAX=16 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+cmake -B build -DPESTO_BUILD_JOBS=16 -DPESTO_TEST_POLYBENCH_DATASET=MEDIUM_DATASET -DPESTO_TEST_POLYBENCH_TILE_DIVIDER_MAX=16 -DCMAKE_BUILD_TYPE=Debug -DPESTO_TEST_POLYBENCH_RUNS_PER_BENCH=1 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 cmake --build build -j
 ```
