@@ -468,7 +468,7 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 			stmtStr += "if(" + nameHelper.innerForUBName() + " - " + nameHelper.innerForLBName() + " + 1 < floord(" +
 					   std::to_string(slope.y) + " * " + rootHelper.divName() + ", " + std::to_string(slope.x) +
 					   ") && (" + pair.outerFor->iterator + " != " + nameHelper.outerForUBName() + ") && (" +
-					   nameHelper.outerForUBName() + " > 0)) {";
+					   nameHelper.outerForUBName() + " > 1)) {";
 			stmtStr += "fprintf(stderr, \"Error: Target volume too small.\\n(" + //
 					   nameHelper.targetVolName() + ", " +						 // target volume
 					   rootHelper.innerForLBName() + ", " +						 // d0 inner lower bound
@@ -739,6 +739,8 @@ void TpzTilingPass::insertOmpPragmas(pesto::ir::ClastIR &clastIR,
 	}
 
 	userDirective += ") ";
+
+	// userDirective += "num_threads(" + std::string("min()");
 
 	std::string privateVars = "";
 
