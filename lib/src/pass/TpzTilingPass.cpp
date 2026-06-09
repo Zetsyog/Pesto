@@ -736,11 +736,11 @@ void TpzTilingPass::insertOmpPragmas(pesto::ir::ClastIR &clastIR,
 		userDirective += nameHelper1.outerForLBName() + ", " + nameHelper1.outerForUBName() + ", ";
 		userDirective += nameHelper0.innerForLBName() + ", " + nameHelper0.innerForUBName() + ", ";
 		userDirective += nameHelper1.pcMaxName() + ", " + nameHelper1.targetVolName();
+
+		userDirective += ") ";
+
+		userDirective += "num_threads(min(NTHREADS, " + nameHelper1.outerForUBName() + " + 1 )) ";
 	}
-
-	userDirective += ") ";
-
-	// userDirective += "num_threads(" + std::string("min()");
 
 	std::string privateVars = "";
 
