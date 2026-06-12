@@ -349,3 +349,23 @@ __isl_give isl_vec *isl_mat_row_at(__isl_keep isl_mat *mat, int row) {
 	}
 	return vec;
 }
+
+__isl_give isl_map *isl_set_compute_bound_map(__isl_take isl_set *set, int dim) {
+	isl_size ndim = isl_set_dim(set, isl_dim_set);
+	isl_set *proj = set;
+	if (dim + 1 < ndim) {
+		proj = isl_set_project_out(proj, isl_dim_set, dim + 1, ndim - dim - 1);
+	}
+
+	isl_map *map = isl_map_from_domain(proj);
+	map = isl_map_move_dims(map, isl_dim_out, 0, isl_dim_in, dim, 1);
+	return map;
+}
+
+__isl_give isl_pw_aff *isl_set_dim_lower_bound(__isl_take isl_set *set, int dim) {
+	return isl_map_dim_min(isl_set_compute_bound_map(set, dim), 0);
+}
+
+__isl_give isl_pw_aff *isl_set_dim_upper_bound(__isl_take isl_set *set, int dim) {
+	return isl_map_dim_max(isl_set_compute_bound_map(set, dim), 0);
+}

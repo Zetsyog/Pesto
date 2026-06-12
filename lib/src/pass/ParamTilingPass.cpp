@@ -16,6 +16,7 @@
 
 #include <osl/osl.h>
 
+#include <isl/aff.h>
 #include <isl/ctx.h>
 #include <isl/options.h>
 #include <isl/val.h>
@@ -1165,64 +1166,54 @@ void ClastParamTilingPass::computeTilingDataBoundExpr(CloogProgram *cloogProgram
 	std::string outterForIt = std::string(data.outer_for->iterator);
 	isl_set *innerDomain = isl_set_copy(group.untiled_domain);
 
-	// [0] is for lower bound, [1] is for upper bound
-	CloogOptions *cloogOptions = cloog_options_malloc(nullptr);
-	CloogNames *namesList[2] = {nullptr, nullptr};
-	isl_size npar = isl_set_dim(innerDomain, isl_dim_param);
-	for (std::size_t i = 0; i < 2; ++i) {
-		namesList[i] = cloog_names_malloc();
-		if (namesList[i] == NULL) {
-			this->logger->error("Cannot allocate memory for cloog names");
-			break;
-		}
-		CloogNames *names = namesList[i];
-		names->nb_parameters = npar;
-		names->parameters = (char **)calloc(npar, sizeof(char *));
-		for (isl_size j = 0; j < npar; j += 1) {
-			names->parameters[j] = strdup(isl_set_get_dim_name(innerDomain, isl_dim_param, j));
-		}
-		names->nb_scattering = group.tilingData.size();
-		names->scattering = (char **)calloc(names->nb_scattering, sizeof(char *));
-		for (isl_size j = 0; j < names->nb_scattering; j += 1) {
-			auto &data = group.tilingData[j];
-			std::string bound = i == 0 ? data->nameHelper->innerForLBName() : data->nameHelper->innerForUBName();
-			names->scattering[j] = strdup(bound.c_str());
-		}
+	isl_set *lbDomain = isl_set_copy(group.untiled_domain);
+	isl_set *ubDomain = isl_set_copy(group.untiled_domain);
+
+	isl_size ndim = isl_set_dim(lbDomain, isl_dim_set);
+	for (isl_size i = 0; i < ndim; i += 1) {
+		// find tiling data of depth i
+		auto dataIt =
+			std::find_if(group.tilingData.begin(), group.tilingData.end(), [i](const std::unique_ptr<TilingData> &d) {
+				int depth = static_cast<size_t>(d->tiling_depth);
+				return depth == i;
+			});
+		auto &data = *dataIt;
+
+		lbDomain = isl_set_set_dim_name(lbDomain, isl_dim_set, i, data->nameHelper->innerForLBName().c_str());
+		ubDomain = isl_set_set_dim_name(ubDomain, isl_dim_set, i, data->nameHelper->innerForUBName().c_str());
 	}
 
-	// project dimensions that are after the current dimensions to avoid dependency on them (as they won't be computed
-	// yet when we compute the bound for the current dimension)
-	int ndim = isl_set_dim(innerDomain, isl_dim_set);
-	if (data.tiling_depth + 1 < ndim) {
-		innerDomain =
-			isl_set_project_out(innerDomain, isl_dim_set, data.tiling_depth + 1, ndim - data.tiling_depth - 1);
-	}
+	isl_printer *printer = isl_printer_to_str(this->ctx);
 
-	char *buffer = (char *)calloc(512, sizeof(char));
-	FILE *fd = fmemopen(buffer, 512, "w");
+	printer = isl_printer_set_output_format(printer, ISL_FORMAT_C);
 
-	for (std::size_t i = 0; i < 2; ++i) {
-		struct clast_expr *expr = clast_bound_from_isl_set(namesList[i], innerDomain, i, data.tiling_depth);
-		if (expr != NULL) {
-			memset(buffer, 0, 512);
-			rewind(fd);
-			clast_pprint_expr(cloogOptions, fd, expr);
-			fflush(fd);
-			if (i == 0) {
-				data.innerForLBExpr = std::string(buffer);
-			} else {
-				data.innerForUBExpr = std::string(buffer);
-			}
-		}
-		free_clast_expr(expr);
-	}
-	fclose(fd);
-	free(buffer);
+	isl_pw_aff *lb = isl_set_dim_lower_bound(isl_set_copy(lbDomain), data.tiling_depth);
+	isl_pw_aff *ub = isl_set_dim_upper_bound(isl_set_copy(ubDomain), data.tiling_depth);
 
-	for (std::size_t i = 0; i < 2; ++i) {
-		cloog_names_free(namesList[i]);
-	}
-	cloog_options_free(cloogOptions);
+	printer = isl_printer_print_pw_aff(printer, lb);
+	char *lbStr = isl_printer_get_str(printer);
+	printer = isl_printer_flush(printer);
+
+	printer = isl_printer_print_pw_aff(printer, ub);
+	char *ubStr = isl_printer_get_str(printer);
+	printer = isl_printer_flush(printer);
+
+	data.innerForLBExpr = std::string(lbStr);
+	data.innerForUBExpr = std::string(ubStr);
+
+	free(lbStr);
+	free(ubStr);
+
+	isl_pw_aff_free(lb);
+	isl_pw_aff_free(ub);
+
+	isl_printer_free(printer);
+
+	isl_set_free(lbDomain);
+	isl_set_free(ubDomain);
+
+	std::cerr << data.innerForLBExpr << std::endl;
+	std::cerr << data.innerForUBExpr << std::endl;
 
 	isl_set_free(innerDomain);
 }
