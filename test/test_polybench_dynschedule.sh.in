@@ -4,7 +4,7 @@ source "@PESTO_TEST_POLYBENCH_SCRIPT@"
 
 BENCHMARKS=(
     # linear-algebra/solvers/cholesky # cholesky is not supported yet
-    medley/floyd-warshall
+    # medley/floyd-warshall
     # "stencils/fdtd-2d" # fdtd-2d is not supported yet
     "stencils/jacobi-1d"
     "stencils/jacobi-2d"

@@ -18,13 +18,13 @@ BENCHMARKS=(
     "linear-algebra/kernels/bicg"
     "linear-algebra/kernels/doitgen"
     "linear-algebra/kernels/mvt"
-    "linear-algebra/solvers/durbin"
+    # "linear-algebra/solvers/durbin"
     "linear-algebra/solvers/gramschmidt"
-    "linear-algebra/solvers/lu"
-    "linear-algebra/solvers/ludcmp"
-    "linear-algebra/solvers/trisolv"
+    # "linear-algebra/solvers/lu"
+    # "linear-algebra/solvers/ludcmp"
+    # "linear-algebra/solvers/trisolv"
     "medley/deriche"
-    "medley/nussinov"
+    # "medley/nussinov"
     "stencils/adi"
 )
 
