@@ -103,8 +103,35 @@ __isl_give isl_vec *isl_mat_row_at(__isl_keep isl_mat *mat, int row);
 /**
  * @brief check if the given dimension is a tiling dimension in the set
  * @param set
+ * @param pos
+ * @return isl_bool
  */
 isl_bool isl_set_is_tiling_dim(__isl_keep isl_set *set, int pos);
+
+/**
+ * @brief compute a map from the set dimension to a unique dimension given by @param dim.
+ * This map can be used to compute the bounds of the given dimension in the set
+ * @param set
+ * @param dim
+ * @return isl_map *
+ */
+__isl_give isl_map *isl_set_compute_bound_map(__isl_take isl_set *set, int dim);
+
+/**
+ * @brief get the lower bound of the given dimension in the set
+ * @param set
+ * @param dim
+ * @return isl_pw_aff *
+ */
+__isl_give isl_pw_aff *isl_set_dim_lower_bound(__isl_take isl_set *set, int dim);
+
+/**
+ * @brief get the upper bound of the given dimension in the set
+ * @param set
+ * @param dim
+ * @return isl_pw_aff *
+ */
+__isl_give isl_pw_aff *isl_set_dim_upper_bound(__isl_take isl_set *set, int dim);
 
 #ifdef __cplusplus
 }
