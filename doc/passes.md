@@ -63,63 +63,8 @@ int main() {
 
 ## Existing passes
 
-Here is the list of the passes already existing in the pesto library.
-
-### ParamContextPass
-
-Add a minimal value to all parameter of each `pesto::ScopNest`. The value must be passed in the constructor.
-
-### PlutoAutoTransformPass
-
-Run pluto on each `pesto::ScopNest` to apply only the auto transform i.e similar to the command:
-
-```bash
-polycc --noparallel --nounroll --noprevector --notile
-```
-
-### PlutoTilingPass
-
-Run pluto on each `pesto::ScopNest` to apply only a tiling transformation i.e similar to the command:
-
-```bash
-polycc --noparallel --nounroll --noprevector --tile --nodiamond-tile
-```
-
-### GenClastPass
-
-This pass will start cloog code generation and store the CloogAST as metadata for each ScopNest.
-This allows pass to manipulate CloogAST for their optimization.
-After this pass, no more transformation over the OpenScop representation should be done as code generation will ignore them.
-
-### ClastParamTiling *(WIP)*
-
-### CloogCodegenPass
-
-Code generation step. This pass will simply call cloog to generate a c program.
-If the `pesto::GenClastPass` was called (to be more precise, if the `pesto::ScopNest` has a `pesto::ClastMetadata`) the generated CloogAST will be fed to Cloog. Else cloog will generate code from the OpenScop.
-
-See [Cloog](https://github.com/periscop/cloog)
+*WIP*
 
 ## Write your own pass
 
-Pesto passes are very simple. There is one pass base class: `pesto::pass::IPass`.
 
-A pass is very simple, it has a name, and will perform transformations over a `pesto::Program`.
-The `pesto::pass::IPass::apply(pesto::Program &prog)` will be called to apply those transformations. This method cannot be override. But it will call three ineteral methods that you can modify at your ease.
-Then for each `pesto::OslScop` of the program the `pesto::pass::IPass::applyScop(pesto::OslScop &nest);` will be called.
-
-Below is an example of a pass:
-
-```c++
-class FooPass : public pesto::pass::IPass {
-  public:
-    FooPass();
-    virtual ~FooPass() {};
-
-    virtual void applyScop(pesto::OslScop &nest) {
-        log(std::cerr) << " running foo pass on " << nest.getId() << std::endl;
-        osl_scop_p scop = nest.getScop();
-        // do some work on this scop...
-    };
-};
-```
