@@ -939,7 +939,7 @@ void ClastParamTilingPass::computeTrahrheDomain(CloogProgram *cloogProgram, Stmt
 	// 	trahrheDomain = isl_set_set_dim_name(trahrheDomain, isl_dim_set, i, cloogProgram->names->scattering[i]);
 	// }
 
-	isl_set_dump(trahrheDomain);
+	// isl_set_dump(trahrheDomain);
 
 	// remove scalar dims
 	isl_size ndim = isl_set_dim(trahrheDomain, isl_dim_set);
@@ -1211,9 +1211,6 @@ void ClastParamTilingPass::computeTilingDataBoundExpr(CloogProgram *cloogProgram
 
 	isl_set_free(lbDomain);
 	isl_set_free(ubDomain);
-
-	std::cerr << data.innerForLBExpr << std::endl;
-	std::cerr << data.innerForUBExpr << std::endl;
 
 	isl_set_free(innerDomain);
 }
