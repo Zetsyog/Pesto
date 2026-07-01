@@ -48,7 +48,7 @@ pesto::pass::ClastParamTilingPass::ClastParamTilingPass()
 	, boundComputeMethod(ptile::codegen::BoundComputeMethod::FILL_LAST)
 	, boundCorrectionStrategy(ptile::codegen::BoundCorrectionStrategy::NO_CORRECTION)
 	, volumeCheckStrategy(ptile::codegen::VolumeCheckStrategy::DYNAMIC_TILE_UNTIL_THRESHOLD)
-	, volumeCheckTrigger(VolumeCheckTrigger::FIRST_OUTTER_ITERATOR_DEPENDENCY)
+	, volumeCheckTrigger(VolumeCheckTrigger::FIRST_OUTER_ITERATOR_DEPENDENCY)
 	, volumeCheckThreshold(std::nullopt) {
 	this->gen_clast_pass = std::make_unique<GenClastPass>();
 	this->gen_clast_pass->cloogF = -1;
@@ -140,7 +140,7 @@ Bundle pesto::pass::ClastParamTilingPass::apply(Bundle &&bundle) {
 	}
 
 	for (auto &group : stmtGroups) {
-		// First we need to associate for each tiled dimension its inner and outter
+		// First we need to associate for each tiled dimension its inner and outer
 		// for
 		this->associateTilingFor(root, *group);
 
@@ -608,13 +608,13 @@ void ClastParamTilingPass::tileGroup(CloogProgram *cloogProgram, CloogOptions *c
 		return;
 	}
 
-	// Then for each outter for (from outter most to inner most)
+	// Then for each outer for (from outer most to inner most)
 	for (auto &data : group.tilingData) {
 		logger->debug("Tiling for {} with outer iterator {} at depth {} ", data->id, data->outer_for->iterator,
 					  data->tiling_depth);
 
 		this->insertStatements(cloogOptions, root, *data);
-		this->replaceOutterForBounds(group, *data);
+		this->replaceOuterForBounds(group, *data);
 
 		this->replaceInnerForBounds(cloogProgram, group, *data);
 	}
@@ -634,7 +634,7 @@ void ClastParamTilingPass::associateTilingFor(struct clast_root *root, StmtGroup
 	for (auto *stmt : group.stmts) {
 		for (struct clast_for *current_for = clast_get_parent_clast_for(&(root->stmt), &(stmt->stmt));
 			 current_for != NULL; current_for = clast_get_parent_clast_for(&(root->stmt), &(current_for->stmt))) {
-			struct clast_for *outer_for = clast_find_outter_tiling_for(&(root->stmt), current_for);
+			struct clast_for *outer_for = clast_find_outer_tiling_for(&(root->stmt), current_for);
 
 			for (auto &data : group.tilingData) {
 				if (data->outer_for == outer_for || data->inner_for == current_for) {
@@ -674,16 +674,16 @@ void ClastParamTilingPass::associateTilingFor(struct clast_root *root, StmtGroup
 										   std::to_string(data->id));
 	}
 
-	// sort the tiling data by depth of the outter for
+	// sort the tiling data by depth of the outer for
 	std::sort(group.tilingData.begin(), group.tilingData.end(),
 			  [](const std::unique_ptr<TilingData> &a, const std::unique_ptr<TilingData> &b) {
-				  return a->tiling_depth < b->tiling_depth; // sort by depth of the outter for, ascending
+				  return a->tiling_depth < b->tiling_depth; // sort by depth of the outer for, ascending
 			  });
 
 	logger->debug("Tiling data for group {}:", group.id);
 	for (auto &data : group.tilingData) {
 
-		this->logger->debug("\ttiling data {}:  outter for: {}, inner for: {}, depth: {}", data->id,
+		this->logger->debug("\ttiling data {}:  outer for: {}, inner for: {}, depth: {}", data->id,
 							data->outer_for->iterator, data->inner_for->iterator, data->tiling_depth);
 	}
 }
@@ -715,16 +715,16 @@ int ClastParamTilingPass::islFirstTilingDimIdx(StmtGroup &group) {
 }
 
 void ClastParamTilingPass::insertStatements(CloogOptions *cloogOptions, struct clast_root *root, TilingData &data) {
-	struct clast_for *outter_for = data.outer_for;
+	struct clast_for *outer_for = data.outer_for;
 
 	data.head_stmt_id = ++(this->insertedStmts);
 	data.body_stmt_id = ++(this->insertedStmts);
 
 	struct clast_user_stmt *header_stmt = pesto_clast_create_stmt(cloogOptions, NULL, data.head_stmt_id);
-	clast_insert_before((struct clast_stmt *)root, (struct clast_stmt *)outter_for, (struct clast_stmt *)header_stmt);
+	clast_insert_before((struct clast_stmt *)root, (struct clast_stmt *)outer_for, (struct clast_stmt *)header_stmt);
 
 	struct clast_user_stmt *body_stmt = pesto_clast_create_stmt(cloogOptions, NULL, data.body_stmt_id);
-	clast_insert_indepth((struct clast_stmt *)outter_for, (struct clast_stmt *)body_stmt);
+	clast_insert_indepth((struct clast_stmt *)outer_for, (struct clast_stmt *)body_stmt);
 }
 
 void ClastParamTilingPass::replaceInnerForBounds(CloogProgram *cloogProgram, StmtGroup &group, TilingData &data) {
@@ -774,7 +774,7 @@ void ClastParamTilingPass::replaceInnerForBounds(CloogProgram *cloogProgram, Stm
 	}
 }
 
-void ClastParamTilingPass::replaceOutterForBounds(StmtGroup &group, TilingData &data) {
+void ClastParamTilingPass::replaceOuterForBounds(StmtGroup &group, TilingData &data) {
 	struct clast_for *outer_for = data.outer_for;
 
 	free_clast_expr(outer_for->LB);
@@ -821,8 +821,8 @@ isl_set *ClastParamTilingPass::dropTilingConstraints(__isl_take isl_set *set, St
 
 	// we need to drop the constraints that are not related to the tiling
 	// dimensions
-	// but from the inner most to the outter most
-	// so we sort the tiling_for pair by descending depth of the outter for
+	// but from the inner most to the outer most
+	// so we sort the tiling_for pair by descending depth of the outer for
 	for (auto riter = group.tilingData.rbegin(); riter != group.tilingData.rend(); ++riter) {
 		auto &data = *riter;
 
@@ -859,9 +859,9 @@ void ClastParamTilingPass::updateOmpPragma(StmtGroup &group) {
 	struct clast_for *parallel_for = nullptr;
 	int tiling_depth = -1;
 	for (auto &data : group.tilingData) {
-		struct clast_for *outter_for = data->outer_for;
-		if (outter_for->parallel & CLAST_PARALLEL_OMP) {
-			parallel_for = outter_for;
+		struct clast_for *outer_for = data->outer_for;
+		if (outer_for->parallel & CLAST_PARALLEL_OMP) {
+			parallel_for = outer_for;
 			tiling_depth = data->tiling_depth;
 			break;
 		}
@@ -1124,7 +1124,7 @@ pesto::ptile::codegen::ParamTilingCodegen ClastParamTilingPass::getCodegen(Cloog
 
 	if (this->volumeCheckTrigger == VolumeCheckTrigger::ALWAYS) {
 		codegen.setVolumeCheckStrategy(this->volumeCheckStrategy);
-	} else if (this->volumeCheckTrigger == VolumeCheckTrigger::FIRST_OUTTER_ITERATOR_DEPENDENCY) {
+	} else if (this->volumeCheckTrigger == VolumeCheckTrigger::FIRST_OUTER_ITERATOR_DEPENDENCY) {
 		size_t movedDimCount = group.movedDimensionsCount;
 		this->logger->debug("Moved dimensions count: {}", movedDimCount);
 		if (movedDimCount == 0) {
@@ -1163,7 +1163,7 @@ void ClastParamTilingPass::computeTilingDataBoundExpr(CloogProgram *cloogProgram
 	logger->debug("Computing for loop bounds for tiling data {} of group {} ", data.id, group.id);
 
 	// compute loop bound expr
-	std::string outterForIt = std::string(data.outer_for->iterator);
+	std::string outerForIt = std::string(data.outer_for->iterator);
 	isl_set *innerDomain = isl_set_copy(group.untiled_domain);
 
 	isl_set *lbDomain = isl_set_copy(group.untiled_domain);

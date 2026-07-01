@@ -31,7 +31,7 @@ ParamTilingCodegen::ParamTilingCodegen(StmtGroup &group, TilingData &data, int n
 	: group(group)
 	, data(data)
 	, tilingType(ParamTilingType::ALGEBRAIC)
-	, outterFor(*data.outer_for)
+	, outerFor(*data.outer_for)
 	, tilingDepth(data.tiling_depth)
 	, innerDomain(nullptr)
 	, boundComputeMethod(BoundComputeMethod::FILL_LAST)
@@ -203,10 +203,10 @@ void ParamTilingCodegen::genBodyStmt(std::ostream &os) {
 }
 
 void ParamTilingCodegen::genBodyStmtRectangular(std::ostream &os) {
-	os << this->nameHelper.innerForLBName() << " = " << this->nameHelper.divName() << " * " << this->outterFor.iterator;
+	os << this->nameHelper.innerForLBName() << " = " << this->nameHelper.divName() << " * " << this->outerFor.iterator;
 	os << "+" << this->data.innerForLBExpr << ";" << this->endline;
 
-	os << this->nameHelper.innerForUBName() << " = " << this->nameHelper.divName() << " * " << this->outterFor.iterator
+	os << this->nameHelper.innerForUBName() << " = " << this->nameHelper.divName() << " * " << this->outerFor.iterator
 	   << " + " << this->nameHelper.divName() << " - 1";
 	os << "+" << this->data.innerForLBExpr;
 }
@@ -216,7 +216,7 @@ void ParamTilingCodegen::genBodyStmtAlgebraic(std::ostream &os) {
 
 	// inner for lower bound
 	os << this->nameHelper.innerForLBName() << " = ";
-	os << this->trahrheNameHelper.trahrheFnName() << "(max(1, (" << this->outterFor.iterator << ") * "
+	os << this->trahrheNameHelper.trahrheFnName() << "(max(1, (" << this->outerFor.iterator << ") * "
 	   << this->nameHelper.targetVolName() << ")";
 	for (isl_size i = 0; i < npar; i += 1) {
 		os << ", " << isl_set_get_dim_name(this->innerDomain, isl_dim_param, i);
@@ -235,13 +235,13 @@ void ParamTilingCodegen::genBodyStmtAlgebraic(std::ostream &os) {
 	}
 	os << ")";
 	if (this->boundComputeMethod == BoundComputeMethod::FILL_FIRST) {
-		os << " + !!" << this->outterFor.iterator;
+		os << " + !!" << this->outerFor.iterator;
 	}
 	os << ";" << this->endline;
 	// inner for upper bound
 	os << this->nameHelper.innerForUBName() << " = ";
 	os << this->trahrheNameHelper.trahrheFnName() << "(min(" << this->nameHelper.pcMaxName() << ", ("
-	   << this->outterFor.iterator << " + 1) * " << this->nameHelper.targetVolName() << ")";
+	   << this->outerFor.iterator << " + 1) * " << this->nameHelper.targetVolName() << ")";
 	for (isl_size i = 0; i < npar; i += 1) {
 		os << ", " << isl_set_get_dim_name(this->innerDomain, isl_dim_param, i);
 	}
@@ -263,8 +263,7 @@ void ParamTilingCodegen::genBodyStmtAlgebraic(std::ostream &os) {
 	// last bound adjustment
 	if (this->boundComputeMethod == BoundComputeMethod::FILL_LAST) {
 		os << ";" << this->endline;
-		os << "if(" << this->outterFor.iterator << " == " << this->nameHelper.outerForUBName() << ") {"
-		   << this->endline;
+		os << "if(" << this->outerFor.iterator << " == " << this->nameHelper.outerForUBName() << ") {" << this->endline;
 		os << "\t" << this->nameHelper.innerForUBName() << " = " << this->data.innerForUBExpr << ";" << this->endline;
 		os << "}";
 	}
@@ -352,7 +351,7 @@ void ParamTilingCodegen::genBodyStmtScheduled(std::ostream &os) {
 	std::string scheduleName = outerData->trahrheNameHelper->scheduleName();
 
 	std::string scheduleAccessName =
-		scheduleName + ".fronts[" + outerData->outer_for->iterator + "].tiles[" + this->outterFor.iterator + "]";
+		scheduleName + ".fronts[" + outerData->outer_for->iterator + "].tiles[" + this->outerFor.iterator + "]";
 
 	os << outerData->nameHelper->innerForLBName() << " = " << scheduleAccessName << "->lb0;" << this->endline;
 	os << outerData->nameHelper->innerForUBName() << " = " << scheduleAccessName << "->ub0;" << this->endline;
@@ -524,11 +523,11 @@ void ParamTilingCodegen::genScheduleHeaderFile(std::ostream &os) {
 
 using pesto::ptile::NameHelper;
 
-NameHelper::NameHelper(int depth, std::string outterForIt, std::string innerForIt)
+NameHelper::NameHelper(int depth, std::string outerForIt, std::string innerForIt)
 	: depth(depth)
 	, sep_("_")
 	, prefix_("")
-	, outterForIt_(outterForIt)
+	, outerForIt_(outerForIt)
 	, innerForIt_(innerForIt) //
 {}
 
@@ -552,10 +551,10 @@ void NameHelper::setPrefix(std::string prefix) {
 }
 
 std::string NameHelper::outerForLBName() {
-	return this->getPrefixStr() + "lb" + this->outterForIt_;
+	return this->getPrefixStr() + "lb" + this->outerForIt_;
 }
 std::string NameHelper::outerForUBName() {
-	return this->getPrefixStr() + "ub" + this->outterForIt_;
+	return this->getPrefixStr() + "ub" + this->outerForIt_;
 }
 std::string NameHelper::innerForLBName() {
 	return this->getPrefixStr() + "lb" + this->innerForIt_;

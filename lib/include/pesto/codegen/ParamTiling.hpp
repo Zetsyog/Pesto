@@ -25,7 +25,7 @@ namespace ptile {
 
 class NameHelper {
   public:
-	NameHelper(int depth, std::string outterForIt, std::string innerForIt);
+	NameHelper(int depth, std::string outerForIt, std::string innerForIt);
 	virtual ~NameHelper();
 
 	void setSeparator(std::string sep);
@@ -54,7 +54,7 @@ class NameHelper {
 	int depth;
 	std::string sep_;
 	std::string prefix_;
-	std::string outterForIt_;
+	std::string outerForIt_;
 	std::string innerForIt_;
 };
 
@@ -108,7 +108,7 @@ class ParamTilingCodegen {
 	StmtGroup &group;
 	TilingData &data;
 	ParamTilingType tilingType;
-	struct clast_for &outterFor;
+	struct clast_for &outerFor;
 	std::size_t tilingDepth;
 	isl_set *innerDomain;
 

@@ -101,7 +101,7 @@ int clast_for_depth(struct clast_stmt *root, struct clast_for *for_stmt);
  * @return the computed bound
  */
 struct clast_expr *clast_for_compute_original_bound(CloogNames *names, struct clast_for *inner_for,
-													struct clast_for *outter_for, int bound);
+													struct clast_for *outer_for, int bound);
 
 /**
  * Create a hard copy of a CloogNames structure
@@ -120,15 +120,15 @@ int clast_annotate_loops(osl_scop_p program, struct clast_stmt *root);
 struct clast_expr *clast_bound_from_isl_set(CloogNames *names, __isl_keep isl_set *set, int bound, int dim);
 
 /**
- * @brief search for the corresponding outter tiling for of the given clast for
+ * @brief search for the corresponding outer tiling for of the given clast for
  * This function will search among all the clast for that contains @param inner_for
  * and return the one that iterate over the tile space of @param inner_for
  * @param root the root of the clast tree
  * @param inner_for the inner for to search for
- * @return struct clast_for* the outter for that contains the inner for
- * @note the function will return NULL if no outter for is found
+ * @return struct clast_for* the outer for that contains the inner for
+ * @note the function will return NULL if no outer for is found
  */
-struct clast_for *clast_find_outter_tiling_for(struct clast_stmt *root, struct clast_for *inner_for);
+struct clast_for *clast_find_outer_tiling_for(struct clast_stmt *root, struct clast_for *inner_for);
 
 /**
  * @brief search for the outermost tiling for of the given statement
@@ -137,7 +137,7 @@ struct clast_for *clast_find_outter_tiling_for(struct clast_stmt *root, struct c
  * @param root the root of the clast tree
  * @param stmt the statement to search for
  * @return struct clast_for* the outermost for that contains the statement and iterates over a tile space
- * @note the function will return NULL if no outter for is found
+ * @note the function will return NULL if no outer for is found
  */
 struct clast_for *clast_get_outermost_tiling_for(struct clast_stmt *root, struct clast_stmt *stmt);
 

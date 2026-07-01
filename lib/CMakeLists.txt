@@ -14,6 +14,7 @@
 set(PESTO_SOURCES
     src/PassManager.cpp
     src/PlutoWrapper.cpp
+    src/atile/TpzMaxCut.cpp
     src/byproduct/HeaderFile.cpp
     src/byproduct/OutputSourceFile.cpp
     src/byproduct/SideSourceFile.cpp

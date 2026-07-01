@@ -27,12 +27,12 @@ enum class ParamTilingType { RECTANGULAR, ALGEBRAIC, SCHEDULED, LAST_DIM_RECT };
 enum class VolumeCheckTrigger {
 	NEVER,
 	ALWAYS,
-	FIRST_OUTTER_ITERATOR_DEPENDENCY,
+	FIRST_OUTER_ITERATOR_DEPENDENCY,
 };
 
 /**
  * Holds information needed to generate trahrhe code
- * Associate outter tiling for to its corresponding inner tiling for
+ * Associate outer tiling for to its corresponding inner tiling for
  * Also holds the tiling depth and the codegen data
  */
 struct TilingData {
@@ -184,7 +184,7 @@ class ClastParamTilingPass : public IPass {
 
 	void replaceInnerForBounds(CloogProgram *cloogProgram, struct StmtGroup &group, TilingData &data);
 
-	void replaceOutterForBounds(StmtGroup &group, TilingData &data);
+	void replaceOuterForBounds(StmtGroup &group, TilingData &data);
 
 	void generateStatements(CloogProgram *cloogProgram, StmtGroup &group);
 

@@ -142,8 +142,8 @@ std::unique_ptr<pesto::pass::IPass> ClastParamTilingPB::build(PassManagerBuilder
 						pass->setVolumeCheckTrigger(VolumeCheckTrigger::NEVER);
 					} else if (vStr == "always") {
 						pass->setVolumeCheckTrigger(VolumeCheckTrigger::ALWAYS);
-					} else if (vStr == "first-outter-iterator-dependency") {
-						pass->setVolumeCheckTrigger(VolumeCheckTrigger::FIRST_OUTTER_ITERATOR_DEPENDENCY);
+					} else if (vStr == "first-outer-iterator-dependency") {
+						pass->setVolumeCheckTrigger(VolumeCheckTrigger::FIRST_OUTER_ITERATOR_DEPENDENCY);
 					} else {
 						logger->warn("Unknown volume check trigger \"{}\". Skipping.", vStr.c_str());
 					}
