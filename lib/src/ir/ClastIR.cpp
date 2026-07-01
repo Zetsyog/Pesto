@@ -1,0 +1,23 @@
+/*
+ * Pesto - A polyhedral loop nest optimizer
+ *
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2024 Clément Rossetti
+ */
+
+#include <pesto/ir/ClastIR.hpp>
+
+pesto::ir::ClastIR::~ClastIR() {
+	if (root_) {
+		cloog_clast_free(root_);
+	}
+	if (cloogProgram_) {
+		cloog_program_free(cloogProgram_);
+	}
+	if (cloogOptions_) {
+		cloog_options_free(cloogOptions_);
+	}
+	if (cloogState_) {
+		cloog_state_free(cloogState_);
+	}
+}

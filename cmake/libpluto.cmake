@@ -1,68 +1,78 @@
+#
+# Pesto - A polyhedral loop nest optimizer
+#
+# SPDX-License-Identifier: MIT
+#
+# Copyright (c) 2024 Clément Rossetti
+#
+
+
 # require isl
 message(STATUS "Checking libpluto")
 
 include(ExternalProject)
 
-set(PLUTO_PREFIX ${CMAKE_CURRENT_BINARY_DIR}/pluto)
-set(PLUTO_STATIC_LIB ${PLUTO_PREFIX}/lib/libpluto.a)
-set(PLUTO_INCLUDES ${PLUTO_PREFIX}/include)
-set(PLUTO_SRC_DIR ${PLUTO_PREFIX}/src/pluto-src)
-
-file(MAKE_DIRECTORY ${PLUTO_INCLUDES})
-
+# Dependencies
 pkg_check_modules(GMP REQUIRED gmp)
 
 # Pluto patch files
 set(PLUTO_PATCH_COMPILE_FIX ${CMAKE_SOURCE_DIR}/patches/pluto_doc_gen_fix.patch)
 set(PLUTO_PATCH_FUNC_DEF_FIX
-	${CMAKE_SOURCE_DIR}/patches/pluto-fix_multiple_definition_of_function.patch
+    ${CMAKE_SOURCE_DIR}/patches/pluto-fix_multiple_definition_of_function.patch
 )
-ExternalProject_Add(
-	pluto-src
-	GIT_REPOSITORY https://gitlab.inria.fr/crossett/pluto-openscop.git
-	GIT_TAG 26aeb7b0017a6b4fd6bc351afea3005a45959355 #
-	GIT_SUBMODULES_RECURSE false
-	GIT_SUBMODULES isl openscop piplib candl #
-	PREFIX ${PLUTO_PREFIX}
-	BUILD_IN_SOURCE true
-	CONFIGURE_COMMAND
-		./autogen.sh && #
-		./configure --prefix=${PLUTO_PREFIX} #
-		--disable-polycc # don't build cli
-		--disable-shared # static only
-	PATCH_COMMAND
-		${CMAKE_COMMAND} -E echo "Applying ${PLUTO_PATCH_COMPILE_FIX}" && #
-		patch -p1 < ${PLUTO_PATCH_COMPILE_FIX} && #
-		patch -p1 < ${PLUTO_PATCH_FUNC_DEF_FIX} #
-	BUILD_COMMAND make -j${PESTO_BUILD_JOBS}
-	INSTALL_COMMAND make install
-	UPDATE_DISCONNECTED true
-	BUILD_BYPRODUCTS ${PLUTO_STATIC_LIB}
+
+set(PLUTO_PREFIX ${CMAKE_BINARY_DIR}/_deps/pluto)
+set(PLUTO_STATIC_LIB ${PLUTO_PREFIX}/install/lib/libpluto.a)
+
+file(MAKE_DIRECTORY ${PLUTO_PREFIX}/install/include)
+
+externalproject_add(
+    pluto-src
+    GIT_REPOSITORY https://gitlab.inria.fr/crossett/pluto-openscop.git
+    GIT_TAG dacbfd98ee9b71de6c7ed52c1c68495a972937b4 #
+    GIT_SUBMODULES ""
+    GIT_SUBMODULES_RECURSE false
+    PREFIX ${PLUTO_PREFIX}
+    SOURCE_DIR ${PLUTO_PREFIX}/src
+    INSTALL_DIR ${PLUTO_PREFIX}/install
+    STAMP_DIR ${PLUTO_PREFIX}/stamp
+    LOG_DIR ${PLUTO_PREFIX}/log
+    BUILD_IN_SOURCE true
+    CONFIGURE_BYPRODUCTS
+    <BINARY_DIR>/config.status
+    <BINARY_DIR>/Makefile
+    CONFIGURE_COMMAND
+    COMMAND
+    <SOURCE_DIR>/autogen.sh
+    COMMAND
+    <SOURCE_DIR>/configure
+    CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER} LD=${CMAKE_LINKER}
+    CFLAGS=${CMAKE_C_FLAGS}
+    CXXFLAGS=${CMAKE_CXX_FLAGS}
+    --prefix=<INSTALL_DIR>
+    --with-isl-prefix=${ISL_PREFIX}/install
+    --with-osl-prefix=${OSL_PREFIX}/install
+    --with-piplib-prefix=${PIPLIB_PREFIX}/install
+    --with-candl-prefix=${CANDL_PREFIX}/install
+    --with-polylib-prefix=${POLYLIB_PREFIX}/install
+    --disable-polycc
+    --disable-shared
+    PATCH_COMMAND ""
+    BUILD_COMMAND ${CMAKE_MAKE_PROGRAM} -j${PESTO_BUILD_JOBS}
+    INSTALL_COMMAND ${CMAKE_MAKE_PROGRAM} install
+    LOG_CONFIGURE ON
+    LOG_BUILD ON
+    LOG_INSTALL ON
+    UPDATE_DISCONNECTED true
 )
+add_dependencies(pluto-src piplib-src osl-src candl-src polylib-src isl-src)
 
 add_library(pluto STATIC IMPORTED GLOBAL)
 add_dependencies(pluto pluto-src)
-set_target_properties(pluto PROPERTIES IMPORTED_LOCATION ${PLUTO_STATIC_LIB})
-set_target_properties(pluto PROPERTIES INTERFACE_INCLUDE_DIRECTORIES ${PLUTO_INCLUDES})
+set_target_properties(pluto PROPERTIES
+    IMPORTED_LOCATION ${PLUTO_STATIC_LIB}
+    INTERFACE_LINK_LIBRARIES ${PLUTO_STATIC_LIB}
+    INTERFACE_INCLUDE_DIRECTORIES ${PLUTO_PREFIX}/install/include
+)
 
-add_library(osl STATIC IMPORTED GLOBAL)
-add_dependencies(osl pluto)
-set_target_properties(osl PROPERTIES IMPORTED_LOCATION ${PLUTO_PREFIX}/lib/libosl.a)
-set_target_properties(osl PROPERTIES INTERFACE_INCLUDE_DIRECTORIES ${PLUTO_PREFIX}/include)
-
-add_library(isl STATIC IMPORTED GLOBAL)
-add_dependencies(isl pluto)
-set_target_properties(isl PROPERTIES IMPORTED_LOCATION ${PLUTO_PREFIX}/lib/libisl.a)
-set_target_properties(isl PROPERTIES INTERFACE_INCLUDE_DIRECTORIES ${PLUTO_PREFIX}/include)
-
-add_library(candl STATIC IMPORTED GLOBAL)
-add_dependencies(candl pluto)
-set_target_properties(candl PROPERTIES IMPORTED_LOCATION ${PLUTO_PREFIX}/lib/libcandl.a)
-set_target_properties(candl PROPERTIES INTERFACE_INCLUDE_DIRECTORIES ${PLUTO_PREFIX}/include)
-
-add_library(piplib STATIC IMPORTED GLOBAL)
-add_dependencies(piplib pluto)
-set_target_properties(piplib PROPERTIES IMPORTED_LOCATION ${PLUTO_PREFIX}/lib/libpiplib_dp.a)
-set_target_properties(piplib PROPERTIES INTERFACE_INCLUDE_DIRECTORIES ${PLUTO_PREFIX}/include)
-
-target_link_libraries(pluto INTERFACE isl osl candl piplib ${GMP_LIBRARIES})
+target_link_libraries(pluto INTERFACE isl osl candl piplib_dp polylib-gmp ${GMP_LIBRARIES})

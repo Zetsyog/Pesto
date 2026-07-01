@@ -69,3 +69,14 @@ test/polybench-4.2.1/tmp/
 
 # valgrind
 vgcore.*
+
+# Devenv
+.devenv*
+devenv.local.nix
+devenv.local.yaml
+
+# direnv
+.direnv
+
+# pre-commit
+.pre-commit-config.yaml

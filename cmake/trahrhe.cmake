@@ -1,33 +1,53 @@
+#
+# Pesto - A polyhedral loop nest optimizer
+#
+# SPDX-License-Identifier: MIT
+#
+# Copyright (c) 2024 Clément Rossetti
+#
+
 include(ExternalProject)
 
 # trahrhe
-message(STATUS "Fetchin trahrhe")
+message(STATUS "Fetching trahrhe")
 
 # Check if trahrhe dependencies are installed
 find_program(MAXIMA "maxima" REQUIRED)
 
 set(TRAHRHE_GIT_URL "https://gitlab.inria.fr/crossett/trahrhe-blitzcrank.git")
-set(TRAHRHE_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/trahrhe")
+set(TRAHRHE_PREFIX "${CMAKE_BINARY_DIR}/_deps/trahrhe")
+set(TRAHRHE_STATIC_LIB "${TRAHRHE_PREFIX}/install/${CMAKE_INSTALL_LIBDIR}/libtrahrhe.a")
+
+file(MAKE_DIRECTORY ${TRAHRHE_PREFIX}/install/include)
 
 message(STATUS "Barvinok path: ${BARVINOK_INSTALL_DIR}")
 
 message(STATUS "Using latest trahrhe from git")
-ExternalProject_Add(
-	trahrhe-src
-	GIT_REPOSITORY ${TRAHRHE_GIT_URL}
-	UPDATE_DISCONNECTED OFF
-	GIT_TAG 227506936adab830bb5c17c74ab43dcf36700d06
-	CMAKE_CACHE_ARGS
-		"-DBARVINOK_PATH:PATH=${BARVINOK_INSTALL_DIR}" #
-		"-DISL_INSTALL_PATH:PATH=${PLUTO_PREFIX}" #
-		"-DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_CURRENT_BINARY_DIR}/trahrhe" #
-	PREFIX ${TRAHRHE_PREFIX}
+externalproject_add(
+    trahrhe-src
+    GIT_REPOSITORY ${TRAHRHE_GIT_URL}
+    GIT_TAG 93ffd2456369b6854968733a7d0b3f542d86b174
+    PREFIX ${TRAHRHE_PREFIX}
+    SOURCE_DIR ${TRAHRHE_PREFIX}/src
+    BINARY_DIR ${TRAHRHE_PREFIX}/build
+    INSTALL_DIR ${TRAHRHE_PREFIX}/install
+    STAMP_DIR ${TRAHRHE_PREFIX}/stamp
+    LOG_DIR ${TRAHRHE_PREFIX}/log
+    CMAKE_CACHE_ARGS
+    "-DCMAKE_C_FLAGS:PATH=-I${POLYLIB_PREFIX}/install/include -L${POLYLIB_PREFIX}/install/lib"
+    "-DBARVINOK_PATH:PATH=${BARVINOK_INSTALL_DIR}"
+    "-DISL_INSTALL_PATH:PATH=${ISL_PREFIX}/install"
+    "-DCMAKE_INSTALL_PREFIX:PATH=<INSTALL_DIR>"
+    BUILD_BYPRODUCTS ${TRAHRHE_PREFIX}/install/bin/trahrhe
+    UPDATE_DISCONNECTED OFF
 )
-link_directories(${TRAHRHE_PREFIX}/lib)
-link_directories(${TRAHRHE_PREFIX}/lib64)
+add_dependencies(trahrhe-src barvinok-src isl-src polylib-src)
 
-add_dependencies(trahrhe-src barvinok-src)
-
-set(TRAHRHE_INCLUDE_DIRS ${TRAHRHE_PREFIX}/include)
-set(TRAHRHE_LIBRARIES ${BARVINOK_LIBRARIES} trahrhe m)
-message(STATUS "Trahrhe libraries: ${TRAHRHE_LIBRARIES}")
+add_library(trahrhe STATIC IMPORTED GLOBAL)
+add_dependencies(trahrhe trahrhe-src)
+set_target_properties(trahrhe PROPERTIES
+    IMPORTED_LOCATION ${TRAHRHE_STATIC_LIB}
+    INTERFACE_LINK_LIBRARIES ${TRAHRHE_STATIC_LIB}
+    INTERFACE_INCLUDE_DIRECTORIES ${TRAHRHE_PREFIX}/install/include
+)
+target_link_libraries(trahrhe INTERFACE barvinok polylib-gmp)

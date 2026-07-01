@@ -1,0 +1,28 @@
+/*
+ * Pesto - A polyhedral loop nest optimizer
+ *
+ * SPDX-License-Identifier: MIT
+ * Copyright (c) 2024 Clément Rossetti
+ */
+
+#include <pesto/pass/IslPass.hpp>
+#include <pesto/passbuilder/IslPB.hpp>
+
+using namespace pesto::builder;
+
+IslPB::IslPB() {
+	logger = log::get_logger("pb/isl");
+}
+
+IslPB::~IslPB() {}
+
+std::unique_ptr<pesto::pass::IPass> IslPB::build(PassManagerBuilder &builder, const json &j) {
+	using pesto::pass::IslPass;
+
+	(void)builder;
+	(void)j;
+
+	std::unique_ptr<IslPass> pass = std::make_unique<IslPass>();
+
+	return pass;
+}

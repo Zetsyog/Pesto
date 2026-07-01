@@ -178,7 +178,7 @@ flake.nix
 
 Using cli (*TODO*)
 
-## JSON interface
+### JSON configuration
 
 You can pass a json config file to the CLI interface.
 
@@ -239,9 +239,46 @@ cmake --build . --target pesto-unit-tests
 cmake --build . --target test-polybench
 ```
 
+### Tested benchmarks
+
+Polybench benchmarks status:
+
+| Benchmark                            | Algebraic Tiling   | Hybrid Tiling      | Trapezoidal Tiling | Status                                   |
+|--------------------------------------|--------------------|--------------------|--------------------|------------------------------------------|
+| `datamining/correlation`             | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `datamining/covariance`              | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/blas/gemm`           | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/blas/gemver`         | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/blas/gesummv`        | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/blas/symm`           | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/blas/syr2k`          | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/blas/syrk`           | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/blas/trmm`           | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/kernels/2mm`         | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/kernels/3mm`         | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/kernels/atax`        | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/kernels/bicg`        | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/kernels/doitgen`     | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/kernels/mvt`         | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/solvers/cholesky`    | :x:                | :x:                | :grey_question:    | :x: FAIL                                 |
+| `linear-algebra/solvers/durbin`      | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/solvers/gramschmidt` | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/solvers/lu`          | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `linear-algebra/solvers/ludcmp`      | :x:                | :x:                | :grey_question:    | :x: FAIL                                 |
+| `linear-algebra/solvers/trisolv`     | :x:                | :x:                | :grey_question:    | :x: FAIL                                 |
+| `medley/deriche`                     | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
+| `medley/floyd-warshall`              | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK (dynamic schedule) |
+| `medley/nussinov`                    | :x:                | :x:                | :grey_question:    | :x: FAIL                                 |
+| `stencils/adi`                       | :heavy_check_mark: | :x:                | :grey_question:    | :warning: Partial (hybrid is incorrect)  |
+| `stencils/fdtd-2d`                   | :grey_question:    | :grey_question:    | :heavy_check_mark: | :white_check_mark: OK (tpz)              |
+| `stencils/heat-3d`                   | :grey_question:    | :grey_question:    | :heavy_check_mark: | :white_check_mark: OK (tpz)              |
+| `stencils/jacobi-1d`                 | :grey_question:    | :grey_question:    | :heavy_check_mark: | :white_check_mark: OK (tpz)              |
+| `stencils/jacobi-2d`                 | :grey_question:    | :grey_question:    | :heavy_check_mark: | :white_check_mark: OK (tpz)              |
+| `stencils/seidel-2d`                 | :grey_question:    | :grey_question:    | :heavy_check_mark: | :white_check_mark: OK (tpz)              |
+
 ## Build for development
 
 ```bash
-cmake -B build -DPESTO_BUILD_JOBS=16 -DPESTO_TEST_POLYBENCH_DATASET=MEDIUM_DATASET -DPESTO_TEST_POLYBENCH_TILE_DIVIDER_MAX=16 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+cmake -B build -DPESTO_BUILD_JOBS=16 -DPESTO_TEST_POLYBENCH_DATASET=MEDIUM_DATASET -DPESTO_TEST_POLYBENCH_TILE_DIVIDER_MAX=16 -DCMAKE_BUILD_TYPE=Debug -DPESTO_TEST_POLYBENCH_RUNS_PER_BENCH=1 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 cmake --build build -j
 ```

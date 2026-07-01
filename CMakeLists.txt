@@ -1,14 +1,23 @@
+#
+# Pesto - A polyhedral loop nest optimizer
+#
+# SPDX-License-Identifier: MIT
+#
+# Copyright (c) 2024 Clément Rossetti
+#
+
+
 cmake_minimum_required(VERSION 3.22)
 project(pestoProject)
 
 function(dump_cmake_variables)
-	get_cmake_property(_variableNames VARIABLES)
-	list(SORT _variableNames)
-	foreach(_variableName ${_variableNames})
-		if((NOT DEFINED ARGV0) OR _variableName MATCHES ${ARGV0})
-			message(STATUS "${_variableName}=${${_variableName}}")
-		endif()
-	endforeach()
+    get_cmake_property(_variableNames VARIABLES)
+    list(SORT _variableNames)
+    foreach(_variableName ${_variableNames})
+        if((NOT DEFINED ARGV0) OR _variableName MATCHES ${ARGV0})
+            message(STATUS "${_variableName}=${${_variableName}}")
+        endif()
+    endforeach()
 endfunction()
 
 # Pesto version
@@ -24,15 +33,15 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 # Number of parallel builds to run (default: 1)
 set(PESTO_BUILD_JOBS
-	1
-	CACHE STRING "the number of parallel jobs used to build Pesto"
+    1
+    CACHE STRING "the number of parallel jobs used to build Pesto"
 )
 
 message(STATUS "Pesto will be compiled using up to ${PESTO_BUILD_JOBS} job(s)")
 
 # Default to Release build type
 if(NOT CMAKE_BUILD_TYPE)
-	set(CMAKE_BUILD_TYPE Release)
+    set(CMAKE_BUILD_TYPE Release)
 endif()
 
 # Set the C standard
@@ -59,14 +68,8 @@ find_package(BISON REQUIRED)
 # pkg-config packages
 pkg_check_modules(GMP REQUIRED gmp)
 
-# libpluto
-include(cmake/libpluto.cmake)
 
-# cloog
-include(cmake/cloog.cmake)
-
-# clan
-include(cmake/clan.cmake)
+# Miscellaneous dependencies
 
 # json
 include(cmake/json.cmake)
@@ -77,11 +80,41 @@ include(cmake/muparser.cmake)
 # gtest
 include(cmake/gtest.cmake)
 
+# spdlog
+include(cmake/spdlog.cmake)
+
+# Polyhedral libraries
+
+# piplib
+include(cmake/piplib.cmake)
+
+# osl
+include(cmake/osl.cmake)
+
+# candl
+include(cmake/candl.cmake)
+
+# polylib
+include(cmake/polylib.cmake)
+
+# isl
+include(cmake/isl.cmake)
+
+# libpluto
+include(cmake/libpluto.cmake)
+
+# cloog
+include(cmake/cloog.cmake)
+
+# clan
+include(cmake/clan.cmake)
+
 # barvinok
 include(cmake/barvinok.cmake)
 
 # trahrhe
 include(cmake/trahrhe.cmake)
+
 
 # ##################################################################################################
 # libpesto
@@ -89,54 +122,11 @@ include(cmake/trahrhe.cmake)
 add_subdirectory(lib)
 
 # ##################################################################################################
-# pestobin
-# ##################################################################################################
-add_subdirectory(tool)
-
-# ##################################################################################################
 # pesto-cli
 # ##################################################################################################
+add_subdirectory(cli)
+set(PESTO_CLI_BIN "${CMAKE_BINARY_DIR}/cli/pesto")
 
-# Define variable for the templates
-set(EXTRACT_SCOP_BIN "${CMAKE_BINARY_DIR}/extract_scop.sh")
-set(REPLACE_SCOP_BIN "${CMAKE_BINARY_DIR}/replace_scop.sh")
-set(TRAHRHE_WRAPPER_BIN "${CMAKE_BINARY_DIR}/trahrhe_wrapper.sh")
-set(PESTO_TOOL_BIN "${CMAKE_BINARY_DIR}/tool/pestobin")
-set(PESTO_CLI_BIN "${CMAKE_BINARY_DIR}/pesto")
-
-# Add bash scripts
-configure_file("${CMAKE_SOURCE_DIR}/extract_scop.sh" "${CMAKE_BINARY_DIR}" COPYONLY)
-configure_file("${CMAKE_SOURCE_DIR}/replace_scop.sh" "${CMAKE_BINARY_DIR}" COPYONLY)
-
-configure_file(
-	"${CMAKE_SOURCE_DIR}/pesto.in.sh" # input template file
-	${PESTO_CLI_BIN} # output file
-	FILE_PERMISSIONS
-	OWNER_READ
-	OWNER_WRITE
-	OWNER_EXECUTE
-	GROUP_READ
-	GROUP_EXECUTE
-	WORLD_READ
-	WORLD_EXECUTE
-	@ONLY
-)
-configure_file(
-	"${CMAKE_SOURCE_DIR}/trahrhe_wrapper.in.sh" # input template file
-	"${CMAKE_BINARY_DIR}/trahrhe_wrapper.sh" # output file
-	FILE_PERMISSIONS
-	OWNER_READ
-	OWNER_WRITE
-	OWNER_EXECUTE
-	GROUP_READ
-	GROUP_EXECUTE
-	WORLD_READ
-	WORLD_EXECUTE
-	@ONLY
-)
-
-add_custom_target(pesto-cli)
-add_dependencies(pesto-cli pestobin)
 
 # ##################################################################################################
 # Tests
@@ -148,49 +138,52 @@ add_subdirectory(test EXCLUDE_FROM_ALL)
 # ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} COMMENT
 # "Generating API documentation with Doxygen" VERBATIM ) endif()
 
+
+
+
 # ##################################################################################################
 # Installation
 # ##################################################################################################
 
 # Install libpesto
 install(
-	TARGETS pesto
-	EXPORT pestoTargets
-	LIBRARY DESTINATION lib
-	PUBLIC_HEADER DESTINATION include/
+    TARGETS pesto
+    EXPORT pestoTargets
+    LIBRARY DESTINATION lib
+    PUBLIC_HEADER DESTINATION include/
 )
 
-# Install pestobin
+# Install pesto-cli
 install(
-	TARGETS pestobin
-	RUNTIME DESTINATION bin
-	LIBRARY DESTINATION lib
-	ARCHIVE DESTINATION lib
+    TARGETS pesto-cli
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
 )
 # Install headers
 install(
-	DIRECTORY ${PESTO_SOURCE_HEADER_DIR}/
-	DESTINATION include
-	FILES_MATCHING
-	PATTERN "*.h"
-	PATTERN "*.hpp"
+    DIRECTORY ${PESTO_SOURCE_HEADER_DIR}/
+    DESTINATION include
+    FILES_MATCHING
+    PATTERN "*.h"
+    PATTERN "*.hpp"
 )
 install(
-	DIRECTORY ${PESTO_BINARY_HEADER_DIR}/
-	DESTINATION include
-	FILES_MATCHING
-	PATTERN "*.h"
-	PATTERN "*.hpp"
+    DIRECTORY ${PESTO_BINARY_HEADER_DIR}/
+    DESTINATION include
+    FILES_MATCHING
+    PATTERN "*.h"
+    PATTERN "*.hpp"
 )
 
 # install scripts
 install(
-	PROGRAMS #
-			 ${PESTO_CLI_BIN} #
-			 ${CMAKE_BINARY_DIR}/trahrhe_wrapper.sh #
-			 ${EXTRACT_SCOP_BIN} #
-			 ${REPLACE_SCOP_BIN}
-	TYPE BIN
+    PROGRAMS #
+    ${PESTO_CLI_BIN} #
+    ${CMAKE_BINARY_DIR}/trahrhe_wrapper.sh #
+    ${EXTRACT_SCOP_BIN} #
+    ${REPLACE_SCOP_BIN}
+    TYPE BIN
 )
 
 # Print configuration summary
