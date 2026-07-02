@@ -260,15 +260,15 @@ Polybench benchmarks status:
 | `linear-algebra/kernels/bicg`        | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
 | `linear-algebra/kernels/doitgen`     | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
 | `linear-algebra/kernels/mvt`         | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
-| `linear-algebra/solvers/cholesky`    | :x:                | :x:                | :grey_question:    | :x: FAIL                                 |
+| `linear-algebra/solvers/cholesky`    | :x:                | :x:                | :grey_question:    | :hole: unsupported                                 |
 | `linear-algebra/solvers/durbin`      | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
 | `linear-algebra/solvers/gramschmidt` | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
 | `linear-algebra/solvers/lu`          | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
-| `linear-algebra/solvers/ludcmp`      | :x:                | :x:                | :grey_question:    | :x: FAIL                                 |
-| `linear-algebra/solvers/trisolv`     | :x:                | :x:                | :grey_question:    | :x: FAIL                                 |
+| `linear-algebra/solvers/ludcmp`      | :x:                | :x:                | :grey_question:    | :hole: unsupported                                 |
+| `linear-algebra/solvers/trisolv`     | :x:                | :x:                | :grey_question:    | :hole: unsupported                                 |
 | `medley/deriche`                     | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
 | `medley/floyd-warshall`              | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK (dynamic schedule) |
-| `medley/nussinov`                    | :x:                | :x:                | :grey_question:    | :x: FAIL                                 |
+| `medley/nussinov`                    | :x:                | :x:                | :grey_question:    | :hole: unsupported                                 |
 | `stencils/adi`                       | :heavy_check_mark: | :x:                | :grey_question:    | :warning: Partial (hybrid is incorrect)  |
 | `stencils/fdtd-2d`                   | :grey_question:    | :grey_question:    | :heavy_check_mark: | :white_check_mark: OK (tpz)              |
 | `stencils/heat-3d`                   | :grey_question:    | :grey_question:    | :heavy_check_mark: | :white_check_mark: OK (tpz)              |

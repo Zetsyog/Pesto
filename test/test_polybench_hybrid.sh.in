@@ -18,12 +18,14 @@ BENCHMARKS=(
     "linear-algebra/kernels/bicg"
     "linear-algebra/kernels/doitgen"
     "linear-algebra/kernels/mvt"
-    # "linear-algebra/solvers/durbin"
+    # "linear-algebra/solvers/cholesky"  # unsupported
+    "linear-algebra/solvers/durbin"
     "linear-algebra/solvers/gramschmidt"
-    # "linear-algebra/solvers/lu"
-    # "linear-algebra/solvers/ludcmp"
-    # "linear-algebra/solvers/trisolv"
+    "linear-algebra/solvers/lu"
+    # "linear-algebra/solvers/ludcmp" # unsupported
+    # "linear-algebra/solvers/trisolv" # unsupported
     "medley/deriche"
+    "medley/floyd-warshall"
     # "medley/nussinov"
     # "stencils/adi" # adi is not working with hybrid tiling yet, needs to be fixed
 )
