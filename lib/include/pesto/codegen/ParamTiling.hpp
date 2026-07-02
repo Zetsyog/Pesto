@@ -121,8 +121,9 @@ class ParamTilingCodegen {
 	NameHelper &nameHelper;
 	NameHelper &trahrheNameHelper;
 
-	void genHeaderStmt(std::ostream &os);
-	void genBodyStmt(std::ostream &os);
+	void genStmtRectangular(std::ostream &os, StmtType type);
+	void genStmtAlgebraic(std::ostream &os, StmtType type);
+	void genStmtScheduled(std::ostream &os, StmtType type);
 
 	void genHeaderStmtAlgebraic(std::ostream &os);
 	void genBodyStmtAlgebraic(std::ostream &os);
