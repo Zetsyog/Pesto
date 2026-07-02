@@ -67,38 +67,81 @@ void ParamTilingCodegen::setVolumeCheckStrategy(VolumeCheckStrategy strategy) {
 }
 
 void ParamTilingCodegen::genStmt(std::ostream &os, StmtType type) {
+	switch (this->tilingType) {
+	case pesto::ParamTilingType::RECTANGULAR:
+		this->genStmtRectangular(os, type);
+		break;
+	case pesto::ParamTilingType::ALGEBRAIC:
+		this->genStmtAlgebraic(os, type);
+		break;
+	case pesto::ParamTilingType::SCHEDULED:
+		this->genStmtScheduled(os, type);
+		break;
+	case pesto::ParamTilingType::LAST_DIM_RECT: {
+		int outer_depth = clast_for_depth(&group.outermost_for->stmt, group.first_inner_for);
+		int inner_depth = clast_for_depth(&group.outermost_for->stmt, data.inner_for);
+		int max_depth = 0;
+		for (auto &d : this->group.tilingData) {
+			int depth = clast_for_depth(&group.outermost_for->stmt, d->inner_for) - outer_depth;
+			if (depth > max_depth) {
+				max_depth = depth;
+			}
+		}
+		int current_depth = inner_depth - outer_depth;
+		if (current_depth == max_depth && !data.outer_for->parallel) {
+			this->genStmtRectangular(os, type);
+		} else {
+			if (current_depth == max_depth && data.outer_for->parallel &&
+				type == StmtType::BODY) { // only warn once for the body statement
+				this->logger->warn("last-dim-rect tiling type is asked, but the innermost loop is tiled by a parallel "
+								   "loop. Algebraic tiling will be used instead.");
+			}
+			this->genStmtAlgebraic(os, type);
+		}
+		break;
+	}
+
+	default:
+		this->logger->error("Unknown tiling type");
+	}
+}
+
+void ParamTilingCodegen::genStmtRectangular(std::ostream &os, StmtType type) {
 	switch (type) {
 	case StmtType::HEAD:
-		this->genHeaderStmt(os);
+		this->genHeaderStmtRectangular(os);
 		break;
 	case StmtType::BODY:
-		this->genBodyStmt(os);
+		this->genBodyStmtRectangular(os);
 		break;
 	default:
 		this->logger->error("Unknown statement type");
 	}
 }
 
-void ParamTilingCodegen::genHeaderStmt(std::ostream &os) {
-	switch (this->tilingType) {
-	case pesto::ParamTilingType::RECTANGULAR:
-		this->genHeaderStmtRectangular(os);
-		break;
-	case pesto::ParamTilingType::ALGEBRAIC:
+void ParamTilingCodegen::genStmtAlgebraic(std::ostream &os, StmtType type) {
+	switch (type) {
+	case StmtType::HEAD:
 		this->genHeaderStmtAlgebraic(os);
 		break;
-	case pesto::ParamTilingType::SCHEDULED:
-		this->genHeaderStmtScheduled(os);
-		break;
-	case pesto::ParamTilingType::LAST_DIM_RECT:
-		if (this->tilingDepth == this->group.tilingData.size() - 1) {
-			this->genHeaderStmtRectangular(os);
-		} else {
-			this->genHeaderStmtAlgebraic(os);
-		}
+	case StmtType::BODY:
+		this->genBodyStmtAlgebraic(os);
 		break;
 	default:
-		this->logger->error("Unknown tiling type");
+		this->logger->error("Unknown statement type");
+	}
+}
+
+void ParamTilingCodegen::genStmtScheduled(std::ostream &os, StmtType type) {
+	switch (type) {
+	case StmtType::HEAD:
+		this->genHeaderStmtScheduled(os);
+		break;
+	case StmtType::BODY:
+		this->genBodyStmtScheduled(os);
+		break;
+	default:
+		this->logger->error("Unknown statement type");
 	}
 }
 
@@ -176,29 +219,6 @@ void ParamTilingCodegen::genHeaderStmtAlgebraic(std::ostream &os) {
 			os << "\t" << this->nameHelper.outerForUBName() << " = " << dynDividerName << " - 1;" << this->endline;
 		}
 		os << "}";
-	}
-}
-
-void ParamTilingCodegen::genBodyStmt(std::ostream &os) {
-	switch (this->tilingType) {
-	case pesto::ParamTilingType::RECTANGULAR:
-		this->genBodyStmtRectangular(os);
-		break;
-	case pesto::ParamTilingType::ALGEBRAIC:
-		this->genBodyStmtAlgebraic(os);
-		break;
-	case pesto::ParamTilingType::SCHEDULED:
-		this->genBodyStmtScheduled(os);
-		break;
-	case pesto::ParamTilingType::LAST_DIM_RECT:
-		if (this->tilingDepth == this->group.tilingData.size() - 1) {
-			this->genBodyStmtRectangular(os);
-		} else {
-			this->genBodyStmtAlgebraic(os);
-		}
-		break;
-	default:
-		this->logger->error("Unknown tiling type");
 	}
 }
 
