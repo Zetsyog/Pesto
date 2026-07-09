@@ -27,7 +27,7 @@
 #include <pesto/ir/OpenScopIR.hpp>
 #include <pesto/isl_support.h>
 #include <pesto/metadata/VarDecl.hpp>
-#include <pesto/pass/PlutoPass.hpp>
+#include <pesto/pass/Pluto.hpp>
 
 #define PLUTO_DEBUG 0
 #define PLUTO_QUIET 0

@@ -5,7 +5,7 @@
  * Copyright (c) 2024 Clément Rossetti
  */
 
-#include <pesto/pass/TpzTilingPass.hpp>
+#include <pesto/pass/TpzTiling.hpp>
 #include <pesto/passbuilder/TpzTilingPB.hpp>
 
 using namespace pesto::builder;

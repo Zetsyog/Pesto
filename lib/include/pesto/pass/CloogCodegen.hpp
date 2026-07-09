@@ -14,7 +14,7 @@
 
 #include <pesto/ir/OpenScopIR.hpp>
 #include <pesto/pass/Pass.hpp>
-#include <pesto/pass/clast/GenClastPass.hpp>
+#include <pesto/pass/clast/GenClast.hpp>
 
 namespace pesto {
 

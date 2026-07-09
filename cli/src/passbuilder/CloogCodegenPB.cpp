@@ -5,7 +5,7 @@
  * Copyright (c) 2024 Clément Rossetti
  */
 
-#include <pesto/pass/CodegenPasses.hpp>
+#include <pesto/pass/CloogCodegen.hpp>
 #include <pesto/passbuilder/CloogCodegenPB.hpp>
 #include <pesto/passbuilder/GenClastPB.hpp>
 

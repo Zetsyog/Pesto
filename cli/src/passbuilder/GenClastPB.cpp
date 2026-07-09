@@ -5,7 +5,7 @@
  * Copyright (c) 2024 Clément Rossetti
  */
 
-#include <pesto/pass/clast/GenClastPass.hpp>
+#include <pesto/pass/clast/GenClast.hpp>
 #include <pesto/passbuilder/GenClastPB.hpp>
 
 using namespace pesto::builder;

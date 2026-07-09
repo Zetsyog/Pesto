@@ -7,7 +7,7 @@
 
 #include <regex>
 
-#include <pesto/pass/OslPass.hpp>
+#include <pesto/pass/MatchCriteria.hpp>
 
 #include <pesto/osl_support.h>
 

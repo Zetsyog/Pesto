@@ -5,7 +5,7 @@
  * Copyright (c) 2024 Clément Rossetti
  */
 
-#include <pesto/pass/OslPass.hpp>
+#include <pesto/pass/ParamContext.hpp>
 #include <pesto/passbuilder/ParamContextPB.hpp>
 
 using namespace pesto::builder;

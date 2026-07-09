@@ -27,17 +27,17 @@ set(PESTO_SOURCES
     src/isl_support.c
     src/osl_support.c
     src/logging/Logging.cpp
-    src/pass/CloogPass.cpp
+    src/pass/CloogCodegen.cpp
     src/pass/CustomVecPragma.cpp
-    src/pass/DumpOslPass.cpp
-    src/pass/GenClastPass.cpp
-    src/pass/IslPass.cpp
-    src/pass/MatchCriteriaPass.cpp
-    src/pass/ParamContextPass.cpp
-    src/pass/ParamTilingPass.cpp
+    src/pass/DumpOsl.cpp
+    src/pass/GenClast.cpp
+    src/pass/IslTest.cpp
+    src/pass/MatchCriteria.cpp
+    src/pass/ParamContext.cpp
+    src/pass/ParamTiling.cpp
     src/pass/Pass.cpp
-    src/pass/PlutoPass.cpp
-    src/pass/TpzTilingPass.cpp
+    src/pass/Pluto.cpp
+    src/pass/TpzTiling.cpp
 
 )
 

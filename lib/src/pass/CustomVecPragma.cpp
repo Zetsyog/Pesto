@@ -8,7 +8,7 @@
 #include <pesto/clast_support.h>
 #include <pesto/ir/ClastIR.hpp>
 #include <pesto/pass/clast/CustomVecPragma.hpp>
-#include <pesto/pass/clast/GenClastPass.hpp>
+#include <pesto/pass/clast/GenClast.hpp>
 
 #include <functional>
 

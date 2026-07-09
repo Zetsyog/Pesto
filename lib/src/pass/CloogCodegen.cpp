@@ -14,8 +14,8 @@
 #include <pesto/ir/OpenScopIR.hpp>
 #include <pesto/metadata/Macro.hpp>
 #include <pesto/metadata/VarDecl.hpp>
-#include <pesto/pass/CodegenPasses.hpp>
-#include <pesto/pass/clast/GenClastPass.hpp>
+#include <pesto/pass/CloogCodegen.hpp>
+#include <pesto/pass/clast/GenClast.hpp>
 
 using namespace pesto;
 using namespace pesto::pass;

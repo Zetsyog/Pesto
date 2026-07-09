@@ -32,10 +32,10 @@
 #include <pesto/metadata/Macro.hpp>
 #include <pesto/metadata/VarDecl.hpp>
 #include <pesto/osl_support.h>
-#include <pesto/pass/CodegenPasses.hpp>
+#include <pesto/pass/CloogCodegen.hpp>
 #include <pesto/pass/Pass.hpp>
-#include <pesto/pass/PlutoPass.hpp>
-#include <pesto/pass/clast/ParamTilingPass.hpp>
+#include <pesto/pass/Pluto.hpp>
+#include <pesto/pass/clast/ParamTiling.hpp>
 
 using pesto::Bundle;
 using pesto::pass::ClastParamTilingPass;

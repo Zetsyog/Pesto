@@ -10,7 +10,7 @@
 #include <pesto/osl_support.h>
 
 #include <pesto/ir/OpenScopIR.hpp>
-#include <pesto/pass/OslPass.hpp>
+#include <pesto/pass/DumpOsl.hpp>
 
 using namespace pesto::pass;
 

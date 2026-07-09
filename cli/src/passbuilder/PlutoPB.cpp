@@ -5,7 +5,7 @@
  * Copyright (c) 2024 Clément Rossetti
  */
 
-#include <pesto/pass/PlutoPass.hpp>
+#include <pesto/pass/Pluto.hpp>
 #include <pesto/passbuilder/PlutoPB.hpp>
 
 using namespace pesto::builder;

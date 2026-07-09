@@ -19,7 +19,7 @@
 #include <pesto/clast_support.h>
 #include <pesto/codegen/ParamTiling.hpp>
 #include <pesto/config.h>
-#include <pesto/pass/clast/ParamTilingPass.hpp>
+#include <pesto/pass/clast/ParamTiling.hpp>
 
 #define INDENT_TABS(os, n)                                                                                             \
 	for (int i = 0; i < n; ++i)                                                                                        \

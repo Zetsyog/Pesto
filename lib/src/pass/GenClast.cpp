@@ -13,8 +13,8 @@
 #include <pesto/metadata/Macro.hpp>
 #include <pesto/metadata/VarDecl.hpp>
 #include <pesto/osl_support.h>
-#include <pesto/pass/CodegenPasses.hpp>
-#include <pesto/pass/clast/GenClastPass.hpp>
+#include <pesto/pass/CloogCodegen.hpp>
+#include <pesto/pass/clast/GenClast.hpp>
 
 using namespace pesto::pass;
 using namespace pesto;

@@ -52,11 +52,13 @@
 /*
 	Passes
 */
-#include <pesto/pass/CodegenPasses.hpp>
-#include <pesto/pass/IslPass.hpp>
-#include <pesto/pass/OslPass.hpp>
-#include <pesto/pass/PlutoPass.hpp>
-#include <pesto/pass/TpzTilingPass.hpp>
+#include <pesto/pass/CloogCodegen.hpp>
+#include <pesto/pass/DumpOsl.hpp>
+#include <pesto/pass/IslTest.hpp>
+#include <pesto/pass/MatchCriteria.hpp>
+#include <pesto/pass/ParamContext.hpp>
+#include <pesto/pass/Pluto.hpp>
+#include <pesto/pass/TpzTiling.hpp>
 #include <pesto/pass/clast/CustomVecPragma.hpp>
-#include <pesto/pass/clast/GenClastPass.hpp>
-#include <pesto/pass/clast/ParamTilingPass.hpp>
+#include <pesto/pass/clast/GenClast.hpp>
+#include <pesto/pass/clast/ParamTiling.hpp>

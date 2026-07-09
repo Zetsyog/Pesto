@@ -13,8 +13,8 @@
 #include <pesto/codegen/ParamTiling.hpp>
 
 #include <pesto/pass/Pass.hpp>
-#include <pesto/pass/PlutoPass.hpp>
-#include <pesto/pass/clast/GenClastPass.hpp>
+#include <pesto/pass/Pluto.hpp>
+#include <pesto/pass/clast/GenClast.hpp>
 
 #include <isl/set.h>
 

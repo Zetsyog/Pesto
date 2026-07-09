@@ -5,6 +5,7 @@
  * Copyright (c) 2024 Clément Rossetti
  */
 
+#include <algorithm>
 #include <vector>
 
 #include <isl/aff.h>
@@ -34,10 +35,9 @@
 #include <pesto/metadata/FileInfo.hpp>
 #include <pesto/metadata/Macro.hpp>
 #include <pesto/metadata/VarDecl.hpp>
-#include <pesto/pass/CodegenPasses.hpp>
-#include <pesto/pass/OslPass.hpp>
-#include <pesto/pass/PlutoPass.hpp>
-#include <pesto/pass/TpzTilingPass.hpp>
+#include <pesto/pass/CloogCodegen.hpp>
+#include <pesto/pass/Pluto.hpp>
+#include <pesto/pass/TpzTiling.hpp>
 
 using pesto::Bundle;
 using pesto::pass::TpzTilingPass;

@@ -5,7 +5,7 @@
  * Copyright (c) 2024 Clément Rossetti
  */
 
-#include <pesto/pass/IslPass.hpp>
+#include <pesto/pass/IslTest.hpp>
 #include <pesto/passbuilder/IslPB.hpp>
 
 using namespace pesto::builder;

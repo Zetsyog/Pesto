@@ -5,7 +5,7 @@
  * Copyright (c) 2024 Clément Rossetti
  */
 
-#include <pesto/pass/OslPass.hpp>
+#include <pesto/pass/DumpOsl.hpp>
 #include <pesto/passbuilder/DumpOsl.hpp>
 
 using namespace pesto::builder;
