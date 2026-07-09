@@ -150,7 +150,7 @@ void ParamTilingCodegen::genHeaderStmtRectangular(std::ostream &os) {
 	if (this->data.innerForLBExpr.length() > 0) {
 		os << " - (" << this->data.innerForLBExpr << ")";
 	}
-	os << ", " << this->nameHelper.divName() << ")";
+	os << ", " << this->nameHelper.divName() << ") - 1";
 }
 
 void ParamTilingCodegen::genHeaderStmtAlgebraic(std::ostream &os) {
@@ -226,9 +226,10 @@ void ParamTilingCodegen::genBodyStmtRectangular(std::ostream &os) {
 	os << this->nameHelper.innerForLBName() << " = " << this->nameHelper.divName() << " * " << this->outerFor.iterator;
 	os << "+" << this->data.innerForLBExpr << ";" << this->endline;
 
-	os << this->nameHelper.innerForUBName() << " = " << this->nameHelper.divName() << " * " << this->outerFor.iterator
-	   << " + " << this->nameHelper.divName() << " - 1";
+	os << this->nameHelper.innerForUBName() << " = min(" << this->nameHelper.divName() << " * "
+	   << this->outerFor.iterator << " + " << this->nameHelper.divName() << " - 1";
 	os << "+" << this->data.innerForLBExpr;
+	os << ", " << this->data.innerForUBExpr << ")";
 }
 
 void ParamTilingCodegen::genBodyStmtAlgebraic(std::ostream &os) {
