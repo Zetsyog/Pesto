@@ -186,7 +186,7 @@ class ClastParamTilingPass : public IPass {
 
 	void replaceOuterForBounds(StmtGroup &group, TilingData &data);
 
-	void generateStatements(CloogProgram *cloogProgram, StmtGroup &group);
+	void generateStatements(StmtGroup &group);
 
 	__isl_give isl_set *dropTilingConstraints(__isl_take isl_set *set, StmtGroup &group);
 
@@ -196,14 +196,13 @@ class ClastParamTilingPass : public IPass {
 
 	void declareGroupVariables(StmtGroup &group);
 
-	void computeTrahrheDomain(CloogProgram *cloogProgram, StmtGroup &group);
+	void computeTrahrheDomain(StmtGroup &group);
 
 	void updateOmpPragma(StmtGroup &group);
 
-	__isl_give isl_set *removeTilingDimensions(StmtGroup &group, __isl_take isl_set *domain, int maxTilingDepth);
+	__isl_give isl_set *removeTilingDimensions(StmtGroup &group, __isl_take isl_set *domain);
 
-	pesto::ptile::codegen::ParamTilingCodegen getCodegen(CloogProgram *cloogProgram, StmtGroup &group,
-														 TilingData &data);
+	pesto::ptile::codegen::ParamTilingCodegen getCodegen(StmtGroup &group, TilingData &data);
 
 	void computeTilingDataBoundExpr(CloogProgram *cloogProgram, StmtGroup &group, TilingData &data);
 

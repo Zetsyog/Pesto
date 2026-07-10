@@ -618,10 +618,10 @@ void ClastParamTilingPass::tileGroup(CloogProgram *cloogProgram, CloogOptions *c
 
 		this->replaceInnerForBounds(cloogProgram, group, *data);
 	}
-	this->computeTrahrheDomain(cloogProgram, group);
+	this->computeTrahrheDomain(group);
 
 	logger->debug("Generating stmts for group {}", group.id);
-	this->generateStatements(cloogProgram, group);
+	this->generateStatements(group);
 	this->declareGroupVariables(group);
 
 	// then we need to handle the parallel loop and update openmp pragma
@@ -775,6 +775,8 @@ void ClastParamTilingPass::replaceInnerForBounds(CloogProgram *cloogProgram, Stm
 }
 
 void ClastParamTilingPass::replaceOuterForBounds(StmtGroup &group, TilingData &data) {
+	(void)group;
+
 	struct clast_for *outer_for = data.outer_for;
 
 	free_clast_expr(outer_for->LB);
@@ -791,12 +793,12 @@ void ClastParamTilingPass::replaceOuterForBounds(StmtGroup &group, TilingData &d
 	this->names.push_back(ub_ptr);
 }
 
-void ClastParamTilingPass::generateStatements(CloogProgram *cloogProgram, StmtGroup &group) {
+void ClastParamTilingPass::generateStatements(StmtGroup &group) {
 	using StmtType = ptile::codegen::StmtType;
 
 	for (auto &data : group.tilingData) {
 		this->logger->debug("Generating statements... ({}, {})", data->head_stmt_id, data->body_stmt_id);
-		ptile::codegen::ParamTilingCodegen codegen = this->getCodegen(cloogProgram, group, *data);
+		ptile::codegen::ParamTilingCodegen codegen = this->getCodegen(group, *data);
 		for (std::size_t i = 0; i < 2; ++i) {
 			std::ostringstream oss;
 			codegen.genStmt(oss, i == 0 ? StmtType::HEAD : StmtType::BODY);
@@ -922,24 +924,13 @@ void ClastParamTilingPass::updateOmpPragma(StmtGroup &group) {
 	parallel_for->private_vars = strdup(privateVarsStr.c_str());
 }
 
-void ClastParamTilingPass::computeTrahrheDomain(CloogProgram *cloogProgram, StmtGroup &group) {
+void ClastParamTilingPass::computeTrahrheDomain(StmtGroup &group) {
 	int max_tiling_depth = 0;
 	for (auto &data : group.tilingData) {
 		max_tiling_depth = std::max(max_tiling_depth, data->tiling_depth);
 	}
 
 	isl_set *trahrheDomain = isl_set_copy(group.untiled_domain);
-
-	// // define param names
-	// for (int i = 0; i < cloogProgram->names->nb_parameters; i += 1) {
-	// 	trahrheDomain = isl_set_set_dim_name(trahrheDomain, isl_dim_param, i, cloogProgram->names->parameters[i]);
-	// }
-
-	// for (isl_size i = 0; i < isl_set_n_dim(trahrheDomain); i += 1) {
-	// 	trahrheDomain = isl_set_set_dim_name(trahrheDomain, isl_dim_set, i, cloogProgram->names->scattering[i]);
-	// }
-
-	// isl_set_dump(trahrheDomain);
 
 	// remove scalar dims
 	isl_size ndim = isl_set_dim(trahrheDomain, isl_dim_set);
@@ -950,10 +941,6 @@ void ClastParamTilingPass::computeTrahrheDomain(CloogProgram *cloogProgram, Stmt
 			ndim = isl_set_dim(trahrheDomain, isl_dim_set);
 		}
 	}
-
-	// trahrheDomain = this->moveNonTiledDimensionsToParameters(trahrheDomain, data, group);
-
-	// trahrheDomain = this->removeTilingDimensions(group, trahrheDomain, -1);
 
 	for (auto &itData : group.tilingData) {
 		trahrheDomain = isl_set_set_dim_name(trahrheDomain, isl_dim_set, itData->tiling_depth,
@@ -976,8 +963,8 @@ void ClastParamTilingPass::computeTrahrheDomain(CloogProgram *cloogProgram, Stmt
 	isl_set_free(trahrheDomain);
 }
 
-__isl_give isl_set *ClastParamTilingPass::removeTilingDimensions(StmtGroup &group, __isl_take isl_set *domain,
-																 int maxTilingDepth) {
+__isl_give isl_set *ClastParamTilingPass::removeTilingDimensions(StmtGroup &group, __isl_take isl_set *domain) {
+
 	// assert(ndim <= group.tilingData.size());
 	isl_ctx *ctx = isl_set_get_ctx(domain);
 	isl_options_set_on_error(ctx, ISL_ON_ERROR_ABORT);
@@ -1112,8 +1099,7 @@ __isl_give isl_set *ClastParamTilingPass::moveNonTiledDimensionsToParameters(__i
 	return domain;
 }
 
-pesto::ptile::codegen::ParamTilingCodegen ClastParamTilingPass::getCodegen(CloogProgram *cloogProgram, StmtGroup &group,
-																		   TilingData &data) {
+pesto::ptile::codegen::ParamTilingCodegen ClastParamTilingPass::getCodegen(StmtGroup &group, TilingData &data) {
 	ptile::codegen::ParamTilingCodegen codegen(group, data, this->id, isl_set_copy(group.untiled_domain));
 	codegen.setBoundComputeMethod(this->boundComputeMethod);
 	codegen.setBoundCorrectionStrategy(this->boundCorrectionStrategy);
@@ -1160,7 +1146,7 @@ void ClastParamTilingPass::clearTilingTypes() {
 void ClastParamTilingPass::computeTilingDataBoundExpr(CloogProgram *cloogProgram, StmtGroup &group, TilingData &data) {
 	using ptile::NameHelper;
 
-	logger->debug("Computing for loop bounds for tiling data {} of group {} ", data.id, group.id);
+	(void)cloogProgram;
 
 	// compute loop bound expr
 	std::string outerForIt = std::string(data.outer_for->iterator);
@@ -1177,6 +1163,9 @@ void ClastParamTilingPass::computeTilingDataBoundExpr(CloogProgram *cloogProgram
 				int depth = static_cast<size_t>(d->tiling_depth);
 				return depth == i;
 			});
+		if (dataIt == group.tilingData.end()) {
+			continue;
+		}
 		auto &data = *dataIt;
 
 		lbDomain = isl_set_set_dim_name(lbDomain, isl_dim_set, i, data->nameHelper->innerForLBName().c_str());
@@ -1247,7 +1236,7 @@ void ClastParamTilingPass::computeUntiledDomain(CloogProgram *cloogProgram, Stmt
 	// move non tiled dimensions to parameters
 	inner_domain = this->moveNonTiledDimensionsToParameters(inner_domain, group);
 
-	inner_domain = this->removeTilingDimensions(group, inner_domain, -1);
+	inner_domain = this->removeTilingDimensions(group, inner_domain);
 
 	assert(inner_domain != nullptr || "inner domain is null");
 	assert(!isl_set_is_empty(inner_domain));

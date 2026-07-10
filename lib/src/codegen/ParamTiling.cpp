@@ -41,6 +41,7 @@ ParamTilingCodegen::ParamTilingCodegen(StmtGroup &group, TilingData &data, int n
 	, volumeCheckThreshold("")
 	, nameHelper(*data.nameHelper)
 	, trahrheNameHelper(*data.trahrheNameHelper) {
+	(void)nestId;
 	this->innerDomain = isl_set_copy(innerDomain);
 	isl_set_free(innerDomain);
 	this->volumeCheckThreshold = this->nameHelper.divName() + " * 1000";
