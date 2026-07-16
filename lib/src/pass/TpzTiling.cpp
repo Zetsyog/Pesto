@@ -828,9 +828,9 @@ std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(osl_s
 	}
 	isl_map_list_free(schedule_list);
 
-	writes = isl_union_map_apply_domain(writes, isl_union_map_copy(named_schedules));
-	reads = isl_union_map_apply_domain(reads, isl_union_map_copy(named_schedules));
-
+	//writes = isl_union_map_apply_domain(writes, isl_union_map_copy(named_schedules));
+	//reads = isl_union_map_apply_domain(reads, isl_union_map_copy(named_schedules));
+	
 	// This is for debugging purposes
 	// std::cerr << "Domains: " << std::endl;
 	// isl_union_set_dump(domains);
@@ -879,9 +879,9 @@ std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(osl_s
 	isl_map_list_free(list);
 
 	isl_union_set *deltas = isl_union_map_deltas(isl_union_map_copy(sanitized_dep_flow));
-
+	
 	isl_set *set = isl_set_from_union_set(isl_union_set_copy(deltas));
-
+	
 	isl_map *proj = isl_set_identity(isl_set_copy(set));
 	if (isl_map_dim(proj, isl_dim_out) > 2) {
 		proj = isl_map_remove_dims(proj, isl_dim_out, 2, isl_map_dim(proj, isl_dim_out) - 2);
@@ -890,7 +890,7 @@ std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(osl_s
 	set = isl_set_apply(set, proj);
 	set = isl_set_drop_constraints_involving_dims(set, isl_dim_param, 0, isl_set_dim(set, isl_dim_param));
 
-	// isl_set_dump(set);
+	//isl_set_dump(set);
 
 	std::vector<pesto::maths::Vec2i> depDistanceVector;
 
@@ -935,10 +935,10 @@ std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(osl_s
 	}
 
 	// DEBUG
-	// std::cerr << "Dep vector list: " << std::endl;
-	// for (const auto &vec : depDistanceVector) {
-	// 	std::cerr << "(" << vec.x << ", " << vec.y << ")" << std::endl;
-	// }
+	std::cerr << "Dep vector list: " << std::endl;
+	for (const auto &vec : depDistanceVector) {
+		std::cerr << "(" << vec.x << ", " << vec.y << ")" << std::endl;
+         }
 
 	// Now we must check that all the vectors are contained in the cone of the vectors (1, 0) and (1, 1)
 	for (auto &vec : depDistanceVector) {
