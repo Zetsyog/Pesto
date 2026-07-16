@@ -475,7 +475,8 @@ __isl_give isl_space *Scop2Isl::islDomainSpaceFromStatement(osl_statement_p stmt
 	if (niter > 0) {
 		osl_body_p stmt_body = (osl_body_p)osl_generic_lookup(stmt->extension, OSL_URI_BODY);
 		if (stmt_body != nullptr) {
-			for (int i = 0; i < niter; i++) {
+			int nb_names = stmt_body ? osl_strings_size(stmt_body->iterators) : 0;
+			for (int i = 0; i < niter && i < nb_names; i++) {
 				space = isl_space_set_dim_name(space, isl_dim_set, i, stmt_body->iterators->string[i]);
 			}
 		}

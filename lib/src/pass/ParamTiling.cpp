@@ -6,6 +6,7 @@
  */
 
 #include <algorithm>
+#include <cstdio>
 #include <fstream>
 #include <memory>
 #include <optional>
@@ -20,6 +21,8 @@
 #include <isl/ctx.h>
 #include <isl/options.h>
 #include <isl/val.h>
+#include <isl/constraint.h>
+#include <isl/local_space.h>
 
 #include <trahrhe/trahrhe.h>
 
@@ -39,6 +42,46 @@
 
 using pesto::Bundle;
 using pesto::pass::ClastParamTilingPass;
+
+namespace {
+
+/* Trahrhe emits the polynomials of EVERY dimension of the domain it is given,
+ * including dimensions BORROWED from another group — which another header
+ * already defines. Guard each function by name: the first header to define it
+ * wins, later ones become no-ops. */
+std::string guardTrahrheHeader(const std::string &src) {
+	static const std::string kSig = "static inline long int ";
+
+	size_t first = src.find(kSig);
+	if (first == std::string::npos) {
+		return src;
+	}
+
+	std::string out = src.substr(0, first); /* prologue: #include, macros */
+
+	for (size_t pos = first; pos != std::string::npos;) {
+		size_t next = src.find(kSig, pos + kSig.size());
+		size_t end = (next == std::string::npos) ? src.size() : next;
+
+		size_t nameStart = pos + kSig.size();
+		size_t paren = src.find('(', nameStart);
+		std::string name = (paren == std::string::npos) ? "" : src.substr(nameStart, paren - nameStart);
+
+		if (name.empty()) {
+			out.append(src, pos, end - pos);
+		} else {
+			out += "#ifndef PESTO_TRAHRHE_FN_" + name + "\n";
+			out += "#define PESTO_TRAHRHE_FN_" + name + "\n";
+			out.append(src, pos, end - pos);
+			out += "#endif /* PESTO_TRAHRHE_FN_" + name + " */\n\n";
+		}
+
+		pos = next;
+	}
+	return out;
+}
+
+} // namespace
 
 pesto::pass::ClastParamTilingPass::ClastParamTilingPass()
 	: IPass("param-tiling")
@@ -222,9 +265,12 @@ Bundle pesto::pass::ClastParamTilingPass::apply(Bundle &&bundle) {
 			logger->debug("trahrhe level  = {}", pair.first);
 			logger->debug("trahrhe domain = {}", pair.second.c_str());
 
-			FILE *fp = fopen(header_path.c_str(), "w");
+			/* capture trahrhe's output in memory so we can guard it before writing */
+			char *trahrhe_buf = nullptr;
+			size_t trahrhe_buflen = 0;
+			FILE *fp = open_memstream(&trahrhe_buf, &trahrhe_buflen);
 			if (fp == NULL) {
-				logger->error("Error: Could not open file {}", header_filename.c_str());
+				logger->error("Error: Could not open memory stream for {}", header_filename.c_str());
 				if (trahrhe_expr != NULL) {
 					for (size_t i = 0; i < trahrhe_len; i++) {
 						if (trahrhe_expr[i] != NULL) {
@@ -236,7 +282,13 @@ Bundle pesto::pass::ClastParamTilingPass::apply(Bundle &&bundle) {
 				continue;
 			}
 			trahrhe_generate_header(trahrhe_ctx, fp, trahrhe_len, trahrhe_expr);
-			fclose(fp);
+			fclose(fp); /* flushes into trahrhe_buf */
+
+			std::ofstream ofs(header_path);
+			ofs << guardTrahrheHeader(std::string(trahrhe_buf, trahrhe_buflen));
+			ofs.close();
+			free(trahrhe_buf);
+
 			logger->info("Generated trahrhe header file: {}", header_filename.c_str());
 
 			bundle.add_byproduct(std::make_unique<pesto::bundle::byproduct::HeaderFile>(header_path));
@@ -607,6 +659,12 @@ void ClastParamTilingPass::tileGroup(CloogProgram *cloogProgram, CloogOptions *c
 		this->logger->debug("No tiled dimensions found in group");
 		return;
 	}
+	
+	if (group.tilingData.empty()) {
+		this->logger->debug("group {} shares all its tiling dimensions with another group, skipping", group.id);
+		isl_set_free(group_domain);
+		return;
+	}
 
 	// Then for each outer for (from outer most to inner most)
 	for (auto &data : group.tilingData) {
@@ -634,42 +692,52 @@ void ClastParamTilingPass::associateTilingFor(struct clast_root *root, StmtGroup
 	for (auto *stmt : group.stmts) {
 		for (struct clast_for *current_for = clast_get_parent_clast_for(&(root->stmt), &(stmt->stmt));
 			 current_for != NULL; current_for = clast_get_parent_clast_for(&(root->stmt), &(current_for->stmt))) {
-			struct clast_for *outer_for = clast_find_outer_tiling_for(&(root->stmt), current_for);
 
-			for (auto &data : group.tilingData) {
-				if (data->outer_for == outer_for || data->inner_for == current_for) {
-					// this for is already associated to a tiling data, we skip it
-					outer_for = nullptr;
-					break;
-				}
+			struct clast_for *outer_for = clast_find_outer_tiling_for(&(root->stmt), current_for);
+			if (outer_for == nullptr) {
+				continue; /* not a point loop of a tiled dimension */
 			}
 
-			if (outer_for == nullptr) {
+			auto shared = this->sharedTilingData_.find(outer_for);
+			if (shared != this->sharedTilingData_.end()) {
+				auto &fors = shared->second->inner_fors;
+				if (std::find(fors.begin(), fors.end(), current_for) == fors.end()) {
+					fors.push_back(current_for);
+				}
+
+				bool owned = std::any_of(group.tilingData.begin(), group.tilingData.end(),
+				                         [&](const std::unique_ptr<TilingData> &d) { return d.get() == shared->second; });
+				if (!owned && std::find(group.borrowedTilingData.begin(), group.borrowedTilingData.end(),
+				                        shared->second) == group.borrowedTilingData.end()) {
+					logger->debug("group {} borrows tiling data '{}' from another group", group.id,
+					              shared->second->inner_for->iterator);
+					group.borrowedTilingData.push_back(shared->second);
+				}
 				continue;
 			}
-
+			
 			auto data = std::make_unique<TilingData>();
 			data->id = group.tilingData.size();
 			data->outer_for = outer_for;
 			data->inner_for = current_for;
+			data->inner_fors.push_back(current_for);
 
-			data->tiling_depth = this->computeDataTilingDepth(group, *data);
-
+			this->sharedTilingData_[outer_for] = data.get();
 			group.tilingData.push_back(std::move(data));
 		}
 	}
 
 	// compute tiling depth for each tiling data
 	for (auto &data : group.tilingData) {
-		data->tiling_depth = this->computeDataTilingDepth(group, *data);
+		data->tiling_depth = this->computeDataTilingDepth(root, group, *data);
 
 		// create name helper for this tiling data
 		data->nameHelper = std::make_unique<ptile::NameHelper>(data->tiling_depth, data->outer_for->iterator,
-															   data->inner_for->iterator);
-		data->nameHelper->setPrefix("g" + std::to_string(group.id) + "_id" + std::to_string(data->id));
-
+											data->inner_for->iterator);
+		data->nameHelper = std::make_unique<ptile::NameHelper>(data->tiling_depth, data->outer_for->iterator,
+											data->inner_for->iterator);
 		data->trahrheNameHelper = std::make_unique<ptile::NameHelper>(data->tiling_depth, data->outer_for->iterator,
-																	  data->inner_for->iterator);
+											data->inner_for->iterator);
 		data->trahrheNameHelper->setPrefix("g" + std::to_string(group.id) + data->nameHelper->getSeparator() + "id" +
 										   std::to_string(data->id));
 	}
@@ -679,6 +747,16 @@ void ClastParamTilingPass::associateTilingFor(struct clast_root *root, StmtGroup
 			  [](const std::unique_ptr<TilingData> &a, const std::unique_ptr<TilingData> &b) {
 				  return a->tiling_depth < b->tiling_depth; // sort by depth of the outer for, ascending
 			  });
+			  
+	std::sort(group.tilingData.begin(), group.tilingData.end(),
+	          [](const std::unique_ptr<TilingData> &a, const std::unique_ptr<TilingData> &b) {
+		          return a->tiling_depth < b->tiling_depth;
+	          });
+
+	/* id must follow the sorted order, otherwise g<g>_id<n> has no relation to depth */
+	for (size_t n = 0; n < group.tilingData.size(); n++) {
+		group.tilingData[n]->id = n;
+	}		  
 
 	logger->debug("Tiling data for group {}:", group.id);
 	for (auto &data : group.tilingData) {
@@ -728,49 +806,50 @@ void ClastParamTilingPass::insertStatements(CloogOptions *cloogOptions, struct c
 }
 
 void ClastParamTilingPass::replaceInnerForBounds(CloogProgram *cloogProgram, StmtGroup &group, TilingData &data) {
-	struct clast_for *inner_for = data.inner_for;
+	for (struct clast_for *inner_for : data.inner_fors) {
 
-	free_clast_expr(inner_for->LB);
-	free_clast_expr(inner_for->UB);
-	inner_for->LB = NULL;
-	inner_for->UB = NULL;
+		free_clast_expr(inner_for->LB);
+		free_clast_expr(inner_for->UB);
+		inner_for->LB = NULL;
+		inner_for->UB = NULL;
 
-	isl_set *domain = isl_set_copy(isl_set_from_cloog_domain(inner_for->domain));
-	domain = this->dropTilingConstraints(domain, group);
+		isl_set *domain = isl_set_copy(isl_set_from_cloog_domain(inner_for->domain));
+		domain = this->dropTilingConstraints(domain, group);
 
-	isl_size ndim = isl_set_dim(domain, isl_dim_set);
+		isl_size ndim = isl_set_dim(domain, isl_dim_set);
 
-	inner_for->LB = clast_bound_from_isl_set(cloogProgram->names, domain, 0, ndim - 1);
-	inner_for->UB = clast_bound_from_isl_set(cloogProgram->names, domain, 1, ndim - 1);
+		inner_for->LB = clast_bound_from_isl_set(cloogProgram->names, domain, 0, ndim - 1);
+		inner_for->UB = clast_bound_from_isl_set(cloogProgram->names, domain, 1, ndim - 1);
 
-	isl_set_free(domain);
+		isl_set_free(domain);
 
-	auto lb_ptr = std::make_shared<std::string>(data.nameHelper->innerForLBName());
-	struct clast_name *param_lb = new_clast_name(lb_ptr->c_str());
-	this->names.push_back(lb_ptr);
+		/* one fresh clast_name per sibling: clast nodes are owned by the tree
+		 * and freed individually — sharing a pointer would double-free */
+		auto lb_ptr = std::make_shared<std::string>(data.nameHelper->innerForLBName());
+		struct clast_name *param_lb = new_clast_name(lb_ptr->c_str());
+		this->names.push_back(lb_ptr);
 
-	auto ub_ptr = std::make_shared<std::string>(data.nameHelper->innerForUBName());
-	struct clast_name *param_ub = new_clast_name(ub_ptr->c_str());
-	this->names.push_back(ub_ptr);
+		auto ub_ptr = std::make_shared<std::string>(data.nameHelper->innerForUBName());
+		struct clast_name *param_ub = new_clast_name(ub_ptr->c_str());
+		this->names.push_back(ub_ptr);
 
-	if (inner_for->LB != NULL) {
-		struct clast_reduction *red = NULL;
-		red = new_clast_reduction(clast_red_max, 2);
-		red->elts[0] = inner_for->LB;
-		red->elts[1] = (struct clast_expr *)param_lb;
-		inner_for->LB = (struct clast_expr *)red;
-	} else {
-		inner_for->LB = (struct clast_expr *)param_lb;
-	}
+		if (inner_for->LB != NULL) {
+			struct clast_reduction *red = new_clast_reduction(clast_red_max, 2);
+			red->elts[0] = inner_for->LB;
+			red->elts[1] = (struct clast_expr *)param_lb;
+			inner_for->LB = (struct clast_expr *)red;
+		} else {
+			inner_for->LB = (struct clast_expr *)param_lb;
+		}
 
-	if (inner_for->UB != NULL) {
-		struct clast_reduction *red = NULL;
-		red = new_clast_reduction(clast_red_min, 2);
-		red->elts[0] = inner_for->UB;
-		red->elts[1] = (struct clast_expr *)param_ub;
-		inner_for->UB = (struct clast_expr *)red;
-	} else {
-		inner_for->UB = (struct clast_expr *)param_ub;
+		if (inner_for->UB != NULL) {
+			struct clast_reduction *red = new_clast_reduction(clast_red_min, 2);
+			red->elts[0] = inner_for->UB;
+			red->elts[1] = (struct clast_expr *)param_ub;
+			inner_for->UB = (struct clast_expr *)red;
+		} else {
+			inner_for->UB = (struct clast_expr *)param_ub;
+		}
 	}
 }
 
@@ -825,8 +904,9 @@ isl_set *ClastParamTilingPass::dropTilingConstraints(__isl_take isl_set *set, St
 	// dimensions
 	// but from the inner most to the outer most
 	// so we sort the tiling_for pair by descending depth of the outer for
-	for (auto riter = group.tilingData.rbegin(); riter != group.tilingData.rend(); ++riter) {
-		auto &data = *riter;
+	auto all = group.allTilingData();
+	for (auto riter = all.rbegin(); riter != all.rend(); ++riter) {
+		auto *data = *riter;
 
 		int ndim = isl_set_dim(isl_set_from_cloog_domain(data->outer_for->domain), isl_dim_set);
 
@@ -876,14 +956,15 @@ void ClastParamTilingPass::updateOmpPragma(StmtGroup &group) {
 
 	// then we need to update the pragma so it can handle custom directives
 	parallel_for->parallel = CLAST_PARALLEL_OMP | CLAST_PARALLEL_USER;
+	auto &nameHelper = group.tilingData[tiling_depth]->nameHelper;   /* [0] en dur actuellement */
+
 	std::string userDirectiveStr = "omp parallel for firstprivate(";
-
-	auto &nameHelper = group.tilingData[0]->nameHelper;
-
-	// omp firstprivate directive
-	userDirectiveStr += nameHelper->outerForUBName() + ", ";
-	userDirectiveStr += nameHelper->pcMaxName() + ", ";
-	userDirectiveStr += nameHelper->targetVolName() + ") \\\n";
+	userDirectiveStr += nameHelper->outerForUBName();
+	if (this->getTilingType(tiling_depth) != ParamTilingType::RECTANGULAR) {
+		userDirectiveStr += ", " + nameHelper->pcMaxName();
+		userDirectiveStr += ", " + nameHelper->targetVolName();
+	}
+	userDirectiveStr += ") \\\n";
 
 	parallel_for->user_directive = strdup(userDirectiveStr.c_str());
 
@@ -942,7 +1023,7 @@ void ClastParamTilingPass::computeTrahrheDomain(StmtGroup &group) {
 		}
 	}
 
-	for (auto &itData : group.tilingData) {
+	for (auto *itData : group.allTilingData()) {
 		trahrheDomain = isl_set_set_dim_name(trahrheDomain, isl_dim_set, itData->tiling_depth,
 											 itData->trahrheNameHelper->trahrheIteratorName().c_str());
 	}
@@ -990,7 +1071,7 @@ __isl_give isl_set *ClastParamTilingPass::removeTilingDimensions(StmtGroup &grou
 		int inner_idx = -1;
 		bool should_skip = false;
 		// look if this dimension corresponds to an inner tiling iterator
-		for (auto &itData : group.tilingData) {
+		for (auto *itData : group.allTilingData()) {
 			int itOuterIdx = isl_map_find_dim_by_name(trans, isl_dim_in, itData->outer_for->iterator);
 			int itInnerIdx = isl_map_find_dim_by_name(trans, isl_dim_in, itData->inner_for->iterator);
 			if (itInnerIdx != -1 && itOuterIdx == i) {
@@ -1064,7 +1145,7 @@ __isl_give isl_set *ClastParamTilingPass::moveNonTiledDimensionsToParameters(__i
 		bool should_move = true;
 		int innermost_outer_tiling_dim_idx = 0;
 		// search if this dimension is tiled
-		for (auto &it_data : group.tilingData) {
+		for (auto *it_data : group.allTilingData()) {
 			int in_idx = -1;
 			in_idx = isl_set_find_dim_by_name(domain, isl_dim_set, it_data->inner_for->iterator);
 
@@ -1145,39 +1226,89 @@ void ClastParamTilingPass::clearTilingTypes() {
 
 void ClastParamTilingPass::computeTilingDataBoundExpr(CloogProgram *cloogProgram, StmtGroup &group, TilingData &data) {
 	using ptile::NameHelper;
-
 	(void)cloogProgram;
 
-	// compute loop bound expr
-	std::string outerForIt = std::string(data.outer_for->iterator);
-	isl_set *innerDomain = isl_set_copy(group.untiled_domain);
+	isl_set *domain = isl_set_copy(group.untiled_domain);
+	
+	logger->debug("computeTilingDataBoundExpr: group {} id {} depth {} outer '{}' inner '{}'", group.id, data.id,
+	              data.tiling_depth, data.outer_for->iterator, data.inner_for->iterator);
 
-	isl_set *lbDomain = isl_set_copy(group.untiled_domain);
-	isl_set *ubDomain = isl_set_copy(group.untiled_domain);
+	/* Enclosing tiled dimensions are confined to their tile: lbX <= tX <= ubX.
+	 * Add lbX/ubX as PARAMETERS, constrain tX, then PROJECT tX out.
+	 *
+	 * Do NOT simply rename tX to lbX for the lower bound and to ubX for the
+	 * upper bound: that silently assumes tX appears with a positive coefficient.
+	 * knuth has "t7 >= 2 - t5" (negative coefficient), where the minimum of t7
+	 * over the tile is reached at t5 = ubt5, not lbt5. Fourier-Motzkin picks the
+	 * right extremum from the sign; a rename cannot. */
+	int myDim = isl_set_find_dim_by_name(domain, isl_dim_set, data.inner_for->iterator);
+	if (myDim < 0) {
+		logger->error("computeTilingDataBoundExpr: dim '{}' not found in untiled domain",
+		              data.inner_for->iterator);
+		isl_set_free(domain);
+		return;
+	}
 
-	isl_size ndim = isl_set_dim(lbDomain, isl_dim_set);
-	for (isl_size i = 0; i < ndim; i += 1) {
-		// find tiling data of depth i
-		auto dataIt =
-			std::find_if(group.tilingData.begin(), group.tilingData.end(), [i](const std::unique_ptr<TilingData> &d) {
-				int depth = static_cast<size_t>(d->tiling_depth);
-				return depth == i;
-			});
-		if (dataIt == group.tilingData.end()) {
-			continue;
+	for (isl_size i = isl_set_dim(domain, isl_dim_set) - 1; i >= 0; i -= 1) {
+
+		if (i == myDim) {
+			continue; /* the dimension we are computing bounds for */
 		}
-		auto &data = *dataIt;
 
-		lbDomain = isl_set_set_dim_name(lbDomain, isl_dim_set, i, data->nameHelper->innerForLBName().c_str());
-		ubDomain = isl_set_set_dim_name(ubDomain, isl_dim_set, i, data->nameHelper->innerForUBName().c_str());
+		if (i < myDim) {
+			/* Enclosing dimension: it is confined to its tile. Add lbX <= tX <= ubX
+			 * as parameters BEFORE eliminating tX, so our bounds are expressed in
+			 * terms of the tile, not of tX's full range.
+			 *
+			 * Do NOT rename tX to lbX (resp. ubX) for the lower (resp. upper) bound:
+			 * that silently assumes tX has a positive coefficient. knuth has
+			 * "t7 >= 2 - t5", where min(t7) over the tile is reached at t5 = ubt5.
+			 * Fourier-Motzkin picks the right extremum from the sign; a rename cannot. */
+			auto all = group.allTilingData();
+			auto it = std::find_if(all.begin(), all.end(), [&](const TilingData *d) {
+				return isl_set_find_dim_by_name(domain, isl_dim_set, d->inner_for->iterator) == i;
+			});
+
+			if (it != all.end()) {
+				const std::string lbName = (*it)->nameHelper->innerForLBName();
+				const std::string ubName = (*it)->nameHelper->innerForUBName();
+
+				isl_size nparam = isl_set_dim(domain, isl_dim_param);
+				domain = isl_set_add_dims(domain, isl_dim_param, 2);
+				domain = isl_set_set_dim_name(domain, isl_dim_param, nparam, lbName.c_str());
+				domain = isl_set_set_dim_name(domain, isl_dim_param, nparam + 1, ubName.c_str());
+
+				isl_local_space *ls = isl_local_space_from_space(isl_set_get_space(domain));
+
+				/* tX - lbX >= 0 */
+				isl_constraint *cLb = isl_constraint_alloc_inequality(isl_local_space_copy(ls));
+				cLb = isl_constraint_set_coefficient_si(cLb, isl_dim_set, i, 1);
+				cLb = isl_constraint_set_coefficient_si(cLb, isl_dim_param, nparam, -1);
+				domain = isl_set_add_constraint(domain, cLb);
+
+				/* ubX - tX >= 0 */
+				isl_constraint *cUb = isl_constraint_alloc_inequality(isl_local_space_copy(ls));
+				cUb = isl_constraint_set_coefficient_si(cUb, isl_dim_set, i, -1);
+				cUb = isl_constraint_set_coefficient_si(cUb, isl_dim_param, nparam + 1, 1);
+				domain = isl_set_add_constraint(domain, cUb);
+
+				isl_local_space_free(ls);
+			}
+		}
+
+		/* Every other dimension goes too — inner tiled ones AND untiled ones (t9).
+		 * Leaving them in lets isl express our bounds in terms of them. */
+		domain = isl_set_project_out(domain, isl_dim_set, i, 1);
+		if (i < myDim) {
+			myDim -= 1;
+		}
 	}
 
 	isl_printer *printer = isl_printer_to_str(this->ctx);
-
 	printer = isl_printer_set_output_format(printer, ISL_FORMAT_C);
 
-	isl_pw_aff *lb = isl_set_dim_lower_bound(isl_set_copy(lbDomain), data.tiling_depth);
-	isl_pw_aff *ub = isl_set_dim_upper_bound(isl_set_copy(ubDomain), data.tiling_depth);
+	isl_pw_aff *lb = isl_set_dim_lower_bound(isl_set_copy(domain), myDim);
+	isl_pw_aff *ub = isl_set_dim_upper_bound(isl_set_copy(domain), myDim);
 
 	printer = isl_printer_print_pw_aff(printer, lb);
 	char *lbStr = isl_printer_get_str(printer);
@@ -1189,31 +1320,39 @@ void ClastParamTilingPass::computeTilingDataBoundExpr(CloogProgram *cloogProgram
 
 	data.innerForLBExpr = std::string(lbStr);
 	data.innerForUBExpr = std::string(ubStr);
+	
+	logger->debug("  '{}' bounds: LB = {}   UB = {}", data.inner_for->iterator, data.innerForLBExpr,
+	              data.innerForUBExpr);
 
 	free(lbStr);
 	free(ubStr);
-
 	isl_pw_aff_free(lb);
 	isl_pw_aff_free(ub);
-
 	isl_printer_free(printer);
-
-	isl_set_free(lbDomain);
-	isl_set_free(ubDomain);
-
-	isl_set_free(innerDomain);
+	isl_set_free(domain);
 }
 
-int ClastParamTilingPass::computeDataTilingDepth(StmtGroup &group, TilingData &data) {
+int ClastParamTilingPass::computeDataTilingDepth(struct clast_root *root, StmtGroup &group, TilingData &data) {
 	int depth = 0;
-	for (auto &itData : group.tilingData) {
+
+	auto countIfEncloses = [&](TilingData *itData) {
 		if (itData->outer_for == data.outer_for) {
-			continue;
+			return;
 		}
-		if (clast_is_parent_clast_for(&(group.outermost_for->stmt), itData->outer_for, data.outer_for)) {
+		/* rooted at the CLAST root, not at group.outermost_for: a borrowed tiling
+		 * dimension lives outside this group's subtree and would never be found. */
+		if (clast_is_parent_clast_for(&(root->stmt), itData->outer_for, data.outer_for)) {
 			depth += 1;
 		}
+	};
+
+	for (auto &itData : group.tilingData) {
+		countIfEncloses(itData.get());
 	}
+	for (auto *itData : group.borrowedTilingData) {
+		countIfEncloses(itData);
+	}
+
 	return depth;
 }
 

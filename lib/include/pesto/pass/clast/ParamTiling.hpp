@@ -9,6 +9,8 @@
 
 #include <filesystem>
 #include <optional>
+#include <map>
+#include <vector>
 
 #include <pesto/codegen/ParamTiling.hpp>
 
@@ -38,7 +40,14 @@ enum class VolumeCheckTrigger {
 struct TilingData {
 	int id;
 	struct clast_for *outer_for;
-	struct clast_for *inner_for;
+	struct clast_for *inner_for;   /* representative: inner_fors.front() */
+	/**
+	 * All point loops on this tiled dimension.
+	 * Pluto's intra-tile optimisation can fission the tile body, leaving several
+	 * sibling clast_for on the same scattering dimension. All of them must get
+	 * the same rewritten bounds.
+	 */
+	std::vector<struct clast_for *> inner_fors;
 	int tiling_depth;
 	unsigned int head_stmt_id;
 	unsigned int body_stmt_id;
@@ -83,6 +92,27 @@ struct StmtGroup {
 	 * A vector of TilingData
 	 */
 	std::vector<std::unique_ptr<TilingData>> tilingData;
+	
+	/** TilingData owned by another group but enclosing this group's statements.
+	 *  Their constraints must be dropped and their lb/ub added as parameters,
+	 *  exactly like our own — otherwise Trahrhe emits Pluto's raw tile index. */
+	std::vector<TilingData *> borrowedTilingData;
+	
+	/** Owned + borrowed. Every tiling dimension that ENCLOSES this group's
+	 *  statements, regardless of which group owns its partition.
+	 *  Use this everywhere the tiling STRUCTURE is inspected. Use tilingData
+	 *  alone only where code is GENERATED (a group emits only its own). */
+	std::vector<TilingData *> allTilingData() const {
+		std::vector<TilingData *> all;
+		all.reserve(tilingData.size() + borrowedTilingData.size());
+		for (auto &d : tilingData) {
+			all.push_back(d.get());
+		}
+		for (auto *d : borrowedTilingData) {
+			all.push_back(d);
+		}
+		return all;
+	}
 
 	/**
 	 * Holds domain information to pass to trahrhe software
@@ -152,6 +182,16 @@ class ClastParamTilingPass : public IPass {
 	std::vector<std::shared_ptr<std::string>> names; /* those string should survive till the end of pesto */
 
 	std::vector<std::pair<int, std::string>> trahrheDomainList_; /* trahrhe domains */
+	
+	/**
+	 * Tiling dimensions already claimed, keyed by their tile loop.
+	 * Non-owning: the TilingData lives in the owning group's vector.
+	 * Several groups can share one tile loop (Pluto emits a single t4 loop
+	 * enclosing both the init loop and the compute nest); they must share
+	 * ONE partition, otherwise the OpenMP loop bound and the tile bounds
+	 * come from different Ehrhart polynomials.
+	 */
+	std::map<struct clast_for *, TilingData *> sharedTilingData_;
 
 	/* code gen */
 	int id;
@@ -206,7 +246,7 @@ class ClastParamTilingPass : public IPass {
 
 	void computeTilingDataBoundExpr(CloogProgram *cloogProgram, StmtGroup &group, TilingData &data);
 
-	int computeDataTilingDepth(StmtGroup &group, TilingData &data);
+	int computeDataTilingDepth(struct clast_root *root, StmtGroup &group, TilingData &data);
 
 	void computeUntiledDomain(CloogProgram *cloogProgram, StmtGroup &group);
 };

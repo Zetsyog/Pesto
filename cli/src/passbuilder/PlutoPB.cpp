@@ -52,6 +52,14 @@ std::unique_ptr<pesto::pass::IPass> PlutoPB::build(PassManagerBuilder &builder, 
 
 	// special iterator member functions for objects
 	for (auto &[key, val] : options.items()) {
+		if (key == "check_legality") {
+			if (!val.is_boolean()) {
+				logger->error("'check_legality' must be a boolean.");
+				throw std::invalid_argument("'check_legality' must be a boolean.");
+			}
+			pass->setCheckLegality(val);
+			continue;
+		}
 		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), tile);
 		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), intratileopt);
 		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), diamondtile);
