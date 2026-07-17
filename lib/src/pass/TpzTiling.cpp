@@ -254,9 +254,12 @@ void TpzTilingPass::insertOuterForLoop(Bundle &bundle, std::vector<ptile::ClastT
 			clast_insert_enclosing_for(&(root->stmt), &(outermostFor->stmt), enclosingDomain);
 
 		// Set iterator name
-		std::unique_ptr<std::string> it_name = std::make_unique<std::string>("z" + std::string(it->innerFor->iterator));
+		const char *innerItName = it->innerFor->iterator;
+		std::string innerItSafe = innerItName ? std::string(innerItName)
+		                                      : ("d" + std::to_string(it->depth));
+		std::unique_ptr<std::string> it_name = std::make_unique<std::string>("z" + innerItSafe);
 
-		NameHelper nameHelper = NameHelper(it->depth, *it_name, it->innerFor->iterator);
+		NameHelper nameHelper = NameHelper(it->depth, *it_name, innerItSafe.c_str());
 
 		std::unique_ptr<std::string> lbName = std::make_unique<std::string>(nameHelper.outerForLBName());
 		std::unique_ptr<std::string> ubName = std::make_unique<std::string>(nameHelper.outerForUBName());
@@ -491,9 +494,14 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 			stmtStr += "}" + std::string("");
 
 			// volume check (fail if the target volume is too small)
-			stmtStr += "if(" + nameHelper.innerForUBName() + " - " + nameHelper.innerForLBName() + " + 1 < floord(" +
-					   std::to_string(slope.y) + " * " + rootHelper.divName() + ", " + std::to_string(slope.x) +
-					   ") && (" + pair.outerFor->iterator + " != " + nameHelper.outerForUBName() + ") && (" +
+			// volume check: a trapezoid must be at least as TALL (in y) as the
+			// band is WIDE (in x), otherwise the diagonal cut cannot span the
+			// band. Using the actual band width is correct for any cone slope;
+			// the previous floord(slope.y*DIV, slope.x) degenerated to 0 when
+			// slope.y was 0 (e.g. nussinov), disabling the check.
+			stmtStr += "if(" + nameHelper.innerForUBName() + " - " + nameHelper.innerForLBName() +
+					   " + 1 < (" + rootHelper.innerForUBName() + " - " + rootHelper.innerForLBName() +
+					   " + 1) && (" + pair.outerFor->iterator + " != " + nameHelper.outerForUBName() + ") && (" +
 					   nameHelper.outerForUBName() + " > 1)) {";
 			stmtStr += "fprintf(stderr, \"Error: Target volume too small.\\n(" + //
 					   nameHelper.targetVolName() + ", " +						 // target volume
@@ -577,7 +585,35 @@ __isl_give isl_set *TpzTilingPass::computeInnerDomain(pesto::ir::ClastIR &clastI
 
 	free(userStmts);
 
-	isl_set *set = isl_set_from_union_set(domain);
+	// Multi-statement scops give a union of domains with different
+	// dimensionality (e.g. nussinov: a 3-D statement inside the k-loop and a
+	// 2-D one outside). isl_set_from_union_set requires one space and crashes.
+	// The trapezoidal (x,y,z) domain is the one of the highest-dimensional
+	// statement (the reduction nest); take that one rather than the union.
+	isl_set *set = nullptr;
+	{
+		struct PickMax {
+			isl_set *best;
+			int bestDim;
+		} pm{nullptr, -1};
+		isl_union_set_foreach_set(
+			domain,
+			+[](__isl_take isl_set *s, void *user) -> isl_stat {
+				auto *pm = static_cast<PickMax *>(user);
+				int nd = isl_set_dim(s, isl_dim_set);
+				if (nd > pm->bestDim) {
+					if (pm->best) isl_set_free(pm->best);
+					pm->best = isl_set_set_tuple_name(s, nullptr);
+					pm->bestDim = nd;
+				} else {
+					isl_set_free(s);
+				}
+				return isl_stat_ok;
+			},
+			&pm);
+		set = pm.best;
+		isl_union_set_free(domain);
+	}
 	set = isl_set_coalesce(set);
 	set = isl_set_from_basic_set(isl_set_convex_hull(set));
 
@@ -905,9 +941,39 @@ std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(osl_s
 	isl_map_list_free(list);
 
 	isl_union_set *deltas = isl_union_map_deltas(isl_union_map_copy(sanitized_dep_flow));
-	
-	isl_set *set = isl_set_from_union_set(isl_union_set_copy(deltas));
-	
+
+	// Multi-statement scops (nussinov, counting_im, mcc, mcm, mea) produce
+	// deltas in SEVERAL spaces, possibly of different dimensionality (a
+	// statement inside the k-loop has 3 dims, one outside has 2). Converting
+	// the whole union_set to a single set fails ("exactly one space"). Instead,
+	// project every delta set onto its first two dims, drop tuple names, and
+	// union them into one 2-D set.
+	struct DeltaProj {
+		isl_ctx *ctx;
+		isl_set *acc;
+	} dp{this->ctx, nullptr};
+
+	isl_union_set_foreach_set(
+		deltas,
+		+[](__isl_take isl_set *d, void *user) -> isl_stat {
+			auto *dp = static_cast<DeltaProj *>(user);
+			int nd = isl_set_dim(d, isl_dim_set);
+			if (nd < 2) { isl_set_free(d); return isl_stat_ok; }
+			if (nd > 2)
+				d = isl_set_project_out(d, isl_dim_set, 2, nd - 2);
+			d = isl_set_set_tuple_name(d, nullptr);
+			if (dp->acc == nullptr)
+				dp->acc = d;
+			else
+				dp->acc = isl_set_union(dp->acc, d);
+			return isl_stat_ok;
+		},
+		&dp);
+
+	isl_set *set = dp.acc ? dp.acc
+	                      : isl_set_empty(isl_space_set_alloc(this->ctx, 0, 2));
+	set = isl_set_coalesce(set);
+
 	isl_map *proj = isl_set_identity(isl_set_copy(set));
 	if (isl_map_dim(proj, isl_dim_out) > 2) {
 		proj = isl_map_remove_dims(proj, isl_dim_out, 2, isl_map_dim(proj, isl_dim_out) - 2);
