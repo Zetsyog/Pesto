@@ -305,6 +305,31 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 	auto &varDeclData = bundle.metadata.get<pesto::bundle::metadata::VarDecl>();
 
 	macroData.nonProcessedList.push_back("#include <omp.h>");
+	macroData.nonProcessedList.push_back("#include \"maxcut.h\"");
+
+	// Emit, as a top-of-file comment (NOT through a macro — comments do not
+	// survive macro expansion), the exact gen_maxcut.py command for THIS domain.
+	{
+		isl_printer *dp = isl_printer_to_str(this->ctx);
+		dp = isl_printer_set_output_format(dp, ISL_FORMAT_ISL);
+		dp = isl_printer_print_set(dp, innerDomain);
+		char *dstr = isl_printer_get_str(dp);
+		std::string domainStr = dstr ? dstr : "<domain>";
+		free(dstr);
+		isl_printer_free(dp);
+
+		std::string maxcutCmd =
+			"/* max_cut_volume() comes from maxcut.h.\n"
+			" * Regenerate it for THIS transformed domain (set --t to your DIV0 value):\n"
+			" *   python3 gen_maxcut.py \\\n"
+			" *     --domain \"" + domainStr + "\" \\\n"
+			" *     --t $DIV0 \\\n"
+			" *     --func max_cut_volume \\\n"
+			" *     --out maxcut.h\n"
+			" * gen_maxcut computes min(x1) by lexmin; add --f1 <x_min> if it is piecewise.\n"
+			" */";
+		macroData.nonProcessedList.push_back(maxcutCmd);
+	}
 
 	// TODO: remove (debug)
 	isl_set_dump(innerDomain);
@@ -426,8 +451,9 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 						   nameHelper.outerForUBName() + " + 1);";
 				stmtStr += "}";
 			} else {
-				stmtStr +=
-					nameHelper.targetVolName() + " = " + nameHelper.pcMaxName() + " / " + nameHelper.divName() + ";";
+				std::string bandIter = clastTilingPairs[0].outerFor->iterator;
+				stmtStr += nameHelper.targetVolName() + " = max(" + nameHelper.pcMaxName() + " / " +
+						   nameHelper.divName() + ", max_cut_volume(" + bandIter + "));";
 				stmtStr += nameHelper.outerForUBName() + " = max(floord(" + nameHelper.pcMaxName() + ", " +
 						   nameHelper.targetVolName() + "), 1) - 1;";
 			}
