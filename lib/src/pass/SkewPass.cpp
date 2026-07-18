@@ -74,11 +74,19 @@ osl_relation_p SkewPass::skewStatementScattering(isl_ctx *ctx, osl_statement_p s
 
 	// The loop output dims are the odd positions (1,3,5,...). The k-th loop
 	// dim corresponds to the k-th target of the transform.
+// The loop output dims are the odd positions (1,3,...), but only as many as
+	// the statement has real iterators: a lower-dimensional statement (e.g. a 2-D
+	// init/prefix in a 3-D nest) has scalar zeros in the remaining odd slots, not
+	// loop dims. Applying a target that references an absent iterator (e.g. z=k on
+	// a statement with only i,j) would wrongly fail; stop once the statement's
+	// real loop dims are exhausted.
+	int nLoopDims = (int)domainIters.size();
 	int loopIdx = 0;
 	for (int o = 0; o < nOut; o++) {
 		if (o % 2 == 0)
 			continue; // scalar dim, leave as-is (o = 0)
-
+		if (loopIdx >= nLoopDims)
+			break; // remaining odd slots are scalars for this statement
 		if (loopIdx >= (int)transform_.targets().size()) {
 			logger->error("skew: more loop dims than transform targets");
 			osl_relation_free(scat);
@@ -108,11 +116,10 @@ osl_relation_p SkewPass::skewStatementScattering(isl_ctx *ctx, osl_statement_p s
 		// 2) clear all input coefficients on this row
 		for (int d = 0; d < nIn; d++)
 			osl_int_set_si(prec, &scat->m[row][inBase + d], 0);
-		// 3) clear parameter and constant columns on this row
+		// 3) clear parameter columns on this row
 		for (int p = 0; p < nParam; p++)
 			osl_int_set_si(prec, &scat->m[row][inBase + nIn + p], 0);
-		osl_int_set_si(prec, &scat->m[row][scat->nb_columns - 1], 0);
-		// 4) set the target coefficients
+		// 4) set the target coefficients (iterators)
 		for (const auto &kv : t.coeffs) {
 			int idx = inputIndexOf(kv.first);
 			if (idx < 0) {
@@ -123,6 +130,9 @@ osl_relation_p SkewPass::skewStatementScattering(isl_ctx *ctx, osl_statement_p s
 			}
 			osl_int_set_si(prec, &scat->m[row][inBase + idx], kv.second);
 		}
+		// 5) set the additive constant.
+		// Constraint is  -o + <expr> + const = 0, i.e. o = <expr> + const.
+		osl_int_set_si(prec, &scat->m[row][scat->nb_columns - 1], t.constant);
 	}
 
 	return scat;

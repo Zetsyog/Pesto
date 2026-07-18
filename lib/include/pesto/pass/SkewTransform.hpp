@@ -11,6 +11,7 @@ namespace pesto::pass {
 struct SkewTarget {
     std::string name;                    // e.g. "x"
     std::map<std::string, int> coeffs;   // e.g. {"i": -1, "j": 1}  for  x = j - i
+    int constant = 0;                    // additive constant, e.g. -1 for  x = L - 1
 };
 
 class SkewTransform {

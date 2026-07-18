@@ -180,6 +180,19 @@ void TpzTilingPass::tileClastFor(Bundle &bundle, struct clast_for *clastFor, pes
 	this->insertInnerLoopBounds(*clastIR, clastTilingPairs);
 	this->insertOmpPragmas(*clastIR, clastTilingPairs);
 	clast_root_develop_user_stmt_substitutions(root);
+	
+	// Rename scattering dimensions to t2/t4/t6 once, before both codegen (which
+	// emits the gen_maxcut comment) and Trahrhe header generation consume the
+	// domain. The multi-statement domain reconstruction (PickMax + convex_hull)
+	// can leave the innermost dimension anonymous (printed as i2); Trahrhe writes
+	// these names with fputs and segfaults on a null one.
+	{
+		int nd = isl_set_dim(innerDomain, isl_dim_set);
+		for (int i = 0; i < nd; i++) {
+			std::string nm = "t" + std::to_string(2 * (i + 1)); // t2, t4, t6
+			innerDomain = isl_set_set_dim_name(innerDomain, isl_dim_set, i, nm.c_str());
+		}
+	}
 
 	this->codegen(bundle, clastTilingPairs, innerDomain, slope);
 
@@ -310,7 +323,7 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 
 	macroData.nonProcessedList.push_back("#include <omp.h>");
 	macroData.nonProcessedList.push_back("#include \"maxcut.h\"");
-
+	
 	// Emit, as a top-of-file comment (NOT through a macro — comments do not
 	// survive macro expansion), the exact gen_maxcut.py command for THIS domain.
 	{
@@ -655,17 +668,6 @@ void TpzTilingPass::generateTrahrheHeaders(pesto::Bundle &bundle, isl_set *inner
 	trahrhe_context_t *trahrhe_ctx = trahrhe_context_alloc();
 	trahrhe_context_use_dichotomy(trahrhe_ctx, true);
 	trahrhe_context_set_verbosity(trahrhe_ctx, TRAHRHE_VERBOSITY_INFO);
-	
-	// The multi-statement domain reconstruction (PickMax + convex_hull) leaves
-	// the innermost dimension unnamed; Trahrhe writes its name with fputs and
-	// segfaults on the null. Give every set dimension the expected t-name.
-	{
-		int nd = isl_set_dim(innerDomain, isl_dim_set);
-		for (int i = 0; i < nd; i++) {
-			std::string nm = "t" + std::to_string(2 * (i + 1)); // t2, t4, t6
-			innerDomain = isl_set_set_dim_name(innerDomain, isl_dim_set, i, nm.c_str());
-		}
-	}
 	
 	trahrhe_context_set_input_domain(trahrhe_ctx, isl_set_copy(innerDomain));
 	trahrhe_context_set_tile_level(trahrhe_ctx, 2);
