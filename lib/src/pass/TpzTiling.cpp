@@ -348,7 +348,11 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 	for (size_t i = 0; i < clastTilingPairs.size(); ++i) {
 		auto &pair = clastTilingPairs[i];
 
-		NameHelper nameHelper = NameHelper(pair.depth, pair.outerFor->iterator, pair.innerFor->iterator);
+		const char *outerItRaw = pair.outerFor ? pair.outerFor->iterator : nullptr;
+		const char *innerItRaw = pair.innerFor ? pair.innerFor->iterator : nullptr;
+		std::string outerItSafe = outerItRaw ? std::string(outerItRaw) : ("b" + std::to_string(pair.depth));
+		std::string innerItSafe2 = innerItRaw ? std::string(innerItRaw) : ("z" + std::to_string(pair.depth));
+		NameHelper nameHelper = NameHelper(pair.depth, outerItSafe.c_str(), innerItSafe2.c_str());
 
 		varDeclData.addVar(nameHelper.pcMaxName());
 		varDeclData.addVar(nameHelper.targetVolName());
@@ -361,8 +365,10 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 		isl_set *max_set = isl_set_copy(innerDomain);
 		isl_set *min_set = isl_set_copy(innerDomain);
 		for (int i = 0; i < isl_set_dim(innerDomain, isl_dim_set); ++i) {
-			char const *dimName = isl_set_get_dim_name(innerDomain, isl_dim_set, i);
-			NameHelper helper = NameHelper(pair.depth, pair.outerFor->iterator, dimName);
+			char const *dimNameRaw = isl_set_get_dim_name(innerDomain, isl_dim_set, i);
+			std::string dimNameSafe = dimNameRaw ? std::string(dimNameRaw)
+			                                     : ("d" + std::to_string(pair.depth) + "_" + std::to_string(i));
+			NameHelper helper = NameHelper(pair.depth, pair.outerFor->iterator, dimNameSafe.c_str());
 			std::string lbName = helper.innerForLBName();
 			std::string ubName = helper.innerForUBName();
 
@@ -648,9 +654,21 @@ void TpzTilingPass::generateTrahrheHeaders(pesto::Bundle &bundle, isl_set *inner
 	trahrhe_context_t *trahrhe_ctx = trahrhe_context_alloc();
 	trahrhe_context_use_dichotomy(trahrhe_ctx, true);
 	trahrhe_context_set_verbosity(trahrhe_ctx, TRAHRHE_VERBOSITY_INFO);
+	
+	// The multi-statement domain reconstruction (PickMax + convex_hull) leaves
+	// the innermost dimension unnamed; Trahrhe writes its name with fputs and
+	// segfaults on the null. Give every set dimension the expected t-name.
+	{
+		int nd = isl_set_dim(innerDomain, isl_dim_set);
+		for (int i = 0; i < nd; i++) {
+			std::string nm = "t" + std::to_string(2 * (i + 1)); // t2, t4, t6
+			innerDomain = isl_set_set_dim_name(innerDomain, isl_dim_set, i, nm.c_str());
+		}
+	}
+	
 	trahrhe_context_set_input_domain(trahrhe_ctx, isl_set_copy(innerDomain));
 	trahrhe_context_set_tile_level(trahrhe_ctx, 2);
-
+	
 	size_t trahrhe_len = 0;
 	char **trahrhe_expr = trahrhe_get_inverted_polynomials_expr(trahrhe_ctx, &trahrhe_len);
 	if (trahrhe_len == 0 || trahrhe_expr == NULL) {
