@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <vector>
+#include <numeric>
 
 #include <isl/aff.h>
 #include <isl/ast_build.h>
@@ -877,7 +878,7 @@ void TpzTilingPass::insertOmpPragmas(pesto::ir::ClastIR &clastIR,
 	free(clastloops);
 }
 
-std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(osl_scop_p scop) {
+	std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(osl_scop_p scop) {
 	using pesto::ir::converter::Scop2Isl;
 
 	// osl_scop_print(stdout, scop);
@@ -934,10 +935,10 @@ std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(osl_s
 	isl_union_flow_free(flow);
 
 	// DEBUG
-	// std::cerr << "Dep Flow: " << std::endl;
-	// isl_union_map_dump(dep_flow);
-	// dep_flow = isl_union_map_apply_range(dep_flow, isl_union_map_copy(named_schedules));
-	// dep_flow = isl_union_map_apply_domain(dep_flow, isl_union_map_copy(named_schedules));
+	//std::cerr << "Dep Flow: " << std::endl;
+	//isl_union_map_dump(dep_flow);
+	dep_flow = isl_union_map_apply_range(dep_flow, isl_union_map_copy(named_schedules));
+	dep_flow = isl_union_map_apply_domain(dep_flow, isl_union_map_copy(named_schedules));
 
 	isl_union_map *sanitized_dep_flow = nullptr;
 	isl_map_list *list = isl_union_map_get_map_list(dep_flow);
@@ -969,15 +970,19 @@ std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(osl_s
 		isl_ctx *ctx;
 		isl_set *acc;
 	} dp{this->ctx, nullptr};
-
+	
 	isl_union_set_foreach_set(
 		deltas,
 		+[](__isl_take isl_set *d, void *user) -> isl_stat {
 			auto *dp = static_cast<DeltaProj *>(user);
 			int nd = isl_set_dim(d, isl_dim_set);
-			if (nd < 2) { isl_set_free(d); return isl_stat_ok; }
-			if (nd > 2)
-				d = isl_set_project_out(d, isl_dim_set, 2, nd - 2);
+			// Deltas live in the 7-dim scattering space [0, x, 0, y, 0, z, 0]
+			// (compute_flow was given the schedule map). The loop axes are dims
+			// 1 (x) and 3 (y); dims 0,2,4,6 are the constant scalars and 5 is z.
+			if (nd < 4) { isl_set_free(d); return isl_stat_ok; }
+			d = isl_set_project_out(d, isl_dim_set, 4, nd - 4); // drop dims >= 4 (z + scalars)
+			d = isl_set_project_out(d, isl_dim_set, 2, 1);       // drop dim 2 (scalar)
+			d = isl_set_project_out(d, isl_dim_set, 0, 1);       // drop dim 0 (scalar)
 			d = isl_set_set_tuple_name(d, nullptr);
 			if (dp->acc == nullptr)
 				dp->acc = d;
@@ -1002,7 +1007,29 @@ std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(osl_s
 	//isl_set_dump(set);
 
 	std::vector<pesto::maths::Vec2i> depDistanceVector;
+	
+	set = isl_set_drop_constraints_involving_dims(set, isl_dim_param, 0, isl_set_dim(set, isl_dim_param));
 
+	// Each ray (m,m), (m,0)... is represented by a basic set; sampling it can
+	// return the origin (0,0), losing the direction. Remove the origin so the
+	// sample yields the primitive direction (1,1), (1,0) of each ray.
+	{
+		isl_space *sp = isl_set_get_space(set);
+		isl_set *origin = isl_set_universe(isl_space_copy(sp));
+		isl_local_space *lsp = isl_local_space_from_space(sp);
+		// i0 = 0
+		isl_constraint *e0 = isl_constraint_alloc_equality(isl_local_space_copy(lsp));
+		e0 = isl_constraint_set_coefficient_si(e0, isl_dim_set, 0, 1);
+		origin = isl_set_add_constraint(origin, e0);
+		// i1 = 0
+		isl_constraint *e1 = isl_constraint_alloc_equality(isl_local_space_copy(lsp));
+		e1 = isl_constraint_set_coefficient_si(e1, isl_dim_set, 1, 1);
+		origin = isl_set_add_constraint(origin, e1);
+		isl_local_space_free(lsp);
+		set = isl_set_subtract(set, origin);
+	}	
+	
+	
 	// Helper function for isl_set_foreach_basic_set
 
 	isl_set_foreach_basic_set(
@@ -1013,8 +1040,12 @@ std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(osl_s
 
 			isl_val *x = isl_point_get_coordinate_val(point, isl_dim_set, 0);
 			isl_val *y = isl_point_get_coordinate_val(point, isl_dim_set, 1);
-
-			depDistanceVector->push_back(pesto::maths::Vec2i(isl_val_get_num_si(x), isl_val_get_num_si(y)));
+			
+			int vx = isl_val_get_num_si(x);
+			int vy = isl_val_get_num_si(y);
+			int g = std::gcd(std::abs(vx), std::abs(vy));
+			if (g > 1) { vx /= g; vy /= g; }
+			depDistanceVector->push_back(pesto::maths::Vec2i(vx, vy));
 
 			isl_val_free(x);
 			isl_val_free(y);
@@ -1067,8 +1098,8 @@ std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(osl_s
 	return std::make_optional(bestVec); // return the best vector
 }
 
-std::pair<std::string, std::string> TpzTilingPass::computeInnerMinMaxStr(__isl_keep isl_set *innerDomain,
-																		 unsigned dimIdx) {
+	std::pair<std::string, std::string> TpzTilingPass::computeInnerMinMaxStr(__isl_keep isl_set *innerDomain,
+								unsigned dimIdx) {
 	using pesto::ptile::NameHelper;
 
 	// compute bounds of the inner loop for the current loop
