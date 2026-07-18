@@ -29,6 +29,7 @@ set(PESTOBIN_SOURCES
     src/passbuilder/PassBuilder.cpp
     src/passbuilder/PlutoPB.cpp
     src/passbuilder/TpzTilingPB.cpp
+    src/passbuilder/SkewPB.cpp
 )
 
 # Add executable

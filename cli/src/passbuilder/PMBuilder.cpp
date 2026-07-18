@@ -19,6 +19,7 @@
 #include <pesto/passbuilder/ParamContextPB.hpp>
 #include <pesto/passbuilder/PlutoPB.hpp>
 #include <pesto/passbuilder/TpzTilingPB.hpp>
+#include <pesto/passbuilder/SkewPB.hpp>
 
 using namespace pesto::builder;
 
@@ -42,6 +43,7 @@ std::unique_ptr<PassManagerBuilder> PassManagerBuilder::createDefault() {
 	pm->registerPassBuilder(OslDumpPB::getID(), std::make_unique<OslDumpPB>());
 	pm->registerPassBuilder(IslPB::getID(), std::make_unique<IslPB>());
 	pm->registerPassBuilder(TpzTilingPB::getID(), std::make_unique<TpzTilingPB>());
+	pm->registerPassBuilder(SkewPB::getID(), std::make_unique<SkewPB>());
 
 	return pm;
 }

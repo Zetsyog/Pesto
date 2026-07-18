@@ -38,7 +38,8 @@ set(PESTO_SOURCES
     src/pass/Pass.cpp
     src/pass/Pluto.cpp
     src/pass/TpzTiling.cpp
-
+    src/pass/SkewTransform.cpp
+    src/pass/SkewPass.cpp
 )
 
 add_library(pesto STATIC ${PESTO_SOURCES})
