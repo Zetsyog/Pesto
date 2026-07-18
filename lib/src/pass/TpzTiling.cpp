@@ -912,25 +912,24 @@ std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(osl_s
 	//reads = isl_union_map_apply_domain(reads, isl_union_map_copy(named_schedules));
 	
 	// This is for debugging purposes
-	// std::cerr << "Domains: " << std::endl;
-	// isl_union_set_dump(domains);
-	// std::cerr << "Schedule" << std::endl;
-	// isl_union_map_dump(schedules);
-	// std::cerr << "Named Schedules" << std::endl;
-	// isl_union_map_dump(named_schedules);
-	// std::cerr << "Writes: " << std::endl;
-	// isl_union_map_dump(writes);
-	// std::cerr << "Reads: " << std::endl;
-	// isl_union_map_dump(reads);
+	/* std::cerr << "Domains: " << std::endl;
+	 isl_union_set_dump(domains);
+	 std::cerr << "Schedule" << std::endl;
+	 isl_union_map_dump(schedules);
+	 std::cerr << "Named Schedules" << std::endl;
+	 isl_union_map_dump(named_schedules);
+	 std::cerr << "Writes: " << std::endl;
+	 isl_union_map_dump(writes);
+	 std::cerr << "Reads: " << std::endl;
+	 isl_union_map_dump(reads); */
 
-	// Dep := (last W before R under S);
+	 //Dep := (last W before R under S);
 
 	// compute live in
 	access = isl_union_access_info_from_sink(isl_union_map_copy(reads));
 	access = isl_union_access_info_set_must_source(access, isl_union_map_copy(writes));
 	access = isl_union_access_info_set_schedule_map(access, isl_union_map_copy(schedules));
 	flow = isl_union_access_info_compute_flow(access);
-
 	dep_flow = isl_union_flow_get_must_dependence(flow);
 	isl_union_flow_free(flow);
 
