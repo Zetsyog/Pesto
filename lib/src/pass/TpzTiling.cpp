@@ -125,6 +125,24 @@ void TpzTilingPass::tileClastFor(Bundle &bundle, struct clast_for *clastFor, pes
 	std::vector<ClastTilingPair> clastTilingPairs = this->computeTilingPairs(*clastIR, clastFor);
 
 	isl_set *innerDomain = this->computeInnerDomain(*clastIR, clastTilingPairs);
+	
+	// Rename scattering dimensions to t2/t4/t6 once, before both codegen (which
+	// emits the gen_maxcut comment) and Trahrhe header generation consume the
+	// domain. The multi-statement domain reconstruction (PickMax + convex_hull)
+	// can leave the innermost dimension anonymous (printed as i2); Trahrhe writes
+	// these names with fputs and segfaults on a null one.
+	{
+		int nd = isl_set_dim(innerDomain, isl_dim_set);
+		for (int i = 0; i < nd; i++) {
+			std::string nm = "t" + std::to_string(2 * (i + 1)); // t2, t4, t6
+			innerDomain = isl_set_set_dim_name(innerDomain, isl_dim_set, i, nm.c_str());
+		}
+	}
+
+// isl_printer_print_set asserts on a null tuple name; the PickMax
+	// reconstruction cleared it. Give the domain a tuple name.
+	if (!isl_set_get_tuple_name(innerDomain))
+		innerDomain = isl_set_set_tuple_name(innerDomain, "T");
 
 	if (logger->level() <= spdlog::level::debug) {
 		this->printer = isl_printer_print_set(this->printer, innerDomain);
@@ -180,29 +198,16 @@ void TpzTilingPass::tileClastFor(Bundle &bundle, struct clast_for *clastFor, pes
 	this->insertInnerLoopBounds(*clastIR, clastTilingPairs);
 	this->insertOmpPragmas(*clastIR, clastTilingPairs);
 	clast_root_develop_user_stmt_substitutions(root);
-	
-	// Rename scattering dimensions to t2/t4/t6 once, before both codegen (which
-	// emits the gen_maxcut comment) and Trahrhe header generation consume the
-	// domain. The multi-statement domain reconstruction (PickMax + convex_hull)
-	// can leave the innermost dimension anonymous (printed as i2); Trahrhe writes
-	// these names with fputs and segfaults on a null one.
-	{
-		int nd = isl_set_dim(innerDomain, isl_dim_set);
-		for (int i = 0; i < nd; i++) {
-			std::string nm = "t" + std::to_string(2 * (i + 1)); // t2, t4, t6
-			innerDomain = isl_set_set_dim_name(innerDomain, isl_dim_set, i, nm.c_str());
-		}
-	}
 
 	this->codegen(bundle, clastTilingPairs, innerDomain, slope);
 
-	if (logger->level() <= spdlog::level::debug) {
+	/* if (logger->level() <= spdlog::level::debug) {
 		this->printer = isl_printer_print_set(this->printer, innerDomain);
 		char *set_str = isl_printer_get_str(printer);
 		logger->debug("Starting trahrhe header generation using domain: {}", set_str);
 		free(set_str);
 		this->printer = isl_printer_flush(this->printer);
-	}
+	} */
 	this->generateTrahrheHeaders(bundle, innerDomain);
 	logger->debug("Trahrhe header generation done.");
 
@@ -315,7 +320,7 @@ void TpzTilingPass::insertOuterForLoop(Bundle &bundle, std::vector<ptile::ClastT
 
 void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::ClastTilingPair> &clastTilingPairs,
 							isl_set *innerDomain, pesto::maths::Vec2i slope) {
-
+							
 	using pesto::ptile::NameHelper;
 
 	auto &macroData = bundle.metadata.get<pesto::bundle::metadata::Macro>();
@@ -323,7 +328,7 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 
 	macroData.nonProcessedList.push_back("#include <omp.h>");
 	macroData.nonProcessedList.push_back("#include \"maxcut.h\"");
-	
+
 	// Emit, as a top-of-file comment (NOT through a macro — comments do not
 	// survive macro expansion), the exact gen_maxcut.py command for THIS domain.
 	{
@@ -349,7 +354,7 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 	}
 
 	// TODO: remove (debug)
-	isl_set_dump(innerDomain);
+	// isl_set_dump(innerDomain);
 
 	// add var for front iterator
 	std::string nthreadsName = std::string("NTHREADS");
@@ -594,7 +599,7 @@ __isl_give isl_set *TpzTilingPass::computeInnerDomain(pesto::ir::ClastIR &clastI
 		logger->debug("Processing user statement: {} in parent for loop: {} ({})", userStmt->statement->number,
 					  parentFor->iterator, (uintptr_t)parentFor);
 
-		isl_set_dump(isl_set_from_cloog_domain(parentFor->domain));
+		//isl_set_dump(isl_set_from_cloog_domain(parentFor->domain));
 
 		if (domain == nullptr) {
 			domain = isl_union_set_from_set(isl_set_copy(isl_set_from_cloog_domain(parentFor->domain)));
