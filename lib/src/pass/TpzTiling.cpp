@@ -70,6 +70,8 @@ Bundle TpzTilingPass::apply(Bundle &&bundle) {
 		this->logger->error("Trapezoidal tiling cannot be performed on this scop.");
 		return std::move(bundle);
 	}
+	
+	this->zTileable_ = this->isReductionTileable(scop);
 
 	this->logger->debug("Steepest dependency vector: ({}, {})", slope->x, slope->y);
 	this->logger->debug("Trapezoidal tiling slope: {}", slope->y / slope->x);
@@ -247,8 +249,23 @@ std::vector<pesto::pass::ptile::ClastTilingPair> TpzTilingPass::computeTilingPai
 
 	std::sort(clastTilingPairs.begin(), clastTilingPairs.end(),
 			  [](const ClastTilingPair &a, const ClastTilingPair &b) { return a.depth < b.depth; });
+			  
+			  
+	std::sort(clastTilingPairs.begin(), clastTilingPairs.end(),
+			  [](const ClastTilingPair &a, const ClastTilingPair &b) { return a.depth < b.depth; });
 
-	return clastTilingPairs;
+	// The reduction dimension (innermost, e.g. t6) must not be tiled when it
+	// carries a dependence: for the triangular-DP family the reduction index
+	// also indexes other cells (e.g. c[k][j] in knuth), so tiling it would
+	// reorder the accumulation and produce wrong results. Keep only the two
+	// outer levels (x, y); the reduction loop stays inner and untiled. When the
+	// reduction is independent (e.g. matmul, reading separate arrays), z is
+	// tileable and all levels are kept.
+	if (!this->zTileable_ && clastTilingPairs.size() > 2) {
+		clastTilingPairs.resize(2);
+	}
+
+	return clastTilingPairs;		  
 }
 
 void TpzTilingPass::insertOuterForLoop(Bundle &bundle, std::vector<ptile::ClastTilingPair> &clastTilingPairs) {
@@ -328,11 +345,16 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 
 	macroData.nonProcessedList.push_back("#include <omp.h>");
 	macroData.nonProcessedList.push_back("#include \"maxcut.h\"");
-
-	// Emit, as a top-of-file comment (NOT through a macro — comments do not
-	// survive macro expansion), the exact gen_maxcut.py command for THIS domain.
+	
 	{
 		isl_printer *dp = isl_printer_to_str(this->ctx);
+		
+		// pour le commentaire gen_maxcut : domaine sans nom de tuple
+		isl_set *domainForComment = isl_set_copy(innerDomain);
+		domainForComment = isl_set_set_tuple_name(domainForComment, nullptr);
+		dp = isl_printer_print_set(dp, domainForComment);
+		isl_set_free(domainForComment);
+		
 		dp = isl_printer_set_output_format(dp, ISL_FORMAT_ISL);
 		dp = isl_printer_print_set(dp, innerDomain);
 		char *dstr = isl_printer_get_str(dp);
@@ -448,6 +470,7 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 
 			macroData.defineFunc(std::string("S") + std::to_string(pair.innerBodyStmt1->statement->number), "",
 								 stmtStr);
+					 
 		}
 		if (pair.depth == 1) {
 
@@ -1139,3 +1162,121 @@ void TpzTilingPass::insertOmpPragmas(pesto::ir::ClastIR &clastIR,
 
 	return minMaxPair;
 }
+
+bool TpzTilingPass::isReductionTileable(osl_scop_p scop) {
+	using pesto::ir::converter::Scop2Isl;
+	Scop2Isl irHelper(this->ctx);
+	irHelper.convert(scop);
+
+	isl_union_map *schedules = irHelper.getSchedules();
+	isl_union_map *writes = irHelper.getWrites();
+	isl_union_map *reads = irHelper.getReads();
+	isl_union_map *mayWrites = irHelper.getMayWrites(); 
+	isl_union_set *domains = irHelper.getDomains();
+	isl_union_map *empty = isl_union_map_empty(irHelper.getParamSpace());
+
+	// named schedules (same as computeDepDistanceVector)
+	isl_map_list *schedule_list = isl_union_map_get_map_list(schedules);
+	isl_union_map *named_schedules = isl_union_map_empty_ctx(this->ctx);
+	for (isl_size i = 0; i < isl_map_list_n_map(schedule_list); ++i) {
+		isl_map *map = isl_map_list_get_at(schedule_list, i);
+		map = isl_map_set_tuple_name(map, isl_dim_out, isl_map_get_tuple_name(map, isl_dim_in));
+		named_schedules = isl_union_map_add_map(named_schedules, map);
+	}
+	isl_map_list_free(schedule_list);
+
+	// must-flow dependences
+	isl_union_access_info *access = isl_union_access_info_from_sink(isl_union_map_copy(reads));
+	access = isl_union_access_info_set_must_source(access, isl_union_map_copy(writes));
+	access = isl_union_access_info_set_schedule_map(access, isl_union_map_copy(schedules));
+	isl_union_flow *flow = isl_union_access_info_compute_flow(access);
+	isl_union_map *dep_flow = isl_union_flow_get_must_dependence(flow);
+	isl_union_flow_free(flow);
+
+	dep_flow = isl_union_map_apply_range(dep_flow, isl_union_map_copy(named_schedules));
+	dep_flow = isl_union_map_apply_domain(dep_flow, isl_union_map_copy(named_schedules));
+
+	// sanitize tuple names
+	isl_union_map *sanitized = nullptr;
+	isl_map_list *list = isl_union_map_get_map_list(dep_flow);
+	for (int i = 0; i < isl_map_list_n_map(list); ++i) {
+		isl_map *map = isl_map_list_get_map(list, i);
+		map = isl_map_set_tuple_name(map, isl_dim_in, nullptr);
+		map = isl_map_set_tuple_name(map, isl_dim_out, nullptr);
+		if (!sanitized) sanitized = isl_union_map_from_map(isl_map_copy(map));
+		else sanitized = isl_union_map_add_map(sanitized, isl_map_copy(map));
+		isl_map_free(map);
+	}
+	isl_map_list_free(list);
+	isl_union_map_free(dep_flow);
+
+	isl_union_set *deltas = isl_union_map_deltas(sanitized);
+
+	// Project each delta onto (x, y, z) = scattering dims 1, 3, 5.
+	struct P { isl_ctx *ctx; isl_set *acc; } p{this->ctx, nullptr};
+	isl_union_set_foreach_set(deltas,
+		+[](__isl_take isl_set *d, void *user) -> isl_stat {
+			auto *p = static_cast<P *>(user);
+			int nd = isl_set_dim(d, isl_dim_set);
+			if (nd < 6) { isl_set_free(d); return isl_stat_ok; } // need z at dim 5
+			// keep dims 1,3,5 → drop 6, then 4, then 2, then 0
+			d = isl_set_project_out(d, isl_dim_set, 6, nd - 6); // drop dims >= 6
+			d = isl_set_project_out(d, isl_dim_set, 4, 1);       // drop dim 4
+			d = isl_set_project_out(d, isl_dim_set, 2, 1);       // drop dim 2
+			d = isl_set_project_out(d, isl_dim_set, 0, 1);       // drop dim 0
+			// now dims are (x, y, z)
+			d = isl_set_set_tuple_name(d, nullptr);
+			if (!p->acc) p->acc = d;
+			else p->acc = isl_set_union(p->acc, d);
+			return isl_stat_ok;
+		}, &p);
+
+	bool tileable = true;
+	if (p.acc) {
+		isl_set *set = isl_set_coalesce(p.acc);
+		set = isl_set_drop_constraints_involving_dims(set, isl_dim_param, 0, isl_set_dim(set, isl_dim_param));
+
+		// A dependence carried by z (Δz != 0) that ALSO moves in x or y
+		// (Δx != 0 or Δy != 0) means the reduction index indexes another cell;
+		// tiling z would reorder those. The pure accumulation (0,0,Δz) is fine.
+		// Build {Δz != 0 and (Δx != 0 or Δy != 0)}; if it intersects the deltas,
+		// z is NOT tileable.
+		auto nz = [&](int dim) -> isl_set * {
+			isl_space *sp = isl_set_get_space(set);
+			isl_set *pos = isl_set_universe(isl_space_copy(sp));
+			isl_constraint *cp = isl_constraint_alloc_inequality(isl_local_space_from_space(isl_space_copy(sp)));
+			cp = isl_constraint_set_coefficient_si(cp, isl_dim_set, dim, 1);
+			cp = isl_constraint_set_constant_si(cp, -1);
+			pos = isl_set_add_constraint(pos, cp);
+			isl_set *neg = isl_set_universe(isl_space_copy(sp));
+			isl_constraint *cn = isl_constraint_alloc_inequality(isl_local_space_from_space(isl_space_copy(sp)));  // ← AJOUTE copy
+			cn = isl_constraint_set_coefficient_si(cn, isl_dim_set, dim, -1);
+			cn = isl_constraint_set_constant_si(cn, -1);
+			neg = isl_set_add_constraint(neg, cn);
+			isl_space_free(sp);
+			return isl_set_union(pos, neg);
+		};
+		isl_set *dzNonZero = nz(2);              // Δz != 0
+		isl_set *dxNonZero = nz(0);              // Δx != 0
+		isl_set *dyNonZero = nz(1);              // Δy != 0
+		isl_set *dxyNonZero = isl_set_union(dxNonZero, dyNonZero);
+		isl_set *bad = isl_set_intersect(dzNonZero, dxyNonZero);
+		bad = isl_set_intersect(bad, isl_set_copy(set));
+		tileable = isl_set_is_empty(bad);
+		isl_set_free(bad);
+		isl_set_free(set);
+	}
+
+	isl_union_set_free(deltas);
+	isl_union_map_free(named_schedules);
+	isl_union_map_free(schedules);
+	isl_union_map_free(writes);
+	isl_union_map_free(reads);
+	isl_union_map_free(mayWrites); 
+	isl_union_map_free(empty);
+	isl_union_set_free(domains);
+
+	this->logger->debug("Reduction dimension tileable: {}", tileable);
+	return tileable;
+}
+

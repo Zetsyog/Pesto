@@ -90,6 +90,9 @@ class TpzTilingPass : public IPass {
 	void insertOmpPragmas(pesto::ir::ClastIR &clastIR, std::vector<ptile::ClastTilingPair> &clastTilingPairs);
 
 	std::optional<pesto::maths::Vec2i> computeDepDistanceVector(osl_scop_p scop);
+	
+    	bool zTileable_ = true;
+    	bool isReductionTileable(osl_scop_p scop);
 };
 
 } // namespace pesto::pass
