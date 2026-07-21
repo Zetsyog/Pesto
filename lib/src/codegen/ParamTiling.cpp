@@ -230,7 +230,11 @@ void ParamTilingCodegen::genBodyStmtRectangular(std::ostream &os) {
 	os << this->nameHelper.innerForUBName() << " = min(" << this->nameHelper.divName() << " * "
 	   << this->outerFor.iterator << " + " << this->nameHelper.divName() << " - 1";
 	os << "+" << this->data.innerForLBExpr;
-	os << ", " << this->data.innerForUBExpr << ")";
+	os << ", " << this->data.innerForUBExpr << ");" << this->endline;
+	os << "if(" << this->data.outer_for->iterator << " == " << this->nameHelper.outerForUBName() << ") {"
+	   << this->endline;
+	os << "\t" << this->nameHelper.innerForUBName() << " = " << this->data.innerForUBExpr << ";" << this->endline;
+	os << "}";
 }
 
 void ParamTilingCodegen::genBodyStmtAlgebraic(std::ostream &os) {
