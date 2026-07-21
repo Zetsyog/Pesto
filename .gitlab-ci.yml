@@ -25,6 +25,7 @@ build:pesto:
     - docker:dind
   tags:
     - ci.inria.fr
+    - large
   before_script:
     - echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
   script:
@@ -38,6 +39,7 @@ build:pesto:
   stage: test
   tags:
     - ci.inria.fr
+    - large
   image: docker:latest
   services:
     - docker:dind

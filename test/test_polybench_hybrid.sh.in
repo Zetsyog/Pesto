@@ -21,13 +21,13 @@ BENCHMARKS=(
     # "linear-algebra/solvers/cholesky"  # unsupported
     "linear-algebra/solvers/durbin"
     "linear-algebra/solvers/gramschmidt"
-    "linear-algebra/solvers/lu"
+    # "linear-algebra/solvers/lu" # unsupported
     # "linear-algebra/solvers/ludcmp" # unsupported
     # "linear-algebra/solvers/trisolv" # unsupported
     "medley/deriche"
     "medley/floyd-warshall"
     # "medley/nussinov"
-    # "stencils/adi" # adi is not working with hybrid tiling yet, needs to be fixed
+    "stencils/adi" # adi is not working with hybrid tiling yet, needs to be fixed
 )
 
 print_header "Pesto CLI Test Suite - Polybench" "Hybrid algebraic tiling tests"
