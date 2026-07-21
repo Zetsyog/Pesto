@@ -352,11 +352,9 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 		// pour le commentaire gen_maxcut : domaine sans nom de tuple
 		isl_set *domainForComment = isl_set_copy(innerDomain);
 		domainForComment = isl_set_set_tuple_name(domainForComment, nullptr);
+		dp = isl_printer_set_output_format(dp, ISL_FORMAT_ISL);
 		dp = isl_printer_print_set(dp, domainForComment);
 		isl_set_free(domainForComment);
-		
-		dp = isl_printer_set_output_format(dp, ISL_FORMAT_ISL);
-		dp = isl_printer_print_set(dp, innerDomain);
 		char *dstr = isl_printer_get_str(dp);
 		std::string domainStr = dstr ? dstr : "<domain>";
 		free(dstr);
