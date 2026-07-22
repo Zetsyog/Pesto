@@ -33,10 +33,12 @@ class ClastTilingPair {
 	struct clast_for *innerFor;
 	struct clast_for *outerFor;
 
-	struct clast_user_stmt *outerHeaderStmt;
-	struct clast_user_stmt *outerBodyStmt;
-	struct clast_user_stmt *innerBodyStmt0; // front 0
-	struct clast_user_stmt *innerBodyStmt1; // front 1
+	struct clast_user_stmt *outerHeaderStmt = nullptr;
+	struct clast_user_stmt *outerBodyStmt = nullptr;
+	std::vector<struct clast_user_stmt *> innerBodyStmts0;
+	std::vector<struct clast_user_stmt *> innerBodyStmts1;
+	struct clast_user_stmt *innerBodyStmt0 = nullptr; // == innerBodyStmts0[0], kept for the null checks
+	struct clast_user_stmt *innerBodyStmt1 = nullptr;
 };
 } // namespace ptile
 
@@ -93,8 +95,6 @@ class TpzTilingPass : public IPass {
 	
     	bool zTileable_ = true;
     	bool isReductionTileable(osl_scop_p scop);
-    	
-    	std::string untiledInnerIterator_;
 };
 
 } // namespace pesto::pass

@@ -172,27 +172,25 @@ void TpzTilingPass::tileClastFor(Bundle &bundle, struct clast_for *clastFor, pes
 
 	for (size_t i = 0; i < clastTilingPairs.size(); ++i) {
 		ClastTilingPair &pair = clastTilingPairs[i];
-		if (pair.innerBodyStmt0 == nullptr) {
-			continue;
-		}
-		int targetStmtNumber = pair.innerBodyStmt0->statement->number; // -1 because we start counting at 1
-		clast_user_stmt *targetStmt = nullptr;
-		;
-		for (int j = 0; j < dupClastUserStmtListSize; ++j) {
-			clast_user_stmt *dupStmt = dupUserStmtList[j];
-			if (dupStmt->statement->number == targetStmtNumber) {
-				targetStmt = dupStmt;
-				break;
+		pair.innerBodyStmts1.clear();
+		for (auto *orig : pair.innerBodyStmts0) {
+			int targetStmtNumber = orig->statement->number;
+			clast_user_stmt *targetStmt = nullptr;
+			for (int j = 0; j < dupClastUserStmtListSize; ++j) {
+				if (dupUserStmtList[j]->statement->number == targetStmtNumber) {
+					targetStmt = dupUserStmtList[j];
+					break;
+				}
 			}
+			if (targetStmt == nullptr) {
+				this->logger->error("Error: could not find duplicated user statement for number {}", targetStmtNumber);
+				continue;
+			}
+			this->insertedStmts += 1;
+			targetStmt->statement->number = this->insertedStmts;
+			pair.innerBodyStmts1.push_back(targetStmt);
 		}
-		if (targetStmt == nullptr) {
-			this->logger->error("Error: could not find duplicated user statement for number {}", targetStmtNumber);
-			continue;
-		}
-		this->insertedStmts += 1;							 // Increment the inserted statement count
-		targetStmt->statement->number = this->insertedStmts; // Update the statement number
-
-		pair.innerBodyStmt1 = targetStmt;
+		pair.innerBodyStmt1 = pair.innerBodyStmts1.empty() ? nullptr : pair.innerBodyStmts1[0];
 	}
 
 	free(dupUserStmtList);
@@ -250,23 +248,14 @@ std::vector<pesto::pass::ptile::ClastTilingPair> TpzTilingPass::computeTilingPai
 	std::sort(clastTilingPairs.begin(), clastTilingPairs.end(),
 			  [](const ClastTilingPair &a, const ClastTilingPair &b) { return a.depth < b.depth; });
 
-	std::sort(clastTilingPairs.begin(), clastTilingPairs.end(),
-			  [](const ClastTilingPair &a, const ClastTilingPair &b) { return a.depth < b.depth; });
-
-	// The reduction dimension (innermost, e.g. t6) must not be tiled when it
-	// carries a dependence: for the triangular-DP family the reduction index
-	// also indexes other cells (e.g. c[k][j] in knuth), so tiling it would
-	// reorder the accumulation and produce wrong results. Keep only the two
-	// outer levels (x, y); the reduction loop stays inner and untiled. When the
-	// reduction is independent (e.g. matmul, reading separate arrays), z is
-	// tileable and all levels are kept.
+	// The reduction dimension must not be tiled when it carries a dependence:
+	// for the triangular-DP family the reduction index also indexes other cells
+	// (c[i][k], c[k][j]), so tiling it reorders the accumulation. Keep the two
+	// outer levels; the reduction loop stays inner and untiled. Its iterator is
+	// added to the OpenMP private clause by insertOmpPragmas, which walks the
+	// AST for loops that have no tiling pair.
 	if (!this->zTileable_ && clastTilingPairs.size() > 2) {
-    	// The reduction loop stays inner and untiled, but its iterator must still
-   	// appear in the OpenMP private clause — remember it before dropping the pair.
-    	this->untiledInnerIterator_ = clastTilingPairs[2].innerFor->iterator;
-    	clastTilingPairs.resize(2);
-	} else {
-    	this->untiledInnerIterator_.clear();
+		clastTilingPairs.resize(2);
 	}
 
 	return clastTilingPairs;
@@ -330,9 +319,23 @@ void TpzTilingPass::insertOuterForLoop(Bundle &bundle, std::vector<ptile::ClastT
 		it->outerBodyStmt = pesto_clast_create_stmt(cloogOptions, nullptr, this->insertedStmts);
 		clast_insert_indepth(&(it->outerFor->stmt), &(it->outerBodyStmt->stmt));
 
-		this->insertedStmts += 1;
-		it->innerBodyStmt0 = pesto_clast_create_stmt(cloogOptions, nullptr, this->insertedStmts);
-		clast_insert_indepth(&(it->innerFor->stmt), &(it->innerBodyStmt0->stmt));
+		{
+			struct clast_for **loops = NULL;
+			int nloops = 0;
+			int *stmts = NULL;
+			int nstmts = 0;
+			ClastFilter filter = {it->innerFor->iterator, nullptr, 0, subset};
+			clast_filter(&(root->stmt), filter, &loops, &nloops, &stmts, &nstmts);
+			free(stmts);
+			for (int i = 0; i < nloops; ++i) {
+				this->insertedStmts += 1;
+				auto *s = pesto_clast_create_stmt(cloogOptions, nullptr, this->insertedStmts);
+				clast_insert_indepth(&(loops[i]->stmt), &(s->stmt));
+				it->innerBodyStmts0.push_back(s);
+			}
+			free(loops);
+		}
+		it->innerBodyStmt0 = it->innerBodyStmts0.empty() ? nullptr : it->innerBodyStmts0[0];
 	}
 
 	cloog_domain_free(enclosingDomain);
@@ -455,23 +458,25 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 			// Trapezoidal bounds
 			auto d1Bounds = this->computeInnerMinMaxStr(innerDomain, 1);
 
-			stmtStr = trapezoidalLBName + " = max(max(" + d1Bounds.first + ", " + nextHelper.innerForLBName() +
-					  "), max(" + d1Bounds.first + ", " + nextHelper.innerForLBName() + ") + " + offsetName //
+			stmtStr = trapezoidalLBName + " = max(" + d1Bounds.first + ", " + nextHelper.innerForLBName() + " + " +
+					  offsetName //
 					  + " + floord(" + std::to_string(slope.y) + " * (" + pair.innerFor->iterator + " - " +
 					  nameHelper.innerForLBName() + "), " + std::to_string(slope.x) + "));";
 			stmtStr += trapezoidalUBName + " = min(" + d1Bounds.second + ", " + nextHelper.innerForUBName() + ");";
 
-			macroData.defineFunc(std::string("S") + std::to_string(pair.innerBodyStmt0->statement->number), "",
-								 stmtStr);
+			for (auto *s : pair.innerBodyStmts0)
+				macroData.defineFunc("S" + std::to_string(s->statement->number), "", stmtStr);
+
 			stmtStr = "";
 			stmtStr += trapezoidalLBName + " = max(" + d1Bounds.first + ", " + nextHelper.innerForLBName() + ");";
 			stmtStr += trapezoidalUBName + " = min(min(" + d1Bounds.second + ", " + nextHelper.innerForUBName() +
-					   "), max(" + d1Bounds.first + ", " + nextHelper.innerForLBName() + ") + " + offsetName //
+					   "), " + nextHelper.innerForLBName() + " + " + offsetName //
 					   + " + floord(" + std::to_string(slope.y) + " * (" + pair.innerFor->iterator + " - " +
 					   nameHelper.innerForLBName() + "), " + std::to_string(slope.x) + ") - 1);";
 
-			macroData.defineFunc(std::string("S") + std::to_string(pair.innerBodyStmt1->statement->number), "",
-								 stmtStr);
+			for (auto *s : pair.innerBodyStmts1) {
+				macroData.defineFunc("S" + std::to_string(s->statement->number), "", stmtStr);
+			}
 		}
 		if (pair.depth == 1) {
 
@@ -576,8 +581,10 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 
 			macroData.defineFunc(std::string("S") + std::to_string(pair.outerBodyStmt->statement->number), "", stmtStr);
 
-			macroData.defineFunc(std::string("S") + std::to_string(pair.innerBodyStmt0->statement->number), "", "");
-			macroData.defineFunc(std::string("S") + std::to_string(pair.innerBodyStmt1->statement->number), "", "");
+			for (auto *s : pair.innerBodyStmts0)
+				macroData.defineFunc("S" + std::to_string(s->statement->number), "", "");
+			for (auto *s : pair.innerBodyStmts1)
+				macroData.defineFunc("S" + std::to_string(s->statement->number), "", "");
 		}
 		// for depth > 1 we do rectangular tiling
 		if (pair.depth > 1) {
@@ -594,8 +601,10 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 					   nameHelper.divName() + " + " + min_str + " - 1, " + max_str + ");";
 			macroData.defineFunc("S" + std::to_string(pair.outerBodyStmt->statement->number), "", stmtStr);
 
-			macroData.defineFunc(std::string("S") + std::to_string(pair.innerBodyStmt0->statement->number), "", "");
-			macroData.defineFunc(std::string("S") + std::to_string(pair.innerBodyStmt1->statement->number), "", "");
+			for (auto *s : pair.innerBodyStmts0)
+				macroData.defineFunc("S" + std::to_string(s->statement->number), "", "");
+			for (auto *s : pair.innerBodyStmts1)
+				macroData.defineFunc("S" + std::to_string(s->statement->number), "", "");
 		}
 
 		isl_set_free(max_set);
@@ -864,12 +873,44 @@ void TpzTilingPass::insertOmpPragmas(pesto::ir::ClastIR &clastIR,
 		}
 		privateVars += pair.innerFor->iterator;
 	}
-	
-	// The reduction loop is not tiled when it carries a dependence, so it has
-	// no tiling pair left; its iterator must still be private, otherwise every
-	// thread shares it.
-	if (!this->untiledInnerIterator_.empty()) {
-		privateVars += ", " + this->untiledInnerIterator_;
+
+	// CLooG can leave loops below the tiled levels that have no tiling pair —
+	// an untiled reduction, or a deeper sibling nest. Their iterators would
+	// stay shared between threads.
+	{
+		std::vector<std::string> extra;
+		std::function<void(struct clast_stmt *)> collect = [&](struct clast_stmt *s) {
+			for (; s != NULL; s = s->next) {
+				if (CLAST_STMT_IS_A(s, stmt_for)) {
+					struct clast_for *f = (struct clast_for *)s;
+					std::string it = f->iterator;
+					bool known = false;
+					for (auto &p : clastTilingPairs)
+						if (it == p.innerFor->iterator || it == p.outerFor->iterator) {
+							known = true;
+							break;
+						}
+					for (auto &e : extra)
+						if (it == e) {
+							known = true;
+							break;
+						}
+					if (!known)
+						extra.push_back(it);
+					collect(f->body);
+				} else if (CLAST_STMT_IS_A(s, stmt_guard)) {
+					collect(((struct clast_guard *)s)->then);
+				} else if (CLAST_STMT_IS_A(s, stmt_block)) {
+					collect(((struct clast_block *)s)->body);
+				}
+			}
+		};
+		collect(root->body);
+		for (auto &e : extra)
+			privateVars += ", " + e;
+		for (auto &e : extra)
+			if (privateVars.find(e) == std::string::npos)
+				privateVars += ", " + e;
 	}
 
 	// add outer for iterators if depth > 1
