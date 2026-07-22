@@ -68,7 +68,7 @@ Bundle TpzTilingPass::apply(Bundle &&bundle) {
 
 	if (!slope.has_value()) {
 		this->logger->error("Trapezoidal tiling cannot be performed on this scop.");
-		return std::move(bundle);
+		throw std::runtime_error("Trapezoidal tiling cannot be performed on this scop");
 	}
 
 	this->zTileable_ = this->isReductionTileable(scop);
@@ -98,16 +98,24 @@ Bundle TpzTilingPass::apply(Bundle &&bundle) {
 	auto stmts = clast_get_user_stmt_list(&(root->stmt), &this->insertedStmts);
 	free(stmts);
 
-	// TODO: better alogorithm to find the for loop
-	// for now we just take the first for loop in ast
-	for (struct clast_stmt *stmt = &(root->stmt); stmt != NULL; stmt = clast_get_next(stmt)) {
-		if (CLAST_STMT_IS_A(stmt, stmt_for)) {
-			struct clast_for *clastFor = (struct clast_for *)stmt;
-
-			tileClastFor(bundle, clastFor, slope.value());
-			break;
+	std::function<struct clast_for *(struct clast_stmt *)> findFirstFor = [&](struct clast_stmt *
+																			  s) -> struct clast_for * {
+		for (; s != NULL; s = s->next) {
+			if (CLAST_STMT_IS_A(s, stmt_for))
+				return (struct clast_for *)s;
+			if (CLAST_STMT_IS_A(s, stmt_guard))
+				if (auto *f = findFirstFor(((struct clast_guard *)s)->then))
+					return f;
+			if (CLAST_STMT_IS_A(s, stmt_block))
+				if (auto *f = findFirstFor(((struct clast_block *)s)->body))
+					return f;
 		}
-	}
+		return nullptr;
+	};
+	if (struct clast_for *clastFor = findFirstFor(&(root->stmt)))
+		tileClastFor(bundle, clastFor, slope.value());
+	else
+		logger->error("No for loop found to tile");
 
 	return std::move(bundle);
 }
@@ -1040,6 +1048,12 @@ std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(osl_s
 
 	isl_union_set *deltas = isl_union_map_deltas(isl_union_map_copy(sanitized_dep_flow));
 
+	this->printer = isl_printer_print_union_map(this->printer, sanitized_dep_flow);
+	char *s = isl_printer_get_str(this->printer);
+	this->logger->debug("dep flow: {}", s);
+	free(s);
+	this->printer = isl_printer_flush(this->printer);
+
 	// Multi-statement scops (nussinov, counting_im, mcc, mcm, mea) produce
 	// deltas in SEVERAL spaces, possibly of different dimensionality (a
 	// statement inside the k-loop has 3 dims, one outside has 2). Converting
@@ -1084,13 +1098,23 @@ std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(osl_s
 	}
 
 	set = isl_set_apply(set, proj);
-	set = isl_set_drop_constraints_involving_dims(set, isl_dim_param, 0, isl_set_dim(set, isl_dim_param));
+	// Project the parameters out instead of dropping the constraints that
+	// mention them: dropping is an over-approximation that loses the sign
+	// constraints when a dependence distance is bounded by a parameter
+	// (d > l here), which made the diagonal family symmetric and produced a
+	// spurious negative vector.
+	set = isl_set_project_out(set, isl_dim_param, 0, isl_set_dim(set, isl_dim_param));
 
 	// isl_set_dump(set);
 
 	std::vector<pesto::maths::Vec2i> depDistanceVector;
 
-	set = isl_set_drop_constraints_involving_dims(set, isl_dim_param, 0, isl_set_dim(set, isl_dim_param));
+	// Project the parameters out instead of dropping the constraints that
+	// mention them: dropping is an over-approximation that loses the sign
+	// constraints when a dependence distance is bounded by a parameter
+	// (d > l here), which made the diagonal family symmetric and produced a
+	// spurious negative vector.
+	set = isl_set_project_out(set, isl_dim_param, 0, isl_set_dim(set, isl_dim_param));
 
 	// Each ray (m,m), (m,0)... is represented by a basic set; sampling it can
 	// return the origin (0,0), losing the direction. Remove the origin so the
@@ -1138,6 +1162,14 @@ std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(osl_s
 			return isl_stat_ok;
 		},
 		&depDistanceVector);
+
+	{
+		this->printer = isl_printer_print_set(this->printer, set);
+		char *str = isl_printer_get_str(this->printer);
+		this->logger->debug("projected deltas: {}", str);
+		free(str);
+		this->printer = isl_printer_flush(this->printer);
+	}
 
 	isl_set_free(set);
 
@@ -1300,7 +1332,12 @@ bool TpzTilingPass::isReductionTileable(osl_scop_p scop) {
 	bool tileable = true;
 	if (p.acc) {
 		isl_set *set = isl_set_coalesce(p.acc);
-		set = isl_set_drop_constraints_involving_dims(set, isl_dim_param, 0, isl_set_dim(set, isl_dim_param));
+		// Project the parameters out instead of dropping the constraints that
+		// mention them: dropping is an over-approximation that loses the sign
+		// constraints when a dependence distance is bounded by a parameter
+		// (d > l here), which made the diagonal family symmetric and produced a
+		// spurious negative vector.
+		set = isl_set_project_out(set, isl_dim_param, 0, isl_set_dim(set, isl_dim_param));
 
 		// A dependence carried by z (Δz != 0) that ALSO moves in x or y
 		// (Δx != 0 or Δy != 0) means the reduction index indexes another cell;
