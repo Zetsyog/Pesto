@@ -261,7 +261,12 @@ std::vector<pesto::pass::ptile::ClastTilingPair> TpzTilingPass::computeTilingPai
 	// reduction is independent (e.g. matmul, reading separate arrays), z is
 	// tileable and all levels are kept.
 	if (!this->zTileable_ && clastTilingPairs.size() > 2) {
-		clastTilingPairs.resize(2);
+    	// The reduction loop stays inner and untiled, but its iterator must still
+   	// appear in the OpenMP private clause — remember it before dropping the pair.
+    	this->untiledInnerIterator_ = clastTilingPairs[2].innerFor->iterator;
+    	clastTilingPairs.resize(2);
+	} else {
+    	this->untiledInnerIterator_.clear();
 	}
 
 	return clastTilingPairs;
@@ -858,6 +863,13 @@ void TpzTilingPass::insertOmpPragmas(pesto::ir::ClastIR &clastIR,
 			privateVars += ", ";
 		}
 		privateVars += pair.innerFor->iterator;
+	}
+	
+	// The reduction loop is not tiled when it carries a dependence, so it has
+	// no tiling pair left; its iterator must still be private, otherwise every
+	// thread shares it.
+	if (!this->untiledInnerIterator_.empty()) {
+		privateVars += ", " + this->untiledInnerIterator_;
 	}
 
 	// add outer for iterators if depth > 1

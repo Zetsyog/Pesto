@@ -93,6 +93,8 @@ class TpzTilingPass : public IPass {
 	
     	bool zTileable_ = true;
     	bool isReductionTileable(osl_scop_p scop);
+    	
+    	std::string untiledInnerIterator_;
 };
 
 } // namespace pesto::pass
