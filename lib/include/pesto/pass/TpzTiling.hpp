@@ -29,6 +29,8 @@ namespace ptile {
 class ClastTilingPair {
   public:
 	unsigned int depth; // tiling depth
+	
+	bool underGap = false; // tile loop placed inside t2 instead of at the top
 
 	struct clast_for *innerFor;
 	struct clast_for *outerFor;

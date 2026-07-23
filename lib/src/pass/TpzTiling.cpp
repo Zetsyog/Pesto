@@ -263,7 +263,7 @@ std::vector<pesto::pass::ptile::ClastTilingPair> TpzTilingPass::computeTilingPai
 	// added to the OpenMP private clause by insertOmpPragmas, which walks the
 	// AST for loops that have no tiling pair.
 	if (!this->zTileable_ && clastTilingPairs.size() > 2) {
-		clastTilingPairs.resize(2);
+		clastTilingPairs[2].underGap = true;
 	}
 
 	return clastTilingPairs;
@@ -281,14 +281,19 @@ void TpzTilingPass::insertOuterForLoop(Bundle &bundle, std::vector<ptile::ClastT
 
 	CloogDomain *enclosingDomain =
 		cloog_domain_universe(cloogOptions->state, cloog_domain_dimension(outermostFor->domain));
+	CloogDomain *innerEnclosingDomain = nullptr;
+	if (clastTilingPairs.size() > 2)
+		innerEnclosingDomain =
+			cloog_domain_universe(cloogOptions->state, cloog_domain_dimension(clastTilingPairs[1].innerFor->domain));
 
 	// do tiling by inserting outer for loops
 	// insert user statements
 	for (auto it = clastTilingPairs.begin(); it != clastTilingPairs.end(); ++it) {
-		// Access *it as a ClastTilingPair
-		// Example: log(std::cerr) << "Processing pair with innerFor: " << it->innerFor->iterator << std::endl;
-		struct clast_for *enclosing_for =
-			clast_insert_enclosing_for(&(root->stmt), &(outermostFor->stmt), enclosingDomain);
+		// The reduction tile loop goes inside t2, as a parent of the t4 point
+		// loop; the other levels stack above the outermost point loop.
+		struct clast_for *target = it->underGap ? clastTilingPairs[1].innerFor : outermostFor;
+		struct clast_for *enclosing_for = clast_insert_enclosing_for(
+			&(root->stmt), &(target->stmt), it->underGap ? innerEnclosingDomain : enclosingDomain);
 
 		// Set iterator name
 		const char *innerItName = it->innerFor->iterator;
@@ -347,6 +352,8 @@ void TpzTilingPass::insertOuterForLoop(Bundle &bundle, std::vector<ptile::ClastT
 	}
 
 	cloog_domain_free(enclosingDomain);
+	if (innerEnclosingDomain)
+		cloog_domain_free(innerEnclosingDomain);
 }
 
 void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::ClastTilingPair> &clastTilingPairs,
@@ -461,6 +468,7 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 					  " + " + min_str + ";";
 			stmtStr += nameHelper.innerForUBName() + " = " + "min((" + pair.outerFor->iterator + " + 1) * " +
 					   nameHelper.divName() + " - 1 + " + min_str + ", " + max_str + ");";
+
 			macroData.defineFunc("S" + std::to_string(pair.outerBodyStmt->statement->number), "", stmtStr);
 
 			// Trapezoidal bounds
@@ -596,25 +604,56 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 		}
 		// for depth > 1 we do rectangular tiling
 		if (pair.depth > 1) {
-			std::string stmtStr = "";
+			if (pair.underGap) {
+				// lbzt6 / ubzt6 : posés juste avant la boucle zt6, donc dans le
+				// corps de t2, après les bornes trapézoïdales dont ils dépendent.
+				std::string stmtStr = nameHelper.outerForLBName() + " = 0;";
+				stmtStr += nameHelper.outerForUBName() + " = ceild((_tpzub - 1) - (_tpzlb - " +
+						   clastTilingPairs[0].innerFor->iterator + ") + 1, " + nameHelper.divName() + ") - 1;";
+				macroData.defineFunc("S" + std::to_string(pair.outerHeaderStmt->statement->number), "", stmtStr);
+				varDeclData.addVar(nameHelper.outerForLBName());
+				varDeclData.addVar(nameHelper.outerForUBName());
 
-			stmtStr += nameHelper.outerForLBName() + " = 0;";
-			stmtStr += nameHelper.outerForUBName() + " = ceild(" + max_str + " - (" + min_str + "), " +
-					   nameHelper.divName() + ");";
-			macroData.defineFunc("S" + std::to_string(pair.outerHeaderStmt->statement->number), "", stmtStr);
+				// corps de zt6 : bornes de la tuile de réduction, et restriction de
+				// t4 aux valeurs dont la plage de réduction rencontre cette tuile.
+				stmtStr = nameHelper.innerForLBName() + " = " + pair.outerFor->iterator + " * " + nameHelper.divName() +
+						  " + (_tpzlb - " + clastTilingPairs[0].innerFor->iterator + ");";
+				stmtStr += nameHelper.innerForUBName() + " = min((" + pair.outerFor->iterator + " + 1) * " +
+						   nameHelper.divName() + " - 1 + (_tpzlb - " + clastTilingPairs[0].innerFor->iterator +
+						   "), _tpzub - 1);";
+				stmtStr += "_tpzlb2 = max(_tpzlb, " + nameHelper.innerForLBName() + " + 1);";
+				stmtStr += "_tpzub2 = min(_tpzub, " + nameHelper.innerForUBName() + " + " +
+						   clastTilingPairs[0].innerFor->iterator + ");";
+				macroData.defineFunc("S" + std::to_string(pair.outerBodyStmt->statement->number), "", stmtStr);
+				varDeclData.addVar(nameHelper.innerForLBName());
+				varDeclData.addVar(nameHelper.innerForUBName());
+				varDeclData.addVar("_tpzlb2");
+				varDeclData.addVar("_tpzub2");
 
-			stmtStr = nameHelper.innerForLBName() + " = " + pair.outerFor->iterator + " * " + nameHelper.divName() +
-					  " + " + min_str + ";";
-			stmtStr += nameHelper.innerForUBName() + " = min((" + pair.outerFor->iterator + " + 1) * " +
-					   nameHelper.divName() + " + " + min_str + " - 1, " + max_str + ");";
-			macroData.defineFunc("S" + std::to_string(pair.outerBodyStmt->statement->number), "", stmtStr);
+				for (auto *s : pair.innerBodyStmts0)
+					macroData.defineFunc("S" + std::to_string(s->statement->number), "", "");
+				for (auto *s : pair.innerBodyStmts1)
+					macroData.defineFunc("S" + std::to_string(s->statement->number), "", "");
+			} else {
+				std::string stmtStr = "";
 
-			for (auto *s : pair.innerBodyStmts0)
-				macroData.defineFunc("S" + std::to_string(s->statement->number), "", "");
-			for (auto *s : pair.innerBodyStmts1)
-				macroData.defineFunc("S" + std::to_string(s->statement->number), "", "");
+				stmtStr += nameHelper.outerForLBName() + " = 0;";
+				stmtStr += nameHelper.outerForUBName() + " = ceild(" + max_str + " - (" + min_str + "), " +
+						   nameHelper.divName() + ");";
+				macroData.defineFunc("S" + std::to_string(pair.outerHeaderStmt->statement->number), "", stmtStr);
+
+				stmtStr = nameHelper.innerForLBName() + " = " + pair.outerFor->iterator + " * " + nameHelper.divName() +
+						  " + " + min_str + ";";
+				stmtStr += nameHelper.innerForUBName() + " = min((" + pair.outerFor->iterator + " + 1) * " +
+						   nameHelper.divName() + " + " + min_str + " - 1, " + max_str + ");";
+				macroData.defineFunc("S" + std::to_string(pair.outerBodyStmt->statement->number), "", stmtStr);
+
+				for (auto *s : pair.innerBodyStmts0)
+					macroData.defineFunc("S" + std::to_string(s->statement->number), "", "");
+				for (auto *s : pair.innerBodyStmts1)
+					macroData.defineFunc("S" + std::to_string(s->statement->number), "", "");
+			}
 		}
-
 		isl_set_free(max_set);
 		isl_set_free(min_set);
 	}
@@ -781,6 +820,10 @@ void TpzTilingPass::insertInnerLoopBounds(pesto::ir::ClastIR &clastIR,
 		if (pair.depth == 1) {
 			lbName = "_tpzlb";
 			ubName = "_tpzub";
+			if (clastTilingPairs.size() > 2 && clastTilingPairs[2].underGap) {
+				lbName = "_tpzlb2";
+				ubName = "_tpzub2";
+			}
 		}
 
 		for (int i = 0; i < nclastloops; ++i) {
@@ -948,6 +991,8 @@ void TpzTilingPass::insertOmpPragmas(pesto::ir::ClastIR &clastIR,
 		privateVars += nameHelper.innerForLBName() + ", " + nameHelper.innerForUBName();
 	}
 	privateVars += std::string(", _tpzlb") + ", _tpzub" + ", tile_offset";
+	if (clastTilingPairs.size() > 2 && clastTilingPairs[2].underGap)
+		privateVars += ", _tpzlb2, _tpzub2";
 
 	// add omp pragmas to the outer loops of depth 1
 	ClastFilter filter = {clastTilingPairs[1].outerFor->iterator, nullptr, 0, subset};
@@ -1188,12 +1233,6 @@ std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(osl_s
 
 	if (depDistanceVector.empty()) {
 		return std::nullopt; // no dependences found
-	}
-
-	// DEBUG
-	std::cerr << "Dep vector list: " << std::endl;
-	for (const auto &vec : depDistanceVector) {
-		std::cerr << "(" << vec.x << ", " << vec.y << ")" << std::endl;
 	}
 
 	// Now we must check that all the vectors are contained in the cone of the vectors (1, 0) and (1, 1)
