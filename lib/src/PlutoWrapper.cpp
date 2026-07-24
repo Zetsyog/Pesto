@@ -12,13 +12,13 @@
 
 #include <pesto/Pluto.hpp>
 
+#include <iostream>
+
 using namespace pesto;
 
 PlutoWrapper::PlutoWrapper() {
 	this->context = pluto_context_alloc();
-	getOptions().tile_sizes_len = 1;
-	getOptions().tile_sizes = (int *)malloc(getOptions().tile_sizes_len * sizeof(int));
-	getOptions().tile_sizes[0] = 32; // default tile size is 32
+	this->setTileSizes({32, 32, 32});
 }
 
 PlutoWrapper::~PlutoWrapper() {
@@ -99,6 +99,16 @@ PlutoOptions &PlutoWrapper::getOptions() {
 }
 
 PlutoWrapper &PlutoWrapper::setTileSizes(std::initializer_list<int> sizes) {
+	if (getOptions().tile_sizes != nullptr) {
+		free(getOptions().tile_sizes);
+	}
+	getOptions().tile_sizes_len = sizes.size();
+	getOptions().tile_sizes = (int *)malloc(getOptions().tile_sizes_len * sizeof(int));
+	std::copy(sizes.begin(), sizes.end(), getOptions().tile_sizes);
+	return *this;
+}
+
+PlutoWrapper &PlutoWrapper::setTileSizes(std::vector<int> sizes) {
 	if (getOptions().tile_sizes != nullptr) {
 		free(getOptions().tile_sizes);
 	}

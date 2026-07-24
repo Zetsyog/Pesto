@@ -60,53 +60,53 @@ std::unique_ptr<pesto::pass::IPass> PlutoPB::build(PassManagerBuilder &builder, 
 			pass->setCheckLegality(val);
 			continue;
 		}
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), tile);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), intratileopt);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), diamondtile);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), per_cc_obj);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), dynschedule);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), dynschedule_graph_old);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), dyn_trans_deps_tasks);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), fulldiamondtile);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), parallel);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), innerpar);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), unrolljam);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), prevector);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), rar);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), delayed_cut);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), hybridcut);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), codegen_context);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), scancount);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), forceparallel);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), multipar);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), second_level_tile);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), find_tile_sizes);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), identity);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), bee);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), isldep);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), candldep);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), isldepaccesswise);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), isldepcoalesce);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), lastwriter);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), nodepbound);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), scalpriv);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), pipsolve);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), islsolve);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), glpk);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), gurobi);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), lp);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), dfp);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), ilp);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), lpcolour);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), scc_cluster);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), iss);
-		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getOptions(), flic);
-		PESTO_BIND_PLUTO_INTOPT(key, val, pass->getOptions(), ft);
-		PESTO_BIND_PLUTO_INTOPT(key, val, pass->getOptions(), lt);
-		PESTO_BIND_PLUTO_INTOPT(key, val, pass->getOptions(), ufactor);
-		PESTO_BIND_PLUTO_INTOPT(key, val, pass->getOptions(), coeff_bound);
-		PESTO_BIND_PLUTO_INTOPT(key, val, pass->getOptions(), cache_size);
-		PESTO_BIND_PLUTO_INTOPT(key, val, pass->getOptions(), data_element_size);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), tile);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), intratileopt);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), diamondtile);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), per_cc_obj);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), dynschedule);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), dynschedule_graph_old);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), dyn_trans_deps_tasks);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), fulldiamondtile);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), parallel);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), innerpar);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), unrolljam);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), prevector);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), rar);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), delayed_cut);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), hybridcut);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), codegen_context);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), scancount);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), forceparallel);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), multipar);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), second_level_tile);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), find_tile_sizes);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), identity);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), bee);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), isldep);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), candldep);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), isldepaccesswise);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), isldepcoalesce);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), lastwriter);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), nodepbound);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), scalpriv);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), pipsolve);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), islsolve);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), glpk);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), gurobi);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), lp);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), dfp);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), ilp);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), lpcolour);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), scc_cluster);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), iss);
+		PESTO_BIND_PLUTO_BOOLOPT(key, val, pass->getPluto().getOptions(), flic);
+		PESTO_BIND_PLUTO_INTOPT(key, val, pass->getPluto().getOptions(), ft);
+		PESTO_BIND_PLUTO_INTOPT(key, val, pass->getPluto().getOptions(), lt);
+		PESTO_BIND_PLUTO_INTOPT(key, val, pass->getPluto().getOptions(), ufactor);
+		PESTO_BIND_PLUTO_INTOPT(key, val, pass->getPluto().getOptions(), coeff_bound);
+		PESTO_BIND_PLUTO_INTOPT(key, val, pass->getPluto().getOptions(), cache_size);
+		PESTO_BIND_PLUTO_INTOPT(key, val, pass->getPluto().getOptions(), data_element_size);
 
 		if (key == "fuse") {
 			if (!val.is_string()) {
@@ -115,15 +115,15 @@ std::unique_ptr<pesto::pass::IPass> PlutoPB::build(PassManagerBuilder &builder, 
 			}
 			std::string fuse = options["fuse"];
 			if (fuse == "none") {
-				pass->getOptions().fuse = kNoFuse;
+				pass->getPluto().getOptions().fuse = kNoFuse;
 			} else if (fuse == "maximal") {
-				pass->getOptions().fuse = kMaximalFuse;
+				pass->getPluto().getOptions().fuse = kMaximalFuse;
 			} else if (fuse == "smart") {
-				pass->getOptions().fuse = kSmartFuse;
+				pass->getPluto().getOptions().fuse = kSmartFuse;
 			} else if (fuse == "typed") {
-				pass->getOptions().fuse = kTypedFuse;
+				pass->getPluto().getOptions().fuse = kTypedFuse;
 			} else if (fuse == "hybrid") {
-				pass->getOptions().fuse = kHybridFuse;
+				pass->getPluto().getOptions().fuse = kHybridFuse;
 			} else {
 				logger->warn("Unknown value for 'fuse' option: {} ", fuse.c_str());
 			}
@@ -137,11 +137,7 @@ std::unique_ptr<pesto::pass::IPass> PlutoPB::build(PassManagerBuilder &builder, 
 			}
 			std::vector<int> tile_sizes;
 			val.get_to(tile_sizes);
-			pass->getOptions().tile_sizes_len = tile_sizes.size();
-			pass->getOptions().tile_sizes = (int *)malloc(tile_sizes.size() * sizeof(int));
-			for (int i = 0; i < pass->getOptions().tile_sizes_len; i++) {
-				pass->getOptions().tile_sizes[i] = tile_sizes[i];
-			}
+			pass->getPluto().setTileSizes(tile_sizes);
 			continue;
 		}
 		// warnings for unhandled options
@@ -155,13 +151,13 @@ std::unique_ptr<pesto::pass::IPass> PlutoPB::build(PassManagerBuilder &builder, 
 			continue;
 		}
 		if (key == "silent") {
-			pass->getOptions().silent = val;
-			pass->getOptions().quiet = val;
+			pass->getPluto().getOptions().silent = val;
+			pass->getPluto().getOptions().quiet = val;
 			continue;
 		}
 		if (key == "debug") {
-			pass->getOptions().debug = val;
-			pass->getOptions().moredebug = val;
+			pass->getPluto().getOptions().debug = val;
+			pass->getPluto().getOptions().moredebug = val;
 			continue;
 		}
 		if (key == "readscop") {

@@ -157,7 +157,7 @@ int CLI::start(int argc, char **argv) {
 		passManager = std::make_unique<pesto::PassManager>();
 
 		// by default, we run pluto and then generate code with cloog
-		passManager->addPass(std::make_unique<pass::PlutoTilingPass>());
+		passManager->addPass(std::make_unique<pass::PlutoPass>());
 		passManager->addPass(std::make_unique<pass::CloogCodegenPass>());
 	}
 

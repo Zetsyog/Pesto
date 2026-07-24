@@ -424,19 +424,19 @@ void Scop2Isl::convert(osl_scop_p scop) {
 		this->schedule = isl_union_map_union(this->schedule, isl_union_map_from_map(isl_map_copy(schedule_i)));
 
 		// parse access
-		osl_relation_list_p readList = osl_relation_list_filter(stmt->access, OSL_TYPE_READ);
-		osl_relation_list_p mayWriteList = osl_relation_list_filter(stmt->access, OSL_TYPE_MAY_WRITE);
-		osl_relation_list_p writeList = osl_relation_list_filter(stmt->access, OSL_TYPE_WRITE);
+		osl_relation_list_p sanitizedReadList = osl_relation_list_filter(stmt->access, OSL_TYPE_READ);
+		osl_relation_list_p sanitizedMayWriteList = osl_relation_list_filter(stmt->access, OSL_TYPE_MAY_WRITE);
+		osl_relation_list_p sanitizedWriteList = osl_relation_list_filter(stmt->access, OSL_TYPE_WRITE);
 
-		osl_relation_list_p sanitizedReadList = osl_relation_list_clone(readList);
-		osl_relation_list_p sanitizedMayWriteList = osl_relation_list_clone(mayWriteList);
-		osl_relation_list_p sanitizedWriteList = osl_relation_list_clone(writeList);
 		sanitize_stmt_access_relation(sanitizedReadList);
 		sanitize_stmt_access_relation(sanitizedMayWriteList);
 		sanitize_stmt_access_relation(sanitizedWriteList);
 
 		osl_arrays_p arrays = (osl_arrays_p)osl_generic_lookup(this->scop->extension, OSL_URI_ARRAYS);
 		if (arrays) {
+			if (names->arrays != nullptr) {
+				osl_strings_free(names->arrays);
+			}
 			names->arrays = osl_arrays_to_strings(arrays);
 		}
 

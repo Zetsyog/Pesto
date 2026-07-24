@@ -6,8 +6,8 @@
  */
 
 #include <algorithm>
-#include <vector>
 #include <numeric>
+#include <vector>
 
 #include <isl/aff.h>
 #include <isl/ast_build.h>
@@ -70,7 +70,7 @@ Bundle TpzTilingPass::apply(Bundle &&bundle) {
 		this->logger->error("Trapezoidal tiling cannot be performed on this scop.");
 		return std::move(bundle);
 	}
-	
+
 	this->zTileable_ = this->isReductionTileable(scop);
 
 	this->logger->debug("Steepest dependency vector: ({}, {})", slope->x, slope->y);
@@ -127,7 +127,7 @@ void TpzTilingPass::tileClastFor(Bundle &bundle, struct clast_for *clastFor, pes
 	std::vector<ClastTilingPair> clastTilingPairs = this->computeTilingPairs(*clastIR, clastFor);
 
 	isl_set *innerDomain = this->computeInnerDomain(*clastIR, clastTilingPairs);
-	
+
 	// Rename scattering dimensions to t2/t4/t6 once, before both codegen (which
 	// emits the gen_maxcut comment) and Trahrhe header generation consume the
 	// domain. The multi-statement domain reconstruction (PickMax + convex_hull)
@@ -141,7 +141,7 @@ void TpzTilingPass::tileClastFor(Bundle &bundle, struct clast_for *clastFor, pes
 		}
 	}
 
-// isl_printer_print_set asserts on a null tuple name; the PickMax
+	// isl_printer_print_set asserts on a null tuple name; the PickMax
 	// reconstruction cleared it. Give the domain a tuple name.
 	if (!isl_set_get_tuple_name(innerDomain))
 		innerDomain = isl_set_set_tuple_name(innerDomain, "T");
@@ -249,8 +249,7 @@ std::vector<pesto::pass::ptile::ClastTilingPair> TpzTilingPass::computeTilingPai
 
 	std::sort(clastTilingPairs.begin(), clastTilingPairs.end(),
 			  [](const ClastTilingPair &a, const ClastTilingPair &b) { return a.depth < b.depth; });
-			  
-			  
+
 	std::sort(clastTilingPairs.begin(), clastTilingPairs.end(),
 			  [](const ClastTilingPair &a, const ClastTilingPair &b) { return a.depth < b.depth; });
 
@@ -265,7 +264,7 @@ std::vector<pesto::pass::ptile::ClastTilingPair> TpzTilingPass::computeTilingPai
 		clastTilingPairs.resize(2);
 	}
 
-	return clastTilingPairs;		  
+	return clastTilingPairs;
 }
 
 void TpzTilingPass::insertOuterForLoop(Bundle &bundle, std::vector<ptile::ClastTilingPair> &clastTilingPairs) {
@@ -291,8 +290,7 @@ void TpzTilingPass::insertOuterForLoop(Bundle &bundle, std::vector<ptile::ClastT
 
 		// Set iterator name
 		const char *innerItName = it->innerFor->iterator;
-		std::string innerItSafe = innerItName ? std::string(innerItName)
-		                                      : ("d" + std::to_string(it->depth));
+		std::string innerItSafe = innerItName ? std::string(innerItName) : ("d" + std::to_string(it->depth));
 		std::unique_ptr<std::string> it_name = std::make_unique<std::string>("z" + innerItSafe);
 
 		NameHelper nameHelper = NameHelper(it->depth, *it_name, innerItSafe.c_str());
@@ -337,7 +335,7 @@ void TpzTilingPass::insertOuterForLoop(Bundle &bundle, std::vector<ptile::ClastT
 
 void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::ClastTilingPair> &clastTilingPairs,
 							isl_set *innerDomain, pesto::maths::Vec2i slope) {
-							
+
 	using pesto::ptile::NameHelper;
 
 	auto &macroData = bundle.metadata.get<pesto::bundle::metadata::Macro>();
@@ -345,10 +343,10 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 
 	macroData.nonProcessedList.push_back("#include <omp.h>");
 	macroData.nonProcessedList.push_back("#include \"maxcut.h\"");
-	
+
 	{
 		isl_printer *dp = isl_printer_to_str(this->ctx);
-		
+
 		// pour le commentaire gen_maxcut : domaine sans nom de tuple
 		isl_set *domainForComment = isl_set_copy(innerDomain);
 		domainForComment = isl_set_set_tuple_name(domainForComment, nullptr);
@@ -360,16 +358,17 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 		free(dstr);
 		isl_printer_free(dp);
 
-		std::string maxcutCmd =
-			"/* max_cut_volume() comes from maxcut.h.\n"
-			" * Regenerate it for THIS transformed domain (set --t to your DIV0 value):\n"
-			" *   python3 gen_maxcut.py \\\n"
-			" *     --domain \"" + domainStr + "\" \\\n"
-			" *     --t $DIV0 \\\n"
-			" *     --func max_cut_volume \\\n"
-			" *     --out maxcut.h\n"
-			" * gen_maxcut computes min(x1) by lexmin; add --f1 <x_min> if it is piecewise.\n"
-			" */";
+		std::string maxcutCmd = "/* max_cut_volume() comes from maxcut.h.\n"
+								" * Regenerate it for THIS transformed domain (set --t to your DIV0 value):\n"
+								" *   python3 gen_maxcut.py \\\n"
+								" *     --domain \"" +
+								domainStr +
+								"\" \\\n"
+								" *     --t $DIV0 \\\n"
+								" *     --func max_cut_volume \\\n"
+								" *     --out maxcut.h\n"
+								" * gen_maxcut computes min(x1) by lexmin; add --f1 <x_min> if it is piecewise.\n"
+								" */";
 		macroData.nonProcessedList.push_back(maxcutCmd);
 	}
 
@@ -405,8 +404,8 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 		isl_set *min_set = isl_set_copy(innerDomain);
 		for (int i = 0; i < isl_set_dim(innerDomain, isl_dim_set); ++i) {
 			char const *dimNameRaw = isl_set_get_dim_name(innerDomain, isl_dim_set, i);
-			std::string dimNameSafe = dimNameRaw ? std::string(dimNameRaw)
-			                                     : ("d" + std::to_string(pair.depth) + "_" + std::to_string(i));
+			std::string dimNameSafe =
+				dimNameRaw ? std::string(dimNameRaw) : ("d" + std::to_string(pair.depth) + "_" + std::to_string(i));
 			NameHelper helper = NameHelper(pair.depth, pair.outerFor->iterator, dimNameSafe.c_str());
 			std::string lbName = helper.innerForLBName();
 			std::string ubName = helper.innerForUBName();
@@ -468,7 +467,6 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 
 			macroData.defineFunc(std::string("S") + std::to_string(pair.innerBodyStmt1->statement->number), "",
 								 stmtStr);
-					 
 		}
 		if (pair.depth == 1) {
 
@@ -545,9 +543,9 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 			// band. Using the actual band width is correct for any cone slope;
 			// the previous floord(slope.y*DIV, slope.x) degenerated to 0 when
 			// slope.y was 0 (e.g. nussinov), disabling the check.
-			stmtStr += "if(" + nameHelper.innerForUBName() + " - " + nameHelper.innerForLBName() +
-					   " + 1 < (" + rootHelper.innerForUBName() + " - " + rootHelper.innerForLBName() +
-					   " + 1) && (" + pair.outerFor->iterator + " != " + nameHelper.outerForUBName() + ") && (" +
+			stmtStr += "if(" + nameHelper.innerForUBName() + " - " + nameHelper.innerForLBName() + " + 1 < (" +
+					   rootHelper.innerForUBName() + " - " + rootHelper.innerForLBName() + " + 1) && (" +
+					   pair.outerFor->iterator + " != " + nameHelper.outerForUBName() + ") && (" +
 					   nameHelper.outerForUBName() + " > 1)) {";
 			stmtStr += "fprintf(stderr, \"Error: Target volume too small.\\n(" + //
 					   nameHelper.targetVolName() + ", " +						 // target volume
@@ -620,7 +618,7 @@ __isl_give isl_set *TpzTilingPass::computeInnerDomain(pesto::ir::ClastIR &clastI
 		logger->debug("Processing user statement: {} in parent for loop: {} ({})", userStmt->statement->number,
 					  parentFor->iterator, (uintptr_t)parentFor);
 
-		//isl_set_dump(isl_set_from_cloog_domain(parentFor->domain));
+		// isl_set_dump(isl_set_from_cloog_domain(parentFor->domain));
 
 		if (domain == nullptr) {
 			domain = isl_union_set_from_set(isl_set_copy(isl_set_from_cloog_domain(parentFor->domain)));
@@ -648,7 +646,8 @@ __isl_give isl_set *TpzTilingPass::computeInnerDomain(pesto::ir::ClastIR &clastI
 				auto *pm = static_cast<PickMax *>(user);
 				int nd = isl_set_dim(s, isl_dim_set);
 				if (nd > pm->bestDim) {
-					if (pm->best) isl_set_free(pm->best);
+					if (pm->best)
+						isl_set_free(pm->best);
 					pm->best = isl_set_set_tuple_name(s, nullptr);
 					pm->bestDim = nd;
 				} else {
@@ -694,10 +693,10 @@ void TpzTilingPass::generateTrahrheHeaders(pesto::Bundle &bundle, isl_set *inner
 	trahrhe_context_t *trahrhe_ctx = trahrhe_context_alloc();
 	trahrhe_context_use_dichotomy(trahrhe_ctx, true);
 	trahrhe_context_set_verbosity(trahrhe_ctx, TRAHRHE_VERBOSITY_INFO);
-	
+
 	trahrhe_context_set_input_domain(trahrhe_ctx, isl_set_copy(innerDomain));
 	trahrhe_context_set_tile_level(trahrhe_ctx, 2);
-	
+
 	size_t trahrhe_len = 0;
 	char **trahrhe_expr = trahrhe_get_inverted_polynomials_expr(trahrhe_ctx, &trahrhe_len);
 	if (trahrhe_len == 0 || trahrhe_expr == NULL) {
@@ -906,7 +905,7 @@ void TpzTilingPass::insertOmpPragmas(pesto::ir::ClastIR &clastIR,
 	free(clastloops);
 }
 
-	std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(osl_scop_p scop) {
+std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(osl_scop_p scop) {
 	using pesto::ir::converter::Scop2Isl;
 
 	// osl_scop_print(stdout, scop);
@@ -937,9 +936,9 @@ void TpzTilingPass::insertOmpPragmas(pesto::ir::ClastIR &clastIR,
 	}
 	isl_map_list_free(schedule_list);
 
-	//writes = isl_union_map_apply_domain(writes, isl_union_map_copy(named_schedules));
-	//reads = isl_union_map_apply_domain(reads, isl_union_map_copy(named_schedules));
-	
+	// writes = isl_union_map_apply_domain(writes, isl_union_map_copy(named_schedules));
+	// reads = isl_union_map_apply_domain(reads, isl_union_map_copy(named_schedules));
+
 	// This is for debugging purposes
 	/* std::cerr << "Domains: " << std::endl;
 	 isl_union_set_dump(domains);
@@ -952,7 +951,7 @@ void TpzTilingPass::insertOmpPragmas(pesto::ir::ClastIR &clastIR,
 	 std::cerr << "Reads: " << std::endl;
 	 isl_union_map_dump(reads); */
 
-	 //Dep := (last W before R under S);
+	// Dep := (last W before R under S);
 
 	// compute live in
 	access = isl_union_access_info_from_sink(isl_union_map_copy(reads));
@@ -963,8 +962,8 @@ void TpzTilingPass::insertOmpPragmas(pesto::ir::ClastIR &clastIR,
 	isl_union_flow_free(flow);
 
 	// DEBUG
-	//std::cerr << "Dep Flow: " << std::endl;
-	//isl_union_map_dump(dep_flow);
+	// std::cerr << "Dep Flow: " << std::endl;
+	// isl_union_map_dump(dep_flow);
 	dep_flow = isl_union_map_apply_range(dep_flow, isl_union_map_copy(named_schedules));
 	dep_flow = isl_union_map_apply_domain(dep_flow, isl_union_map_copy(named_schedules));
 
@@ -998,7 +997,7 @@ void TpzTilingPass::insertOmpPragmas(pesto::ir::ClastIR &clastIR,
 		isl_ctx *ctx;
 		isl_set *acc;
 	} dp{this->ctx, nullptr};
-	
+
 	isl_union_set_foreach_set(
 		deltas,
 		+[](__isl_take isl_set *d, void *user) -> isl_stat {
@@ -1007,10 +1006,13 @@ void TpzTilingPass::insertOmpPragmas(pesto::ir::ClastIR &clastIR,
 			// Deltas live in the 7-dim scattering space [0, x, 0, y, 0, z, 0]
 			// (compute_flow was given the schedule map). The loop axes are dims
 			// 1 (x) and 3 (y); dims 0,2,4,6 are the constant scalars and 5 is z.
-			if (nd < 4) { isl_set_free(d); return isl_stat_ok; }
+			if (nd < 4) {
+				isl_set_free(d);
+				return isl_stat_ok;
+			}
 			d = isl_set_project_out(d, isl_dim_set, 4, nd - 4); // drop dims >= 4 (z + scalars)
-			d = isl_set_project_out(d, isl_dim_set, 2, 1);       // drop dim 2 (scalar)
-			d = isl_set_project_out(d, isl_dim_set, 0, 1);       // drop dim 0 (scalar)
+			d = isl_set_project_out(d, isl_dim_set, 2, 1);		// drop dim 2 (scalar)
+			d = isl_set_project_out(d, isl_dim_set, 0, 1);		// drop dim 0 (scalar)
 			d = isl_set_set_tuple_name(d, nullptr);
 			if (dp->acc == nullptr)
 				dp->acc = d;
@@ -1020,8 +1022,7 @@ void TpzTilingPass::insertOmpPragmas(pesto::ir::ClastIR &clastIR,
 		},
 		&dp);
 
-	isl_set *set = dp.acc ? dp.acc
-	                      : isl_set_empty(isl_space_set_alloc(this->ctx, 0, 2));
+	isl_set *set = dp.acc ? dp.acc : isl_set_empty(isl_space_set_alloc(this->ctx, 0, 2));
 	set = isl_set_coalesce(set);
 
 	isl_map *proj = isl_set_identity(isl_set_copy(set));
@@ -1032,10 +1033,10 @@ void TpzTilingPass::insertOmpPragmas(pesto::ir::ClastIR &clastIR,
 	set = isl_set_apply(set, proj);
 	set = isl_set_drop_constraints_involving_dims(set, isl_dim_param, 0, isl_set_dim(set, isl_dim_param));
 
-	//isl_set_dump(set);
+	// isl_set_dump(set);
 
 	std::vector<pesto::maths::Vec2i> depDistanceVector;
-	
+
 	set = isl_set_drop_constraints_involving_dims(set, isl_dim_param, 0, isl_set_dim(set, isl_dim_param));
 
 	// Each ray (m,m), (m,0)... is represented by a basic set; sampling it can
@@ -1055,9 +1056,8 @@ void TpzTilingPass::insertOmpPragmas(pesto::ir::ClastIR &clastIR,
 		origin = isl_set_add_constraint(origin, e1);
 		isl_local_space_free(lsp);
 		set = isl_set_subtract(set, origin);
-	}	
-	
-	
+	}
+
 	// Helper function for isl_set_foreach_basic_set
 
 	isl_set_foreach_basic_set(
@@ -1068,11 +1068,14 @@ void TpzTilingPass::insertOmpPragmas(pesto::ir::ClastIR &clastIR,
 
 			isl_val *x = isl_point_get_coordinate_val(point, isl_dim_set, 0);
 			isl_val *y = isl_point_get_coordinate_val(point, isl_dim_set, 1);
-			
+
 			int vx = isl_val_get_num_si(x);
 			int vy = isl_val_get_num_si(y);
 			int g = std::gcd(std::abs(vx), std::abs(vy));
-			if (g > 1) { vx /= g; vy /= g; }
+			if (g > 1) {
+				vx /= g;
+				vy /= g;
+			}
 			depDistanceVector->push_back(pesto::maths::Vec2i(vx, vy));
 
 			isl_val_free(x);
@@ -1106,7 +1109,7 @@ void TpzTilingPass::insertOmpPragmas(pesto::ir::ClastIR &clastIR,
 	std::cerr << "Dep vector list: " << std::endl;
 	for (const auto &vec : depDistanceVector) {
 		std::cerr << "(" << vec.x << ", " << vec.y << ")" << std::endl;
-         }
+	}
 
 	// Now we must check that all the vectors are contained in the cone of the vectors (1, 0) and (1, 1)
 	for (auto &vec : depDistanceVector) {
@@ -1126,8 +1129,8 @@ void TpzTilingPass::insertOmpPragmas(pesto::ir::ClastIR &clastIR,
 	return std::make_optional(bestVec); // return the best vector
 }
 
-	std::pair<std::string, std::string> TpzTilingPass::computeInnerMinMaxStr(__isl_keep isl_set *innerDomain,
-								unsigned dimIdx) {
+std::pair<std::string, std::string> TpzTilingPass::computeInnerMinMaxStr(__isl_keep isl_set *innerDomain,
+																		 unsigned dimIdx) {
 	using pesto::ptile::NameHelper;
 
 	// compute bounds of the inner loop for the current loop
@@ -1169,7 +1172,7 @@ bool TpzTilingPass::isReductionTileable(osl_scop_p scop) {
 	isl_union_map *schedules = irHelper.getSchedules();
 	isl_union_map *writes = irHelper.getWrites();
 	isl_union_map *reads = irHelper.getReads();
-	isl_union_map *mayWrites = irHelper.getMayWrites(); 
+	isl_union_map *mayWrites = irHelper.getMayWrites();
 	isl_union_set *domains = irHelper.getDomains();
 	isl_union_map *empty = isl_union_map_empty(irHelper.getParamSpace());
 
@@ -1201,8 +1204,10 @@ bool TpzTilingPass::isReductionTileable(osl_scop_p scop) {
 		isl_map *map = isl_map_list_get_map(list, i);
 		map = isl_map_set_tuple_name(map, isl_dim_in, nullptr);
 		map = isl_map_set_tuple_name(map, isl_dim_out, nullptr);
-		if (!sanitized) sanitized = isl_union_map_from_map(isl_map_copy(map));
-		else sanitized = isl_union_map_add_map(sanitized, isl_map_copy(map));
+		if (!sanitized)
+			sanitized = isl_union_map_from_map(isl_map_copy(map));
+		else
+			sanitized = isl_union_map_add_map(sanitized, isl_map_copy(map));
 		isl_map_free(map);
 	}
 	isl_map_list_free(list);
@@ -1211,23 +1216,33 @@ bool TpzTilingPass::isReductionTileable(osl_scop_p scop) {
 	isl_union_set *deltas = isl_union_map_deltas(sanitized);
 
 	// Project each delta onto (x, y, z) = scattering dims 1, 3, 5.
-	struct P { isl_ctx *ctx; isl_set *acc; } p{this->ctx, nullptr};
-	isl_union_set_foreach_set(deltas,
+	struct P {
+		isl_ctx *ctx;
+		isl_set *acc;
+	} p{this->ctx, nullptr};
+	isl_union_set_foreach_set(
+		deltas,
 		+[](__isl_take isl_set *d, void *user) -> isl_stat {
 			auto *p = static_cast<P *>(user);
 			int nd = isl_set_dim(d, isl_dim_set);
-			if (nd < 6) { isl_set_free(d); return isl_stat_ok; } // need z at dim 5
+			if (nd < 6) {
+				isl_set_free(d);
+				return isl_stat_ok;
+			} // need z at dim 5
 			// keep dims 1,3,5 → drop 6, then 4, then 2, then 0
 			d = isl_set_project_out(d, isl_dim_set, 6, nd - 6); // drop dims >= 6
-			d = isl_set_project_out(d, isl_dim_set, 4, 1);       // drop dim 4
-			d = isl_set_project_out(d, isl_dim_set, 2, 1);       // drop dim 2
-			d = isl_set_project_out(d, isl_dim_set, 0, 1);       // drop dim 0
+			d = isl_set_project_out(d, isl_dim_set, 4, 1);		// drop dim 4
+			d = isl_set_project_out(d, isl_dim_set, 2, 1);		// drop dim 2
+			d = isl_set_project_out(d, isl_dim_set, 0, 1);		// drop dim 0
 			// now dims are (x, y, z)
 			d = isl_set_set_tuple_name(d, nullptr);
-			if (!p->acc) p->acc = d;
-			else p->acc = isl_set_union(p->acc, d);
+			if (!p->acc)
+				p->acc = d;
+			else
+				p->acc = isl_set_union(p->acc, d);
 			return isl_stat_ok;
-		}, &p);
+		},
+		&p);
 
 	bool tileable = true;
 	if (p.acc) {
@@ -1247,16 +1262,17 @@ bool TpzTilingPass::isReductionTileable(osl_scop_p scop) {
 			cp = isl_constraint_set_constant_si(cp, -1);
 			pos = isl_set_add_constraint(pos, cp);
 			isl_set *neg = isl_set_universe(isl_space_copy(sp));
-			isl_constraint *cn = isl_constraint_alloc_inequality(isl_local_space_from_space(isl_space_copy(sp)));  // ← AJOUTE copy
+			isl_constraint *cn =
+				isl_constraint_alloc_inequality(isl_local_space_from_space(isl_space_copy(sp))); // ← AJOUTE copy
 			cn = isl_constraint_set_coefficient_si(cn, isl_dim_set, dim, -1);
 			cn = isl_constraint_set_constant_si(cn, -1);
 			neg = isl_set_add_constraint(neg, cn);
 			isl_space_free(sp);
 			return isl_set_union(pos, neg);
 		};
-		isl_set *dzNonZero = nz(2);              // Δz != 0
-		isl_set *dxNonZero = nz(0);              // Δx != 0
-		isl_set *dyNonZero = nz(1);              // Δy != 0
+		isl_set *dzNonZero = nz(2); // Δz != 0
+		isl_set *dxNonZero = nz(0); // Δx != 0
+		isl_set *dyNonZero = nz(1); // Δy != 0
 		isl_set *dxyNonZero = isl_set_union(dxNonZero, dyNonZero);
 		isl_set *bad = isl_set_intersect(dzNonZero, dxyNonZero);
 		bad = isl_set_intersect(bad, isl_set_copy(set));
@@ -1270,11 +1286,10 @@ bool TpzTilingPass::isReductionTileable(osl_scop_p scop) {
 	isl_union_map_free(schedules);
 	isl_union_map_free(writes);
 	isl_union_map_free(reads);
-	isl_union_map_free(mayWrites); 
+	isl_union_map_free(mayWrites);
 	isl_union_map_free(empty);
 	isl_union_set_free(domains);
 
 	this->logger->debug("Reduction dimension tileable: {}", tileable);
 	return tileable;
 }
-

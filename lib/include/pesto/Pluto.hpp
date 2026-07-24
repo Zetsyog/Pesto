@@ -37,6 +37,7 @@ class PlutoWrapper {
 
 	/* Tile size utility */
 	PlutoWrapper &setTileSizes(std::initializer_list<int> sizes);
+	PlutoWrapper &setTileSizes(std::vector<int> sizes);
 	PlutoWrapper &pushTileSize(int size);
 
 	/**

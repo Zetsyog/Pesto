@@ -6,10 +6,10 @@
  */
 
 #include <iostream>
-#include <stdexcept>
 #include <map>
-#include <string>
 #include <set>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 #include <isl/ctx.h>
@@ -32,9 +32,9 @@
 #include <pesto/Pluto.hpp>
 #include <pesto/bundle/Bundle.hpp>
 #include <pesto/ir/OpenScopIR.hpp>
+#include <pesto/ir/Scop2Isl.hpp>
 #include <pesto/isl_support.h>
 #include <pesto/metadata/VarDecl.hpp>
-#include <pesto/ir/Scop2Isl.hpp>
 #include <pesto/pass/Pluto.hpp>
 
 #define PLUTO_DEBUG 0
@@ -104,8 +104,8 @@ isl_stat buildProj(__isl_take isl_set *newSet, void *user) {
 	}
 
 	if ((size_t)isl_map_dim(pi, isl_dim_out) != want.size()) {
-		spdlog::warn("legality check: '{}' kept {} of {} original iterators", tuple,
-					 isl_map_dim(pi, isl_dim_out), want.size());
+		spdlog::warn("legality check: '{}' kept {} of {} original iterators", tuple, isl_map_dim(pi, isl_dim_out),
+					 want.size());
 		b->ok = false;
 	}
 
@@ -119,16 +119,20 @@ isl_stat buildProj(__isl_take isl_set *newSet, void *user) {
 
 PlutoPass::PlutoPass() : IPass("pluto"), pluto() {
 	this->pluto = this->pluto.silent(!PLUTO_DEBUG)
-	                  .quiet(!PLUTO_DEBUG)
-	                  .debug(PLUTO_DEBUG)
-	                  .moreDebug(PLUTO_DEBUG)
-	                  .identity(0)
-	                  .islDep(1)
-	                  .tile(0)
-	                  .diamondTile(0)
-	                  .parallel(0)
-	                  .prevector(0)
-	                  .unrollJam(0);
+					  .quiet(!PLUTO_DEBUG)
+					  .debug(PLUTO_DEBUG)
+					  .moreDebug(PLUTO_DEBUG)
+					  .identity(0)
+					  .islDep(1)
+					  .tile(0)
+					  .diamondTile(0)
+					  .parallel(0)
+					  .prevector(0)
+					  .unrollJam(0);
+}
+
+PlutoPass::~PlutoPass() {
+	// nothing to do
 }
 
 __isl_give isl_union_map *PlutoPass::computeDeps(isl_ctx *ctx, osl_scop_p scop) {
@@ -140,12 +144,12 @@ __isl_give isl_union_map *PlutoPass::computeDeps(isl_ctx *ctx, osl_scop_p scop) 
 	isl_union_map *writes = isl_union_map_union(conv.getWrites(), conv.getMayWrites());
 
 	/* pairs of accesses hitting the same array element, at least one a write */
-	isl_union_map *wr = isl_union_map_apply_range(isl_union_map_copy(writes),
-	                                              isl_union_map_reverse(isl_union_map_copy(reads)));
-	isl_union_map *rw = isl_union_map_apply_range(isl_union_map_copy(reads),
-	                                              isl_union_map_reverse(isl_union_map_copy(writes)));
-	isl_union_map *ww = isl_union_map_apply_range(isl_union_map_copy(writes),
-	                                              isl_union_map_reverse(isl_union_map_copy(writes)));
+	isl_union_map *wr =
+		isl_union_map_apply_range(isl_union_map_copy(writes), isl_union_map_reverse(isl_union_map_copy(reads)));
+	isl_union_map *rw =
+		isl_union_map_apply_range(isl_union_map_copy(reads), isl_union_map_reverse(isl_union_map_copy(writes)));
+	isl_union_map *ww =
+		isl_union_map_apply_range(isl_union_map_copy(writes), isl_union_map_reverse(isl_union_map_copy(writes)));
 
 	isl_union_map *conflict = isl_union_map_union(wr, isl_union_map_union(rw, ww));
 
@@ -161,7 +165,7 @@ __isl_give isl_union_map *PlutoPass::computeDeps(isl_ctx *ctx, osl_scop_p scop) 
 }
 
 __isl_give isl_union_map *PlutoPass::projectedSchedule(isl_ctx *ctx, osl_scop_p scop,
-                                                       __isl_keep isl_union_set *origDomains, bool *reliable) {
+													   __isl_keep isl_union_set *origDomains, bool *reliable) {
 	*reliable = true;
 
 	pesto::ir::converter::Scop2Isl conv(ctx);
@@ -171,10 +175,10 @@ __isl_give isl_union_map *PlutoPass::projectedSchedule(isl_ctx *ctx, osl_scop_p 
 	isl_union_map *sched = conv.getSchedules();
 
 	DimCollector c;
-	isl_union_set_foreach_set(isl_union_set_copy(origDomains), &collectDim, &c);
+	isl_union_set_foreach_set(origDomains, &collectDim, &c);
 
 	ProjBuilder b{&c.names, isl_union_map_empty(isl_union_set_get_space(newDomains)), true};
-	isl_union_set_foreach_set(isl_union_set_copy(newDomains), &buildProj, &b);
+	isl_union_set_foreach_set(newDomains, &buildProj, &b);
 	if (!b.ok) {
 		*reliable = false;
 	}
@@ -194,7 +198,7 @@ __isl_give isl_union_map *PlutoPass::projectedSchedule(isl_ctx *ctx, osl_scop_p 
 }
 
 __isl_give isl_union_map *PlutoPass::violatedDeps(isl_ctx *ctx, osl_scop_p scop, __isl_keep isl_union_map *deps,
-                                                  __isl_keep isl_union_set *origDomains, bool *reliable) {
+												  __isl_keep isl_union_set *origDomains, bool *reliable) {
 	isl_union_map *schedProj = this->projectedSchedule(ctx, scop, origDomains, reliable);
 
 	isl_union_map *before =
@@ -206,9 +210,8 @@ __isl_give isl_union_map *PlutoPass::violatedDeps(isl_ctx *ctx, osl_scop_p scop,
 	return violated;
 }
 
-
 int PlutoPass::findParallelDim(isl_ctx *ctx, osl_scop_p scop, __isl_keep isl_union_map *deps,
-                               __isl_keep isl_union_set *origDomains) {
+							   __isl_keep isl_union_set *origDomains) {
 	bool reliable = false;
 	isl_union_map *schedProj = this->projectedSchedule(ctx, scop, origDomains, &reliable);
 	if (!reliable) {
@@ -235,8 +238,7 @@ int PlutoPass::findParallelDim(isl_ctx *ctx, osl_scop_p scop, __isl_keep isl_uni
 	isl_map *D = (isl_union_map_n_map(sdeps) > 0) ? isl_map_from_union_map(isl_union_map_copy(sdeps)) : nullptr;
 
 	int found = -1;
-	
-	
+
 	if (D != nullptr) {
 		isl_printer *p = isl_printer_to_str(ctx);
 		p = isl_printer_set_output_format(p, ISL_FORMAT_ISL);
@@ -246,8 +248,7 @@ int PlutoPass::findParallelDim(isl_ctx *ctx, osl_scop_p scop, __isl_keep isl_uni
 		free(s);
 		isl_printer_free(p);
 	}
-	
-	
+
 	for (int d = 0; d < ndim && found < 0; d++) {
 		/* (a) real loop? */
 		isl_set *proj = isl_set_copy(range);
@@ -272,7 +273,7 @@ int PlutoPass::findParallelDim(isl_ctx *ctx, osl_scop_p scop, __isl_keep isl_uni
 				carried = isl_map_equate(carried, isl_dim_in, e, isl_dim_out, e);
 			}
 			carried = isl_map_order_lt(carried, isl_dim_in, d, isl_dim_out, d);
-			
+
 			if (d == 3) {
 				isl_printer *p = isl_printer_to_str(ctx);
 				p = isl_printer_set_output_format(p, ISL_FORMAT_ISL);
@@ -282,8 +283,7 @@ int PlutoPass::findParallelDim(isl_ctx *ctx, osl_scop_p scop, __isl_keep isl_uni
 				free(s);
 				isl_printer_free(p);
 			}
-			
-			
+
 			parallel = (isl_map_is_empty(carried) == isl_bool_true);
 			isl_map_free(carried);
 		}
@@ -298,16 +298,10 @@ int PlutoPass::findParallelDim(isl_ctx *ctx, osl_scop_p scop, __isl_keep isl_uni
 		isl_map_free(D);
 	}
 	isl_set_free(range);
-	//isl_union_map_free(fullSched);
+	// isl_union_map_free(fullSched);
 	isl_union_map_free(sdeps);
 	isl_union_map_free(schedProj);
 	return found;
-}
-
-
-
-PlutoOptions &PlutoPass::getOptions() {
-	return this->pluto.getOptions();
 }
 
 std::set<std::string> PlutoPass::inputIR() const {
@@ -329,11 +323,10 @@ pesto::Bundle PlutoPass::apply(pesto::Bundle &&bundle) {
 	}
 
 	/* ---- snapshot BEFORE pluto: the original schedule is still in the scop ---- */
-	isl_ctx *ctx = nullptr;
+	isl_ctx *ctx = isl_ctx_alloc();
 	isl_union_map *deps = nullptr;
 	isl_union_set *origDomains = nullptr;
 	if (this->checkLegality) {
-		ctx = isl_ctx_alloc();
 		{
 			pesto::ir::converter::Scop2Isl conv(ctx);
 			conv.convert(c_scop);
@@ -343,7 +336,7 @@ pesto::Bundle PlutoPass::apply(pesto::Bundle &&bundle) {
 	}
 
 	this->pluto.run(c_scop);
-	
+
 	osl_loop_p ll = (osl_loop_p)osl_generic_lookup(c_scop->extension, OSL_URI_LOOP);
 	if (ll == nullptr) {
 		logger->warn("pluto: no loop extension — no parallel loop was recorded");
@@ -369,7 +362,7 @@ pesto::Bundle PlutoPass::apply(pesto::Bundle &&bundle) {
 			free(str);
 			isl_printer_free(p);
 		}
-		
+
 		int pd = this->findParallelDim(ctx, c_scop, deps, origDomains);
 		osl_loop_p ll = (osl_loop_p)osl_generic_lookup(c_scop->extension, OSL_URI_LOOP);
 
@@ -378,7 +371,7 @@ pesto::Bundle PlutoPass::apply(pesto::Bundle &&bundle) {
 			if (ll != nullptr) {
 				if (iter != std::string(ll->iter)) {
 					logger->warn("pluto named '{}' parallel, but that dim is not a loop in the AST; using '{}'",
-					             ll->iter, iter);
+								 ll->iter, iter);
 					free(ll->iter);
 					ll->iter = strdup(iter.c_str());
 				} else {
@@ -397,8 +390,6 @@ pesto::Bundle PlutoPass::apply(pesto::Bundle &&bundle) {
 		isl_union_map_free(violated);
 		isl_union_map_free(deps);
 		isl_union_set_free(origDomains);
-		isl_ctx_free(ctx);
-		ctx = nullptr;
 
 		if (!reliable) {
 			logger->error("legality check could not run (schedule/domain mismatch). "
@@ -411,6 +402,7 @@ pesto::Bundle PlutoPass::apply(pesto::Bundle &&bundle) {
 		}
 		logger->info("Schedule legality check passed");
 	}
+	isl_ctx_free(ctx);
 
 	/* ---- unchanged: scatnames -> varDecl ---- */
 	auto &varDecl = bundle.metadata.get<pesto::bundle::metadata::VarDecl>();
@@ -427,12 +419,6 @@ pesto::Bundle PlutoPass::apply(pesto::Bundle &&bundle) {
 	return std::move(bundle);
 }
 
-PlutoAutoTransformPass::PlutoAutoTransformPass() : PlutoPass() {
-	this->name = "pass-pluto-auto-transform";
+pesto::PlutoWrapper &PlutoPass::getPluto() {
+	return this->pluto;
 }
-
-PlutoTilingPass::PlutoTilingPass() : PlutoPass() {
-	this->getOptions().tile = 1;
-	this->name = "pluto-tiling";
-}
-
