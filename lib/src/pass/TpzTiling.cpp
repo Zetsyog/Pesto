@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <functional>
 #include <numeric>
+#include <set>
 #include <vector>
 
 #include <isl/aff.h>
@@ -74,6 +75,8 @@ Bundle TpzTilingPass::apply(Bundle &&bundle) {
 
 	this->zTileable_ = this->isReductionTileable(scop);
 
+	this->hoistingLegal_ = this->isHoistingLegal(scop);
+
 	this->logger->debug("Steepest dependency vector: ({}, {})", slope->x, slope->y);
 	this->logger->debug("Trapezoidal tiling slope: {}", slope->y / slope->x);
 
@@ -119,6 +122,114 @@ Bundle TpzTilingPass::apply(Bundle &&bundle) {
 		logger->error("No for loop found to tile");
 
 	return std::move(bundle);
+}
+
+bool TpzTilingPass::isHoistingLegal(osl_scop_p scop) {
+	using pesto::ir::converter::Scop2Isl;
+	Scop2Isl irHelper(this->ctx);
+	irHelper.convert(scop);
+
+	isl_union_map *schedules = irHelper.getSchedules();
+	isl_union_map *writes = irHelper.getWrites();
+	isl_union_map *reads = irHelper.getReads();
+	isl_union_map *mayWrites = irHelper.getMayWrites();
+	isl_union_set *domains = irHelper.getDomains();
+
+	// Une instruction qui ne s'étend pas sur la dimension de réduction a moins de
+	// dimensions de boucle que les plus profondes : ce sont celles que la scission sort.
+	struct Collect {
+		unsigned maxDim;
+		std::vector<std::pair<std::string, unsigned>> stmts;
+	};
+	Collect col{0, {}};
+	isl_union_set_foreach_set(
+		domains,
+		+[](__isl_take isl_set *s, void *user) -> isl_stat {
+			auto *c = static_cast<Collect *>(user);
+			unsigned d = isl_set_dim(s, isl_dim_set);
+			if (const char *n = isl_set_get_tuple_name(s))
+				c->stmts.push_back({n, d});
+			if (d > c->maxDim)
+				c->maxDim = d;
+			isl_set_free(s);
+			return isl_stat_ok;
+		},
+		&col);
+
+	std::set<std::string> hoisted;
+	for (auto &p : col.stmts)
+		if (p.second < col.maxDim)
+			hoisted.insert(p.first);
+
+	bool legal = true;
+	if (!hoisted.empty()) {
+		isl_map_list *sl = isl_union_map_get_map_list(schedules);
+		isl_union_map *named = isl_union_map_empty_ctx(this->ctx);
+		for (isl_size i = 0; i < isl_map_list_n_map(sl); ++i) {
+			isl_map *m = isl_map_list_get_at(sl, i);
+			m = isl_map_set_tuple_name(m, isl_dim_out, isl_map_get_tuple_name(m, isl_dim_in));
+			named = isl_union_map_add_map(named, m);
+		}
+		isl_map_list_free(sl);
+
+		isl_union_map *allWrites = isl_union_map_union(isl_union_map_copy(writes), isl_union_map_copy(mayWrites));
+		auto deps = [&](isl_union_map *sink, isl_union_map *src) {
+			isl_union_access_info *ai = isl_union_access_info_from_sink(isl_union_map_copy(sink));
+			ai = isl_union_access_info_set_may_source(ai, isl_union_map_copy(src));
+			ai = isl_union_access_info_set_schedule_map(ai, isl_union_map_copy(schedules));
+			isl_union_flow *f = isl_union_access_info_compute_flow(ai);
+			isl_union_map *d = isl_union_flow_get_may_dependence(f);
+			isl_union_flow_free(f);
+			return d;
+		};
+		isl_union_map *all = deps(reads, allWrites);
+		all = isl_union_map_union(all, deps(allWrites, reads));
+		all = isl_union_map_union(all, deps(allWrites, allWrites));
+		isl_union_map_free(allWrites);
+		all = isl_union_map_apply_range(all, isl_union_map_copy(named));
+		all = isl_union_map_apply_domain(all, isl_union_map_copy(named));
+
+		isl_map_list *dl = isl_union_map_get_map_list(all);
+		for (isl_size i = 0; i < isl_map_list_n_map(dl); ++i) {
+			isl_map *m = isl_map_list_get_at(dl, i);
+			const char *src = isl_map_get_tuple_name(m, isl_dim_in);
+			const char *snk = isl_map_get_tuple_name(m, isl_dim_out);
+			if (src && snk && hoisted.count(snk) && !hoisted.count(src) && isl_map_dim(m, isl_dim_in) > 3 &&
+				isl_map_dim(m, isl_dim_out) > 3) {
+				// La scission n'inverse que les paires à même gap (dim 1) dont le
+				// puits est à un t4 (dim 3) strictement plus grand que la source.
+				isl_local_space *ls = isl_local_space_from_space(isl_map_get_space(m));
+				isl_constraint *eq = isl_equality_alloc(isl_local_space_copy(ls));
+				eq = isl_constraint_set_coefficient_si(eq, isl_dim_out, 1, 1);
+				eq = isl_constraint_set_coefficient_si(eq, isl_dim_in, 1, -1);
+				isl_constraint *gt = isl_inequality_alloc(ls);
+				gt = isl_constraint_set_coefficient_si(gt, isl_dim_out, 3, 1);
+				gt = isl_constraint_set_coefficient_si(gt, isl_dim_in, 3, -1);
+				gt = isl_constraint_set_constant_si(gt, -1);
+				isl_map *bad = isl_map_add_constraint(isl_map_copy(m), eq);
+				bad = isl_map_add_constraint(bad, gt);
+				if (isl_map_is_empty(bad) == isl_bool_false) {
+					logger->info("Hoisting {} is illegal: it depends on {} at a smaller t4 "
+								 "within the same gap",
+								 snk, src);
+					legal = false;
+				}
+				isl_map_free(bad);
+			}
+			isl_map_free(m);
+		}
+		isl_map_list_free(dl);
+		isl_union_map_free(all);
+		isl_union_map_free(named);
+	}
+
+	isl_union_map_free(schedules);
+	isl_union_map_free(writes);
+	isl_union_map_free(reads);
+	isl_union_map_free(mayWrites);
+	isl_union_set_free(domains);
+	logger->debug("Hoisting legal: {}", legal);
+	return legal;
 }
 
 void TpzTilingPass::tileClastFor(Bundle &bundle, struct clast_for *clastFor, pesto::maths::Vec2i slope) {
@@ -173,23 +284,32 @@ void TpzTilingPass::tileClastFor(Bundle &bundle, struct clast_for *clastFor, pes
 		struct clast_for *red = clastTilingPairs[2].innerFor;
 
 		bool needsSplit = false;
-		for (struct clast_stmt *s = point->body; s != NULL; s = s->next)
-			if (!CLAST_STMT_IS_A(s, stmt_for) || (struct clast_for *)s != red)
+		for (struct clast_stmt *s = point->body; s != NULL; s = s->next) {
+			if (!CLAST_STMT_IS_A(s, stmt_for) || (struct clast_for *)s != red) {
 				needsSplit = true;
+			}
+		}
 
-		if (needsSplit) {
-			// garde les éléments dont la nature diffère de dropFor ; les autres
+		if (needsSplit && !this->hoistingLegal_) {
+			logger->info("Reduction not tiled: the point loop cannot be split");
+			clastTilingPairs.resize(2);
+		} else if (needsSplit) {
+			// garde les éléments dont la nature correspond à keepFor ; les autres
 			// sont détachés et laissés en place (pas d'API de libération de clast).
-			auto unlink = [](struct clast_stmt *head, bool dropFor) {
-				struct clast_stmt *newHead = NULL, *tail = NULL;
-				for (struct clast_stmt *s = head; s != NULL;) {
+			auto keepStmts = [](struct clast_stmt * head, bool keepFor) -> struct clast_stmt * {
+				struct clast_stmt *newHead = NULL;
+				struct clast_stmt *tail = NULL;
+				struct clast_stmt *s = head;
+				while (s != NULL) {
 					struct clast_stmt *next = s->next;
-					if (CLAST_STMT_IS_A(s, stmt_for) != dropFor) {
+					bool isFor = CLAST_STMT_IS_A(s, stmt_for);
+					if (isFor == keepFor) {
 						s->next = NULL;
-						if (tail)
+						if (tail != NULL) {
 							tail->next = s;
-						else
+						} else {
 							newHead = s;
+						}
 						tail = s;
 					}
 					s = next;
@@ -198,10 +318,10 @@ void TpzTilingPass::tileClastFor(Bundle &bundle, struct clast_for *clastFor, pes
 			};
 
 			struct clast_stmt *copy = clast_stmt_hard_copy(&(point->stmt));
-			((struct clast_for *)copy)->body = unlink(((struct clast_for *)copy)->body, true);
-			point->body = unlink(point->body, false);
+			((struct clast_for *)copy)->body = keepStmts(((struct clast_for *)copy)->body, false);
+			point->body = keepStmts(point->body, true);
 			clast_insert_before(&(root->stmt), &(point->stmt), copy);
-			logger->debug("Point loop split: hoisted statements out of the reduction tiles");
+			logger->debug("Point loop split: statements hoisted out of the reduction tiles");
 		}
 	}
 
