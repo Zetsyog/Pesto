@@ -6,6 +6,7 @@
  */
 
 #include <algorithm>
+#include <functional>
 #include <numeric>
 #include <vector>
 
@@ -162,6 +163,48 @@ void TpzTilingPass::tileClastFor(Bundle &bundle, struct clast_for *clastFor, pes
 		this->printer = isl_printer_flush(this->printer);
 	}
 
+	// La boucle de tuile de z enveloppe la boucle point : tout ce que contient son
+	// corps serait rejoué à chaque tuile. Les instructions qui ne portent pas la
+	// dimension de réduction sortent donc dans une copie de la boucle point, placée
+	// avant elle. L'original garde la réduction, de sorte que
+	// clastTilingPairs[1].innerFor reste la boucle à envelopper.
+	if (clastTilingPairs.size() > 2 && clastTilingPairs[2].underGap) {
+		struct clast_for *point = clastTilingPairs[1].innerFor;
+		struct clast_for *red = clastTilingPairs[2].innerFor;
+
+		bool needsSplit = false;
+		for (struct clast_stmt *s = point->body; s != NULL; s = s->next)
+			if (!CLAST_STMT_IS_A(s, stmt_for) || (struct clast_for *)s != red)
+				needsSplit = true;
+
+		if (needsSplit) {
+			// garde les éléments dont la nature diffère de dropFor ; les autres
+			// sont détachés et laissés en place (pas d'API de libération de clast).
+			auto unlink = [](struct clast_stmt *head, bool dropFor) {
+				struct clast_stmt *newHead = NULL, *tail = NULL;
+				for (struct clast_stmt *s = head; s != NULL;) {
+					struct clast_stmt *next = s->next;
+					if (CLAST_STMT_IS_A(s, stmt_for) != dropFor) {
+						s->next = NULL;
+						if (tail)
+							tail->next = s;
+						else
+							newHead = s;
+						tail = s;
+					}
+					s = next;
+				}
+				return newHead;
+			};
+
+			struct clast_stmt *copy = clast_stmt_hard_copy(&(point->stmt));
+			((struct clast_for *)copy)->body = unlink(((struct clast_for *)copy)->body, true);
+			point->body = unlink(point->body, false);
+			clast_insert_before(&(root->stmt), &(point->stmt), copy);
+			logger->debug("Point loop split: hoisted statements out of the reduction tiles");
+		}
+	}
+
 	this->insertOuterForLoop(bundle, clastTilingPairs);
 
 	// duplicate ast at depth 1
@@ -238,34 +281,35 @@ std::vector<pesto::pass::ptile::ClastTilingPair> TpzTilingPass::computeTilingPai
 	struct clast_root *root = (struct clast_root *)clastIR.get();
 	std::vector<ClastTilingPair> clastTilingPairs;
 
-	// CLooG ne place pas toujours la boucle la plus profonde en premier : une
-	// instruction qui ne porte pas la dimension interne (une initialisation, une
-	// branche gardée) fait s'arrêter clast_get_innermost_for trop tôt, et les
-	// niveaux qui n'existent que sous elle ne sont jamais proposés au pavage.
-	struct clast_for *innermost = nullptr;
-	unsigned bestDepth = 0;
-	std::function<void(struct clast_stmt *, unsigned)> findDeepest =
-		[&](struct clast_stmt *s, unsigned d) {
-			for (; s != NULL; s = s->next) {
-				if (CLAST_STMT_IS_A(s, stmt_for)) {
-					struct clast_for *f = (struct clast_for *)s;
-					if (d + 1 > bestDepth) { bestDepth = d + 1; innermost = f; }
-					findDeepest(f->body, d + 1);
-				} else if (CLAST_STMT_IS_A(s, stmt_guard)) {
-					findDeepest(((struct clast_guard *)s)->then, d);
-				} else if (CLAST_STMT_IS_A(s, stmt_block)) {
-					findDeepest(((struct clast_block *)s)->body, d);
+	// clast_get_innermost_for s'arrête au premier élément du corps : quand celui-ci
+	// est une instruction qui ne porte pas la dimension interne (une initialisation),
+	// les niveaux qui n'existent que sous elle ne sont jamais proposés au pavage.
+	struct clast_for *innermost = clastFor;
+	unsigned bestDepth = 1;
+	std::function<void(struct clast_stmt *, unsigned)> findDeepest = [&](struct clast_stmt *s, unsigned d) {
+		for (; s != NULL; s = s->next) {
+			if (CLAST_STMT_IS_A(s, stmt_for)) {
+				struct clast_for *f = (struct clast_for *)s;
+				if (d + 1 > bestDepth) {
+					bestDepth = d + 1;
+					innermost = f;
 				}
+				findDeepest(f->body, d + 1);
+			} else if (CLAST_STMT_IS_A(s, stmt_guard)) {
+				findDeepest(((struct clast_guard *)s)->then, d);
+			} else if (CLAST_STMT_IS_A(s, stmt_block)) {
+				findDeepest(((struct clast_block *)s)->body, d);
 			}
-		};
-	findDeepest(&(clastFor->stmt), 0);
+		}
+	};
+	findDeepest(clastFor->body, 1);
 
+	// init tiling pairs with inner for loops
 	for (struct clast_for *for_it = innermost; for_it != NULL;
 		 for_it = clast_get_parent_clast_for(&(root->stmt), &(for_it->stmt))) {
 		ClastTilingPair pair;
 		pair.innerFor = for_it;
 		logger->debug("Found inner for: {}", for_it->iterator);
-
 		clastTilingPairs.push_back(pair);
 	}
 
@@ -277,23 +321,8 @@ std::vector<pesto::pass::ptile::ClastTilingPair> TpzTilingPass::computeTilingPai
 	std::sort(clastTilingPairs.begin(), clastTilingPairs.end(),
 			  [](const ClastTilingPair &a, const ClastTilingPair &b) { return a.depth < b.depth; });
 
-	auto bodyIsReductionOnly = [](struct clast_for *point, struct clast_for *red) {
-		for (struct clast_stmt *s = point->body; s != NULL; s = s->next) {
-			if (CLAST_STMT_IS_A(s, stmt_for)) {
-				if ((struct clast_for *)s != red) return false;
-			} else if (CLAST_STMT_IS_A(s, stmt_user)) {
-				return false;
-			}
-		}
-		return true;
-	};
-
-	if (!this->zTileable_ && clastTilingPairs.size() > 2) {
-		if (bodyIsReductionOnly(clastTilingPairs[1].innerFor, clastTilingPairs[2].innerFor))
-			clastTilingPairs[2].underGap = true;
-		else
-			clastTilingPairs.resize(2); // réduction laissée non pavée
-	}
+	if (!this->zTileable_ && clastTilingPairs.size() > 2)
+		clastTilingPairs[2].underGap = true;
 
 	return clastTilingPairs;
 }
@@ -844,19 +873,21 @@ void TpzTilingPass::insertInnerLoopBounds(pesto::ir::ClastIR &clastIR,
 
 		NameHelper nameHelper = NameHelper(pair.depth, pair.outerFor->iterator, pair.innerFor->iterator);
 
-		std::string lbName = nameHelper.innerForLBName();
-		std::string ubName = nameHelper.innerForUBName();
-		if (pair.depth == 1) {
-			lbName = "_tpzlb";
-			ubName = "_tpzub";
-			if (clastTilingPairs.size() > 2 && clastTilingPairs[2].underGap) {
-				lbName = "_tpzlb2";
-				ubName = "_tpzub2";
-			}
-		}
+		// std::string lbName = nameHelper.innerForLBName();
+		// std::string ubName = nameHelper.innerForUBName();
 
 		for (int i = 0; i < nclastloops; ++i) {
 			struct clast_for *clastFor = clastloops[i];
+
+			std::string lbName = nameHelper.innerForLBName();
+			std::string ubName = nameHelper.innerForUBName();
+			if (pair.depth == 1) {
+				bool underRedTile =
+					clastTilingPairs.size() > 2 && clastTilingPairs[2].underGap &&
+					clast_get_parent_clast_for(&(root->stmt), &(clastFor->stmt)) == clastTilingPairs[2].outerFor;
+				lbName = underRedTile ? "_tpzlb2" : "_tpzlb";
+				ubName = underRedTile ? "_tpzub2" : "_tpzub";
+			}
 
 			std::unique_ptr<std::string> lbPtr = std::make_unique<std::string>(lbName);
 			std::unique_ptr<std::string> ubPtr = std::make_unique<std::string>(ubName);
