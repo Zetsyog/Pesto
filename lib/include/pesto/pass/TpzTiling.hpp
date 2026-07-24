@@ -99,6 +99,7 @@ class TpzTilingPass : public IPass {
     	bool isReductionTileable(osl_scop_p scop);
     	bool hoistingLegal_ = true;
 	bool isHoistingLegal(osl_scop_p scop);
+	bool underGapLegal_ = true;
 };
 
 } // namespace pesto::pass

@@ -441,8 +441,12 @@ std::vector<pesto::pass::ptile::ClastTilingPair> TpzTilingPass::computeTilingPai
 	std::sort(clastTilingPairs.begin(), clastTilingPairs.end(),
 			  [](const ClastTilingPair &a, const ClastTilingPair &b) { return a.depth < b.depth; });
 
-	if (!this->zTileable_ && clastTilingPairs.size() > 2)
-		clastTilingPairs[2].underGap = true;
+	if (!this->zTileable_ && clastTilingPairs.size() > 2) {
+		if (this->underGapLegal_)
+			clastTilingPairs[2].underGap = true;
+		else
+			clastTilingPairs.resize(2);
+	}
 
 	return clastTilingPairs;
 }
@@ -1579,6 +1583,26 @@ bool TpzTilingPass::isReductionTileable(osl_scop_p scop) {
 			isl_space_free(sp);
 			return isl_set_union(pos, neg);
 		};
+
+		auto neg = [&](isl_set *s, int dim) -> isl_set * {
+			isl_space *sp = isl_set_get_space(s);
+			isl_constraint *c = isl_constraint_alloc_inequality(isl_local_space_from_space(isl_space_copy(sp)));
+			c = isl_constraint_set_coefficient_si(c, isl_dim_set, dim, -1);
+			c = isl_constraint_set_constant_si(c, -1); // v[dim] <= -1
+			isl_space_free(sp);
+			return isl_set_add_constraint(isl_set_copy(s), c);
+		};
+
+		// Sous la boucle de gap, la tuile de réduction ne franchit que la boucle
+		// point : seules les dépendances non portées par le gap contraignent
+		// l'ordre de (y, z).
+		isl_set *sameGap = isl_set_fix_si(isl_set_copy(set), isl_dim_set, 0, 0);
+		isl_set *badUnderGap = isl_set_union(neg(sameGap, 1), neg(sameGap, 2));
+		this->underGapLegal_ = isl_set_is_empty(badUnderGap);
+		isl_set_free(badUnderGap);
+		isl_set_free(sameGap);
+		logger->debug("Reduction tileable under the gap loop: {}", this->underGapLegal_);
+
 		isl_set *dzNonZero = nz(2); // Δz != 0
 		isl_set *dxNonZero = nz(0); // Δx != 0
 		isl_set *dyNonZero = nz(1); // Δy != 0
