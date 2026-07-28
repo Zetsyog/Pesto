@@ -100,6 +100,7 @@ class TpzTilingPass : public IPass {
     	bool hoistingLegal_ = true;
 	bool isHoistingLegal(osl_scop_p scop);
 	bool underGapLegal_ = true;
+	bool hasReduction_ = false;
 };
 
 } // namespace pesto::pass

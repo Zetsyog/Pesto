@@ -1,0 +1,16 @@
+feat(TpzTiling): check that the reduction tile can sit under the gap loop
+
+Placing the tile loop under the gap was justified by an argument made per
+kernel -- at a fixed gap every read comes from a strictly smaller gap, so
+the cells of one gap are independent -- and nothing checked it.
+
+Strip-mining the reduction changes no order by itself; only raising the
+tile loop does. Raised to the top it crosses both point loops, so the
+whole band has to be permutable, which fails on this family. Raised only
+under the gap it crosses one, so the dependences carried by the gap are
+already satisfied whatever happens below and only the others constrain
+the order of (y, z): among the deltas with dx = 0, all must have dy >= 0
+and dz >= 0. On this family the only same-gap dependence is the
+accumulation itself, (0, 0, +1).
+
+When the check fails the pass tiles the two outer levels only.

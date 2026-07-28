@@ -23,6 +23,14 @@ public:
 
     // Parse the whole transform (a list of lines).
     static SkewTransform parse(const std::vector<std::string> &lines);
+    
+    // Build a transform directly from targets, bypassing the string parser
+    // (which rejects additive constants). Used by skew's automatic detection.
+    static SkewTransform fromTargets(std::vector<SkewTarget> t) {
+        SkewTransform st;
+        st.targets_ = std::move(t);
+        return st;
+    }
 
     const std::vector<SkewTarget> &targets() const { return targets_; }
 
