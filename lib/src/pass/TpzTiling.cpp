@@ -904,6 +904,72 @@ __isl_give isl_set *TpzTilingPass::computeInnerDomain(pesto::ir::ClastIR &clastI
 	}
 	set = isl_set_coalesce(set);
 	set = isl_set_from_basic_set(isl_set_convex_hull(set));
+	
+	for (size_t i = 0; i < clastTilingPairs.size(); ++i)
+		logger->debug("clastTilingPair[{}] innerFor iterator: {}", i, clastTilingPairs[i].innerFor->iterator);
+
+	// The detected-stencil schedule (from Pluto's size-1 tiling) can leave a
+	// dimension equal to another (t4 = t2), giving the inner domain one more
+	// dimension than there are tiling levels. Find an equality of the form
+	// dim_hi - dim_lo = 0 and project out dim_hi (the redundant one), until the
+	// domain has one dimension per tiling level. DP kernels have no such
+	// equality, so the loop never fires and they are unchanged.
+	{
+		// The detected-stencil schedule (from Pluto's size-1 tiling) can leave a
+	// dimension equal to another (t4 = t2), giving the inner domain one more
+	// dimension than there are tiling levels. Find an equality of the form
+	// dim_hi - dim_lo = 0 and project out dim_hi (the redundant one), until the
+	// domain has one dimension per tiling level. DP kernels have no such
+	// equality, so the loop never fires and they are unchanged.
+	{
+		int nlevels = (int)clastTilingPairs.size();
+		bool changed = true;
+		while (changed && isl_set_dim(set, isl_dim_set) > nlevels) {
+			changed = false;
+			isl_basic_set *aff = isl_set_affine_hull(isl_set_copy(set));
+
+			struct DegFinder { int nd; int hi; } df{ isl_set_dim(set, isl_dim_set), -1 };
+			isl_basic_set_foreach_constraint(
+				aff,
+				+[](__isl_take isl_constraint *con, void *user) -> isl_stat {
+					auto *df = static_cast<DegFinder *>(user);
+					if (df->hi >= 0) { isl_constraint_free(con); return isl_stat_ok; }
+					if (isl_constraint_is_equality(con) == isl_bool_true) {
+						int hi = -1, lo = -1, nonzero = 0;
+						bool clean = true;
+						for (int d = 0; d < df->nd; ++d) {
+							isl_val *v = isl_constraint_get_coefficient_val(con, isl_dim_set, d);
+							long vi = isl_val_get_num_si(v);
+							isl_val_free(v);
+							if (vi == 0) continue;
+							nonzero++;
+							if (vi == 1 || vi == -1) {
+								if (d > hi) { lo = hi; hi = d; }
+								else if (d > lo) lo = d;
+							} else clean = false;
+						}
+						isl_val *cst = isl_constraint_get_constant_val(con);
+						long csti = isl_val_get_num_si(cst);
+						isl_val_free(cst);
+						if (clean && nonzero == 2 && hi >= 0 && lo >= 0 && csti == 0)
+							df->hi = hi;
+					}
+					isl_constraint_free(con);
+					return isl_stat_ok;
+				},
+				&df);
+
+			isl_basic_set_free(aff);
+			if (df.hi >= 0) {
+				logger->debug("projecting degenerate dim {}", df.hi);
+				set = isl_set_project_out(set, isl_dim_set, df.hi, 1);
+				changed = true;
+			}
+		}
+	}
+	}
+
+	logger->debug("innerDomain dims: {} tiling levels: {}", isl_set_dim(set, isl_dim_set), clastTilingPairs.size());
 
 	for (size_t i = 0; i < clastTilingPairs.size(); ++i) {
 		ptile::ClastTilingPair &pair = clastTilingPairs[i];
