@@ -61,6 +61,8 @@ class TpzTilingPass : public IPass {
 	void setUseMinVolume(bool use) {
 		this->useMinVolume = use;
 	}
+	
+	void setReductionAboveGap(bool v) { reductionAboveGap_ = v; }
 
   private:
 	isl_ctx *ctx;
@@ -92,7 +94,7 @@ class TpzTilingPass : public IPass {
 	std::pair<std::string, std::string> computeInnerMinMaxStr(isl_set *innerDomain, unsigned dimIdx);
 
 	void insertOmpPragmas(pesto::ir::ClastIR &clastIR, std::vector<ptile::ClastTilingPair> &clastTilingPairs);
-
+	
 	std::optional<pesto::maths::Vec2i> computeDepDistanceVector(osl_scop_p scop);
 	
     	bool zTileable_ = true;
@@ -101,6 +103,8 @@ class TpzTilingPass : public IPass {
 	bool isHoistingLegal(osl_scop_p scop);
 	bool underGapLegal_ = true;
 	bool hasReduction_ = false;
+	
+	bool reductionAboveGap_ = false;
 };
 
 } // namespace pesto::pass

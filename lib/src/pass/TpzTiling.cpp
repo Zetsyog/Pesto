@@ -443,10 +443,14 @@ std::vector<pesto::pass::ptile::ClastTilingPair> TpzTilingPass::computeTilingPai
 			  [](const ClastTilingPair &a, const ClastTilingPair &b) { return a.depth < b.depth; });
 
 	if (!this->zTileable_ && clastTilingPairs.size() > 2) {
-		if (this->underGapLegal_)
+		if (this->reductionAboveGap_) {
+			// Keep the reduction as a placeable pair, above the gap loop.
+			clastTilingPairs[2].underGap = false;
+		} else if (this->underGapLegal_) {
 			clastTilingPairs[2].underGap = true;
-		else
+		} else {
 			clastTilingPairs.resize(2);
+		}
 	}
 
 	return clastTilingPairs;
@@ -785,6 +789,10 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 			for (auto *s : pair.innerBodyStmts1)
 				macroData.defineFunc("S" + std::to_string(s->statement->number), "", "");
 		}
+
+		// dans la boucle, avant if(pair.underGap) :
+		logger->debug("PAIR depth={} underGap={}", pair.depth, pair.underGap);
+
 		// for depth > 1 we do rectangular tiling
 		if (pair.depth > 1) {
 			if (pair.underGap) {
@@ -1671,24 +1679,14 @@ bool TpzTilingPass::isReductionTileable(osl_scop_p scop) {
 			return isl_set_add_constraint(isl_set_copy(s), c);
 		};
 
-		// Sous la boucle de gap, la tuile de réduction ne franchit que la boucle
-		// point : seules les dépendances non portées par le gap contraignent
-		// l'ordre de (y, z).
-		isl_set *sameGap = isl_set_fix_si(isl_set_copy(set), isl_dim_set, 0, 0);
-		isl_set *badUnderGap = isl_set_union(neg(sameGap, 1), neg(sameGap, 2));
-		this->underGapLegal_ = isl_set_is_empty(badUnderGap);
-		isl_set_free(badUnderGap);
-		isl_set_free(sameGap);
-		logger->debug("Reduction tileable under the gap loop: {}", this->underGapLegal_);
-
-		isl_set *dzNonZero = nz(2); // Δz != 0
-		isl_set *dxNonZero = nz(0); // Δx != 0
-		isl_set *dyNonZero = nz(1); // Δy != 0
+		isl_set *dzNonZero = nz(2);
+		isl_set *dxNonZero = nz(0);
+		isl_set *dyNonZero = nz(1);
 		isl_set *dxyNonZero = isl_set_union(dxNonZero, dyNonZero);
-		isl_set *bad = isl_set_intersect(dzNonZero, dxyNonZero);
-		bad = isl_set_intersect(bad, isl_set_copy(set));
-		tileable = isl_set_is_empty(bad);
-		isl_set_free(bad);
+		isl_set *badTileable = isl_set_intersect(dzNonZero, dxyNonZero);
+		badTileable = isl_set_intersect(badTileable, isl_set_copy(set));
+		tileable = isl_set_is_empty(badTileable);
+		isl_set_free(badTileable);
 		isl_set_free(set);
 	}
 
