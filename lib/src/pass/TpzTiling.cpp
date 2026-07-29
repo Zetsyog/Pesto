@@ -1378,28 +1378,35 @@ std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(osl_s
 	struct DeltaProj {
 		isl_ctx *ctx;
 		isl_set *acc;
-	} dp{this->ctx, nullptr};
+		bool raw;
+	} dp{this->ctx, nullptr, this->rawPlutoSchedule_};
 
 	isl_union_set_foreach_set(
 		deltas,
 		+[](__isl_take isl_set *d, void *user) -> isl_stat {
 			auto *dp = static_cast<DeltaProj *>(user);
 			int nd = isl_set_dim(d, isl_dim_set);
-			// Deltas live in the 7-dim scattering space [0, x, 0, y, 0, z, 0]
-			// (compute_flow was given the schedule map). The loop axes are dims
-			// 1 (x) and 3 (y); dims 0,2,4,6 are the constant scalars and 5 is z.
-			if (nd < 4) {
-				isl_set_free(d);
-				return isl_stat_ok;
+			if (dp->raw) {
+				// Raw Pluto schedule (diamond tiling, no skew pass): the gap is
+				// dim 0 and the first space dim is 1.
+				if (nd < 2) {
+					isl_set_free(d);
+					return isl_stat_ok;
+				}
+				if (nd > 2)
+					d = isl_set_project_out(d, isl_dim_set, 2, nd - 2);
+			} else {
+				// Canonical [0,x,0,y,0,z,0] produced by the skew pass.
+				if (nd < 4) {
+					isl_set_free(d);
+					return isl_stat_ok;
+				}
+				d = isl_set_project_out(d, isl_dim_set, 4, nd - 4);
+				d = isl_set_project_out(d, isl_dim_set, 2, 1);
+				d = isl_set_project_out(d, isl_dim_set, 0, 1);
 			}
-			d = isl_set_project_out(d, isl_dim_set, 4, nd - 4); // drop dims >= 4 (z + scalars)
-			d = isl_set_project_out(d, isl_dim_set, 2, 1);		// drop dim 2 (scalar)
-			d = isl_set_project_out(d, isl_dim_set, 0, 1);		// drop dim 0 (scalar)
 			d = isl_set_set_tuple_name(d, nullptr);
-			if (dp->acc == nullptr)
-				dp->acc = d;
-			else
-				dp->acc = isl_set_union(dp->acc, d);
+			dp->acc = dp->acc ? isl_set_union(dp->acc, d) : d;
 			return isl_stat_ok;
 		},
 		&dp);
