@@ -566,13 +566,13 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 
 		std::string maxcutCmd = "/* max_cut_volume() comes from maxcut.h.\n"
 								" * Regenerate it for THIS transformed domain (set --t to your DIV0 value):\n"
-								" *   python3 gen_maxcut.py \\\n"
-								" *     --domain \"" +
+								"    python3 gen_maxcut.py \\\n"
+								"      --domain \"" +
 								domainStr +
 								"\" \\\n"
-								" *     --t $DIV0 \\\n"
-								" *     --func max_cut_volume \\\n"
-								" *     --out maxcut.h\n"
+								"      --t $DIV0 \\\n"
+								"      --func max_cut_volume \\\n"
+								"      --out maxcut.h\n"
 								" * gen_maxcut computes min(x1) by lexmin; add --f1 <x_min> if it is piecewise.\n"
 								" */";
 		macroData.nonProcessedList.push_back(maxcutCmd);
@@ -583,7 +583,7 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 
 	// add var for front iterator
 	std::string nthreadsName = std::string("NTHREADS");
-	std::string minVolName = std::string("D1_MIN_VOL");
+	// std::string minVolName = std::string("D1_MIN_VOL");
 	std::string offsetName = std::string("tile_offset");
 
 	varDeclData.addVar(nthreadsName);
@@ -694,7 +694,7 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 
 			stmtStr += nameHelper.outerForLBName() + " = 0;";
 
-			if (this->useMinVolume) {
+			/* if (this->useMinVolume) {
 				stmtStr +=
 					std::string("long int NB = max(floord(") + nameHelper.pcMaxName() + ", " + minVolName + "), 1);";
 
@@ -706,13 +706,13 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 				stmtStr += nameHelper.targetVolName() + " = floord(" + nameHelper.pcMaxName() + ", " +
 						   nameHelper.outerForUBName() + " + 1);";
 				stmtStr += "}";
-			} else {
-				std::string bandIter = clastTilingPairs[0].outerFor->iterator;
-				stmtStr += nameHelper.targetVolName() + " = max(" + nameHelper.pcMaxName() + " / " +
-						   nameHelper.divName() + ", max_cut_volume(" + bandIter + "));";
-				stmtStr += nameHelper.outerForUBName() + " = max(floord(" + nameHelper.pcMaxName() + ", " +
-						   nameHelper.targetVolName() + "), 1) - 1;";
-			}
+			} else { */
+			std::string bandIter = clastTilingPairs[0].outerFor->iterator;
+			stmtStr += nameHelper.targetVolName() + " = max(" + nameHelper.pcMaxName() + " / " + nameHelper.divName() +
+					   ", max_cut_volume(" + bandIter + "));";
+			stmtStr += nameHelper.outerForUBName() + " = max(floord(" + nameHelper.pcMaxName() + ", " +
+					   nameHelper.targetVolName() + "), 1) - 1;";
+			//}
 
 			macroData.defineFunc(std::string("S") + std::to_string(pair.outerHeaderStmt->statement->number), "",
 								 stmtStr);
