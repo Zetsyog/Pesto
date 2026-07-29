@@ -138,109 +138,6 @@ osl_relation_p SkewPass::skewStatementScattering(isl_ctx *ctx, osl_statement_p s
 	return scat;
 }
 
-SkewTransform SkewPass::detectTransform(osl_statement_p stmt) {
-	osl_relation_p dom  = stmt->domain;
-	osl_relation_p scat = stmt->scattering;
-	int prec = scat->precision;
-
-	int nOut = scat->nb_output_dims;   // c1..cN  (6 for tiled seidel)
-	int nIn  = scat->nb_input_dims;    // i1..iN  (6: tiles + points)
-	int scatOutBase = 1;
-	int scatInBase  = 1 + nOut;
-
-	// The nest has nIn schedule dims. With size-1 tiling they split into an
-	// outer (tile) half and an inner (point) half. The point half carries the
-	// original iterators; the outer half is what we want to read (it holds the
-	// reordered skewing 2t+i, ...). The domain gives tile = f(point) equalities.
-	int half = nIn / 2;                // 3 for seidel: tiles i1..i3, points i4..i6
-
-	// ---- Step 1: read tile = f(points) from the domain equalities ----
-	// A domain equality "a == 0" appears as a single row with e/i flag 0, OR as
-	// a pair (a>=0, -a>=0) with flag 1. We look for rows expressing each tile dim
-	// i_t (t in 0..half-1) as a combination of the point dims i_p (p in half..nIn-1).
-	// tileExpr[t][p] = coefficient of point dim p in tile dim t.
-	std::vector<std::vector<int>> tileExpr(half, std::vector<int>(half, 0));
-	int domIn = 1;  // domain: [e/i | i1..iN | params | const], input dims start at col 1
-
-	for (int t = 0; t < half; ++t) {
-		// find a domain row that is an equality involving tile dim t and only point dims
-		for (int r = 0; r < dom->nb_rows; ++r) {
-			int coefT = osl_int_get_si(prec, dom->m[r][domIn + t]);
-			if (coefT == 0) continue;
-			// candidate: this row constrains tile dim t. Check it's an equality
-			// (flag 0) or take one of the >= pair. Normalize so tile coeff is +1.
-			// Extract point coefficients.
-			// We accept the row where tile coeff is -1 (i.e. -i_t + <points> = 0 form)
-			if (coefT == -1) {
-				for (int p = 0; p < half; ++p) {
-					int cp = osl_int_get_si(prec, dom->m[r][domIn + half + p]);
-					tileExpr[t][p] = cp;
-				}
-				break;
-			}
-		}
-	}
-
-	// ---- Step 2: read the outer scattering dims c1..c_half in terms of i1..iN ----
-	// For each outer output dim o (0..half-1), find its defining row (nonzero at
-	// scatOutBase+o, value -1 by convention), read coefficients over ALL input dims.
-	// scatCoef[o][k] = coefficient of input dim k in output dim o.
-	std::vector<std::vector<int>> scatCoef(half, std::vector<int>(nIn, 0));
-	for (int o = 0; o < half; ++o) {
-		int row = -1;
-		for (int r = 0; r < scat->nb_rows; ++r)
-			if (osl_int_get_si(prec, scat->m[r][scatOutBase + o]) != 0) { row = r; break; }
-		if (row < 0) continue;
-		int outc = osl_int_get_si(prec, scat->m[row][scatOutBase + o]); // -1
-		for (int k = 0; k < nIn; ++k) {
-			int c = osl_int_get_si(prec, scat->m[row][scatInBase + k]);
-			scatCoef[o][k] = -c / outc;   // outc = -1 -> coeff = c
-		}
-	}
-
-	// ---- Step 3: substitute tile dims by their point expressions ----
-	// Each outer dim o = sum_k scatCoef[o][k] * i_k. Split k into tiles (0..half-1)
-	// and points (half..nIn-1). Replace each tile i_t by sum_p tileExpr[t][p]*i_point_p.
-	// Result: coefficient of each POINT dim p in output o.
-	std::vector<std::vector<int>> finalCoef(half, std::vector<int>(half, 0));
-	for (int o = 0; o < half; ++o) {
-		// direct point contributions
-		for (int p = 0; p < half; ++p)
-			finalCoef[o][p] += scatCoef[o][half + p];
-		// tile contributions, substituted
-		for (int t = 0; t < half; ++t) {
-			int ct = scatCoef[o][t];
-			if (ct == 0) continue;
-			for (int p = 0; p < half; ++p)
-				finalCoef[o][p] += ct * tileExpr[t][p];
-		}
-	}
-
-	// ---- Step 4: emit x,y,z from finalCoef, using the original iterator names ----
-	// The point dims i_(half..nIn-1) are the original iterators, in domain order.
-	std::vector<std::string> pointIters;
-	osl_body_p body = (osl_body_p)osl_generic_lookup(stmt->extension, OSL_URI_BODY);
-	int nbNames = body ? osl_strings_size(body->iterators) : 0;
-	// The body lists all schedule iterators: the first half are tile dims (fk*),
-	// the second half are the point dims = the original iterators (t,i,j). We want
-	// the point half.
-	for (int i = nbNames - half; i < nbNames; ++i)
-		if (i >= 0)
-			pointIters.push_back(body->iterators->string[i]);
-
-	const char *tnames[] = {"x", "y", "z", "w", "u", "v"};
-	std::vector<SkewTarget> targets;
-	for (int o = 0; o < half; ++o) {
-		SkewTarget tgt;
-		tgt.name = tnames[o];
-		for (int p = 0; p < half && p < (int)pointIters.size(); ++p)
-			if (finalCoef[o][p] != 0)
-				tgt.coeffs[pointIters[p]] = finalCoef[o][p];
-		targets.push_back(std::move(tgt));
-	}
-	return SkewTransform::fromTargets(std::move(targets));
-}
-
 void SkewPass::checkCone(isl_ctx *ctx, osl_scop_p scop) {
 	using pesto::ir::converter::Scop2Isl;
 	Scop2Isl irHelper(ctx);
@@ -334,20 +231,8 @@ pesto::Bundle SkewPass::apply(pesto::Bundle &&bundle) {
 	// current scattering, and rewrite it in canonical [0,x,0,y,0,z,0] form — the
 	// same path the DP kernels take.
 	if (!haveTransform_) {
-		if (!scop->statement) {
-			logger->error("skew: empty scop, nothing to detect");
-			throw std::runtime_error("skew: empty scop");
-		}
-		transform_ = detectTransform(scop->statement);
-		haveTransform_ = true;
-		if (logger->level() <= spdlog::level::debug) {
-			for (const auto &t : transform_.targets()) {
-				std::string s = t.name + " =";
-				for (auto &kv : t.coeffs) s += " " + std::to_string(kv.second) + "*" + kv.first;
-				if (t.constant) s += " + " + std::to_string(t.constant);
-				logger->debug("skew: detected {}", s);
-			}
-		}
+		logger->error("skew: no transform specified");
+		throw std::runtime_error("skew: no transform specified");
 	}
 
 	// parameter names from the scop context

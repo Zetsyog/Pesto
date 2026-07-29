@@ -1363,40 +1363,22 @@ std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(osl_s
 
 	isl_union_set *deltas = isl_union_map_deltas(isl_union_map_copy(sanitized_dep_flow));
 
-	this->printer = isl_printer_print_union_map(this->printer, sanitized_dep_flow);
-	char *s = isl_printer_get_str(this->printer);
-	this->logger->debug("dep flow: {}", s);
-	free(s);
-	this->printer = isl_printer_flush(this->printer);
+	bool canonical = isCanonicalLayout(deltas); // ← ajouté
+	logger->debug("delta layout: {}", canonical ? "canonical" : "raw pluto");
 
-	// Multi-statement scops (nussinov, counting_im, mcc, mcm, mea) produce
-	// deltas in SEVERAL spaces, possibly of different dimensionality (a
-	// statement inside the k-loop has 3 dims, one outside has 2). Converting
-	// the whole union_set to a single set fails ("exactly one space"). Instead,
-	// project every delta set onto its first two dims, drop tuple names, and
-	// union them into one 2-D set.
 	struct DeltaProj {
 		isl_ctx *ctx;
 		isl_set *acc;
-		bool raw;
-	} dp{this->ctx, nullptr, this->rawPlutoSchedule_};
+		bool canonical;					 // ← ajouté
+	} dp{this->ctx, nullptr, canonical}; // ← 3e champ
 
 	isl_union_set_foreach_set(
 		deltas,
 		+[](__isl_take isl_set *d, void *user) -> isl_stat {
 			auto *dp = static_cast<DeltaProj *>(user);
 			int nd = isl_set_dim(d, isl_dim_set);
-			if (dp->raw) {
-				// Raw Pluto schedule (diamond tiling, no skew pass): the gap is
-				// dim 0 and the first space dim is 1.
-				if (nd < 2) {
-					isl_set_free(d);
-					return isl_stat_ok;
-				}
-				if (nd > 2)
-					d = isl_set_project_out(d, isl_dim_set, 2, nd - 2);
-			} else {
-				// Canonical [0,x,0,y,0,z,0] produced by the skew pass.
+			if (dp->canonical) {
+				// [0,x,0,y,0,z,0] : axes de boucle en 1 et 3
 				if (nd < 4) {
 					isl_set_free(d);
 					return isl_stat_ok;
@@ -1404,6 +1386,14 @@ std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(osl_s
 				d = isl_set_project_out(d, isl_dim_set, 4, nd - 4);
 				d = isl_set_project_out(d, isl_dim_set, 2, 1);
 				d = isl_set_project_out(d, isl_dim_set, 0, 1);
+			} else {
+				// schedule brut de Pluto : gap en 0, première dim d'espace en 1
+				if (nd < 2) {
+					isl_set_free(d);
+					return isl_stat_ok;
+				}
+				if (nd > 2)
+					d = isl_set_project_out(d, isl_dim_set, 2, nd - 2);
 			}
 			d = isl_set_set_tuple_name(d, nullptr);
 			dp->acc = dp->acc ? isl_set_union(dp->acc, d) : d;
@@ -1565,6 +1555,47 @@ std::pair<std::string, std::string> TpzTilingPass::computeInnerMinMaxStr(__isl_k
 	return minMaxPair;
 }
 
+// The skew pass emits a canonical [0,x,0,y,0,z,0] scattering whose even dims are
+// constant scalars, so delta dim 0 is identically zero. A raw Pluto schedule
+// carries the gap there. Tells the delta projection which layout it faces.
+bool TpzTilingPass::isCanonicalLayout(__isl_keep isl_union_set *deltas) {
+	struct Probe {
+		bool sawNonZero;
+		bool sawAny;
+	} pr{false, false};
+	isl_union_set_foreach_set(
+		deltas,
+		+[](__isl_take isl_set *d, void *user) -> isl_stat {
+			auto *pr = static_cast<Probe *>(user);
+			if (isl_set_dim(d, isl_dim_set) < 1) {
+				isl_set_free(d);
+				return isl_stat_ok;
+			}
+			pr->sawAny = true;
+			isl_set *nonZero = isl_set_copy(d);
+			// {dim0 >= 1} U {dim0 <= -1}
+			isl_space *sp = isl_set_get_space(d);
+			isl_local_space *ls = isl_local_space_from_space(isl_space_copy(sp));
+			isl_constraint *cp = isl_constraint_alloc_inequality(isl_local_space_copy(ls));
+			cp = isl_constraint_set_coefficient_si(cp, isl_dim_set, 0, 1);
+			cp = isl_constraint_set_constant_si(cp, -1);
+			isl_set *pos = isl_set_add_constraint(isl_set_copy(nonZero), cp);
+			isl_constraint *cn = isl_constraint_alloc_inequality(ls);
+			cn = isl_constraint_set_coefficient_si(cn, isl_dim_set, 0, -1);
+			cn = isl_constraint_set_constant_si(cn, -1);
+			isl_set *neg = isl_set_add_constraint(nonZero, cn);
+			isl_space_free(sp);
+			if (!isl_set_is_empty(pos) || !isl_set_is_empty(neg))
+				pr->sawNonZero = true;
+			isl_set_free(pos);
+			isl_set_free(neg);
+			isl_set_free(d);
+			return isl_stat_ok;
+		},
+		&pr);
+	return pr.sawAny && !pr.sawNonZero;
+}
+
 bool TpzTilingPass::isReductionTileable(osl_scop_p scop) {
 	using pesto::ir::converter::Scop2Isl;
 	Scop2Isl irHelper(this->ctx);
@@ -1616,11 +1647,13 @@ bool TpzTilingPass::isReductionTileable(osl_scop_p scop) {
 
 	isl_union_set *deltas = isl_union_map_deltas(sanitized);
 
-	// Project each delta onto (x, y, z) = scattering dims 1, 3, 5.
+	bool canonical = isCanonicalLayout(deltas); // ← ajouté
+
 	struct P {
 		isl_ctx *ctx;
 		isl_set *acc;
-	} p{this->ctx, nullptr};
+		bool canonical;
+	} p{this->ctx, nullptr, canonical}; // ← 3e champ
 	isl_union_set_foreach_set(
 		deltas,
 		+[](__isl_take isl_set *d, void *user) -> isl_stat {

@@ -63,8 +63,6 @@ class TpzTilingPass : public IPass {
 	}
 	
 	void setReductionAboveGap(bool v) { reductionAboveGap_ = v; }
-	
-	void setRawPlutoSchedule(bool v) { rawPlutoSchedule_ = v; }
 
   private:
 	isl_ctx *ctx;
@@ -108,7 +106,7 @@ class TpzTilingPass : public IPass {
 	
 	bool reductionAboveGap_ = false;
 	
-	bool rawPlutoSchedule_ = false;
+	bool isCanonicalLayout(__isl_keep isl_union_set *deltas);
 };
 
 } // namespace pesto::pass
