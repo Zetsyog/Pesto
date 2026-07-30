@@ -59,9 +59,15 @@ TpzTilingPass::~TpzTilingPass() {
 
 namespace pesto::pass {} // namespace pesto::pass
 
+static bool hasScalarWrite(osl_statement_p stmt);
+static void collectScalarWrites(osl_scop_p scop, std::vector<std::string> &names);
+
 Bundle TpzTilingPass::apply(Bundle &&bundle) {
 	auto *scopIR = dynamic_cast<pesto::ir::OpenScopIR *>(bundle.get_ir());
 	osl_scop_p scop = scopIR->c_scop();
+
+	this->scalarWrites_.clear();
+	collectScalarWrites(scop, this->scalarWrites_);
 
 	logger->debug("Starting trapezoidal tiling pass on scop");
 
@@ -476,7 +482,10 @@ std::vector<pesto::pass::ptile::ClastTilingPair> TpzTilingPass::computeTilingPai
 			  [](const ClastTilingPair &a, const ClastTilingPair &b) { return a.depth < b.depth; });
 
 	if (clastTilingPairs.size() > 2) {
-		if (this->reductionAboveGap_.has_value()) {
+		if (this->scalarInReduction_) {
+			// Correctness, not a placement preference: no form of z tiling works.
+			clastTilingPairs.resize(2);
+		} else if (this->reductionAboveGap_.has_value()) {
 			clastTilingPairs[2].underGap = !(*this->reductionAboveGap_);
 			if (!*this->reductionAboveGap_ && !this->underGapLegal_)
 				logger->warn("reductionTileAboveGap=false forces the reduction tile under "
@@ -1116,6 +1125,13 @@ __isl_give isl_set *TpzTilingPass::computeInnerDomain(pesto::ir::ClastIR &clastI
 		ptile::ClastTilingPair &pair = clastTilingPairs[i];
 		set = isl_set_set_dim_name(set, isl_dim_set, i, pair.innerFor->iterator);
 	}
+	// Dimensions beyond the tiling levels (an untiled reduction) keep no name,
+	// and Trahrhe writes names with fputs — a null one segfaults.
+	for (int i = 0; i < isl_set_dim(set, isl_dim_set); ++i)
+		if (!isl_set_has_dim_name(set, isl_dim_set, i)) {
+			std::string nm = "d" + std::to_string(i);
+			set = isl_set_set_dim_name(set, isl_dim_set, i, nm.c_str());
+		}
 
 	for (int i = 0; i < cloogProgram->names->nb_parameters; i += 1) {
 		set = isl_set_set_dim_name(set, isl_dim_param, i, cloogProgram->names->parameters[i]);
@@ -1384,6 +1400,12 @@ void TpzTilingPass::insertOmpPragmas(pesto::ir::ClastIR &clastIR,
 	privateVars += std::string(", _tpzlb") + ", _tpzub" + ", tile_offset";
 	if (clastTilingPairs.size() > 2 && clastTilingPairs[2].underGap)
 		privateVars += ", _tpzlb2, _tpzub2";
+
+	// Scalars written in the region are not indexed by the point: without this,
+	// every slice shares one location (symm's temp2).
+	for (const auto &nm : this->scalarWrites_)
+		if (privateVars.find(nm) == std::string::npos)
+			privateVars += ", " + nm;
 
 	// add omp pragmas to the outer loops of depth 1
 	ClastFilter filter = {clastTilingPairs[1].outerFor->iterator, nullptr, 0, subset};
@@ -1701,6 +1723,31 @@ std::pair<std::string, std::string> TpzTilingPass::computeInnerMinMaxStr(__isl_k
 	return minMaxPair;
 }
 
+// Scalars written in the region are not indexed by the point: without this,
+// every slice shares one location (symm's temp2).
+static void collectScalarWrites(osl_scop_p scop, std::vector<std::string> &names) {
+	osl_arrays_p arrays = (osl_arrays_p)osl_generic_lookup(scop->extension, OSL_URI_ARRAYS);
+	if (!arrays)
+		return;
+	for (osl_statement_p s = scop->statement; s; s = s->next)
+		for (osl_relation_list_p a = s->access; a; a = a->next) {
+			if (!a->elt)
+				continue;
+			if (a->elt->type != OSL_TYPE_WRITE && a->elt->type != OSL_TYPE_MAY_WRITE)
+				continue;
+			if (a->elt->nb_output_dims > 1)
+				continue;
+			int id = osl_relation_get_array_id(a->elt);
+			for (int k = 0; k < arrays->nb_names; ++k)
+				if (arrays->id[k] == id) {
+					std::string nm = arrays->names[k];
+					if (std::find(names.begin(), names.end(), nm) == names.end())
+						names.push_back(nm);
+					break;
+				}
+		}
+}
+
 // The skew pass emits a canonical [0,x,0,y,0,z,0] scattering whose even dims are
 // constant scalars, so delta dim 0 is identically zero. A raw Pluto schedule
 // carries the gap there. Tells the delta projection which layout it faces.
@@ -1742,7 +1789,36 @@ bool TpzTilingPass::isCanonicalLayout(__isl_keep isl_union_set *deltas) {
 	return pr.sawAny && !pr.sawNonZero;
 }
 
+// A scalar access in osl carries only the array-identifier dimension: no
+// subscripts. Such a location is not indexed by the point, so it cannot survive
+// the reduction being tiled — every point of a tile reuses it (symm's temp2).
+static bool hasScalarWrite(osl_statement_p stmt) {
+	for (osl_relation_list_p a = stmt->access; a; a = a->next) {
+		if (!a->elt)
+			continue;
+		if (a->elt->type != OSL_TYPE_WRITE && a->elt->type != OSL_TYPE_MAY_WRITE)
+			continue;
+		if (a->elt->nb_output_dims <= 1)
+			return true;
+	}
+	return false;
+}
+
 bool TpzTilingPass::isReductionTileable(osl_scop_p scop) {
+
+	for (osl_statement_p s = scop->statement; s; s = s->next) {
+		std::string acc;
+		for (osl_relation_list_p a = s->access; a; a = a->next) {
+			if (!a->elt) {
+				acc += " <null>";
+				continue;
+			}
+			const char *k = a->elt->type == OSL_TYPE_WRITE ? "W" : a->elt->type == OSL_TYPE_MAY_WRITE ? "MW" : "R";
+			acc += " " + std::string(k) + "(out=" + std::to_string(a->elt->nb_output_dims) + ")";
+		}
+		logger->debug("stmt depth={}:{}", (int)s->domain->nb_output_dims, acc);
+	}
+
 	using pesto::ir::converter::Scop2Isl;
 	Scop2Isl irHelper(this->ctx);
 	irHelper.convert(scop);
@@ -1793,8 +1869,7 @@ bool TpzTilingPass::isReductionTileable(osl_scop_p scop) {
 
 	isl_union_set *deltas = isl_union_map_deltas(sanitized);
 
-	bool canonical = isCanonicalLayout(deltas); // ← ajouté
-
+	bool canonical = isCanonicalLayout(deltas);
 	struct P {
 		isl_ctx *ctx;
 		isl_set *acc;
@@ -1805,15 +1880,25 @@ bool TpzTilingPass::isReductionTileable(osl_scop_p scop) {
 		+[](__isl_take isl_set *d, void *user) -> isl_stat {
 			auto *p = static_cast<P *>(user);
 			int nd = isl_set_dim(d, isl_dim_set);
-			if (nd < 6) {
-				isl_set_free(d);
-				return isl_stat_ok;
-			} // need z at dim 5
-			// keep dims 1,3,5 → drop 6, then 4, then 2, then 0
-			d = isl_set_project_out(d, isl_dim_set, 6, nd - 6); // drop dims >= 6
-			d = isl_set_project_out(d, isl_dim_set, 4, 1);		// drop dim 4
-			d = isl_set_project_out(d, isl_dim_set, 2, 1);		// drop dim 2
-			d = isl_set_project_out(d, isl_dim_set, 0, 1);		// drop dim 0
+			if (p->canonical) {
+				// [0,x,0,y,0,z,0] from the skew pass: loop axes at 1, 3, 5.
+				if (nd < 6) {
+					isl_set_free(d);
+					return isl_stat_ok;
+				}
+				d = isl_set_project_out(d, isl_dim_set, 6, nd - 6);
+				d = isl_set_project_out(d, isl_dim_set, 4, 1);
+				d = isl_set_project_out(d, isl_dim_set, 2, 1);
+				d = isl_set_project_out(d, isl_dim_set, 0, 1);
+			} else {
+				// Raw Pluto schedule: gap at 0, then the space dims.
+				if (nd < 3) {
+					isl_set_free(d);
+					return isl_stat_ok;
+				}
+				if (nd > 3)
+					d = isl_set_project_out(d, isl_dim_set, 3, nd - 3);
+			}
 			// now dims are (x, y, z)
 			d = isl_set_set_tuple_name(d, nullptr);
 			if (!p->acc)
@@ -1824,7 +1909,9 @@ bool TpzTilingPass::isReductionTileable(osl_scop_p scop) {
 		},
 		&p);
 
-	bool tileable = true;
+	// No exploitable deltas means no analysis, which is not an authorisation.
+	bool tileable = false;
+	logger->debug("isReductionTileable: p.acc={}", p.acc ? "set" : "null");
 	if (p.acc) {
 		isl_set *set = isl_set_coalesce(p.acc);
 		// Project the parameters out instead of dropping the constraints that
@@ -1857,13 +1944,14 @@ bool TpzTilingPass::isReductionTileable(osl_scop_p scop) {
 		};
 
 		/* auto neg = [&](isl_set *s, int dim) -> isl_set * {
-				isl_space *sp = isl_set_get_space(s);
-				isl_constraint *c = isl_constraint_alloc_inequality(isl_local_space_from_space(isl_space_copy(sp)));
-				c = isl_constraint_set_coefficient_si(c, isl_dim_set, dim, -1);
-				c = isl_constraint_set_constant_si(c, -1); // v[dim] <= -1
-				isl_space_free(sp);
-				return isl_set_add_constraint(isl_set_copy(s), c);
-			}; */
+			isl_space *sp = isl_set_get_space(s);
+			isl_constraint *c =
+				isl_constraint_alloc_inequality(isl_local_space_from_space(isl_space_copy(sp)));
+			c = isl_constraint_set_coefficient_si(c, isl_dim_set, dim, -1);
+			c = isl_constraint_set_constant_si(c, -1); // v[dim] <= -1
+			isl_space_free(sp);
+			return isl_set_add_constraint(isl_set_copy(s), c);
+		}; */
 
 		isl_set *dzNonZero = nz(2);
 		isl_set *dxNonZero = nz(0);
@@ -1872,8 +1960,30 @@ bool TpzTilingPass::isReductionTileable(osl_scop_p scop) {
 		isl_set *badTileable = isl_set_intersect(dzNonZero, dxyNonZero);
 		badTileable = isl_set_intersect(badTileable, isl_set_copy(set));
 		tileable = isl_set_is_empty(badTileable);
+
+		// Statements at maximum depth run inside the reduction loop. If one of them
+		// writes a scalar, tiling z scatters it across the tiles: the reset only
+		// fires in the tile holding z = 0, and later tiles keep the value left by
+		// the previous point.
+
 		isl_set_free(badTileable);
 		isl_set_free(set);
+	}
+
+	// Independent of the delta analysis: a statement at maximum depth runs inside
+	// the reduction loop, and if it writes a scalar, tiling z scatters it.
+	if (tileable) {
+		int maxDepth = 0;
+		for (osl_statement_p s = scop->statement; s; s = s->next)
+			if ((int)s->domain->nb_output_dims > maxDepth)
+				maxDepth = (int)s->domain->nb_output_dims;
+		for (osl_statement_p s = scop->statement; s; s = s->next)
+			if ((int)s->domain->nb_output_dims == maxDepth && hasScalarWrite(s)) {
+				logger->debug("scalar written inside the reduction loop: z not tileable");
+				tileable = false;
+				this->scalarInReduction_ = true;
+				break;
+			}
 	}
 
 	isl_union_set_free(deltas);

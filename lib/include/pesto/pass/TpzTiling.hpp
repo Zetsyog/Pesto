@@ -109,6 +109,10 @@ class TpzTilingPass : public IPass {
 	bool isCanonicalLayout(__isl_keep isl_union_set *deltas);
 	
 	struct clast_stmt *diagTail_ = nullptr;
+	
+	bool scalarInReduction_ = false;
+	
+	std::vector<std::string> scalarWrites_;
 };
 
 } // namespace pesto::pass
