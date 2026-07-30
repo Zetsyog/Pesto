@@ -357,6 +357,17 @@ void TpzTilingPass::tileClastFor(Bundle &bundle, struct clast_for *clastFor, pes
 	// TODO: we might have to find a way to group user statement by pair of original and duplicated
 	struct clast_stmt *secondTileBand = clast_stmt_hard_copy(&(trapezoidalPair.outerFor->stmt));
 	trapezoidalPair.outerFor->stmt.next = secondTileBand;
+
+	if (this->diagTail_) {
+		logger->debug("re-emitting diagonal tail after the second front");
+		struct clast_stmt *diagLoop = clast_stmt_hard_copy(&(clastTilingPairs[0].innerFor->stmt));
+		((struct clast_for *)diagLoop)->body = this->diagTail_;
+		diagLoop->next = secondTileBand->next;
+		secondTileBand->next = diagLoop;
+		this->diagTail_ = nullptr;
+	} else {
+		logger->debug("no diagonal tail to re-emit");
+	}
 	this->logger->debug("Duplication done");
 
 	// replace the duplicated inner for user statements
@@ -498,8 +509,30 @@ void TpzTilingPass::insertOuterForLoop(Bundle &bundle, std::vector<ptile::ClastT
 		innerEnclosingDomain =
 			cloog_domain_universe(cloogOptions->state, cloog_domain_dimension(clastTilingPairs[1].innerFor->domain));
 
+	// Statements in the gap body that carry no point-loop iterator (cholesky's
+	// diagonal sqrt) belong to no zt2 slice: each slice would re-execute them.
+	// Detach them here; they are re-emitted after both fronts.
+	{
+		struct clast_for *gap = clastTilingPairs[0].innerFor;
+		struct clast_for *point = clastTilingPairs[1].innerFor;
+		const char *pit = point->iterator;
+		struct clast_stmt *prev = nullptr;
+		for (struct clast_stmt *s = gap->body; s != NULL; prev = s, s = s->next) {
+			bool isPointLoop = CLAST_STMT_IS_A(s, stmt_for) && ((struct clast_for *)s)->iterator && pit &&
+							   strcmp(((struct clast_for *)s)->iterator, pit) == 0;
+			if (!isPointLoop) {
+				this->diagTail_ = s;
+				if (prev)
+					prev->next = nullptr;
+				else
+					gap->body = nullptr;
+				break;
+			}
+		}
+		logger->debug("diagonal tail: {}", this->diagTail_ ? "detached" : "none found");
+	}
+
 	// do tiling by inserting outer for loops
-	// insert user statements
 	for (auto it = clastTilingPairs.begin(); it != clastTilingPairs.end(); ++it) {
 		// The reduction tile loop goes inside t2, as a parent of the t4 point
 		// loop; the other levels stack above the outermost point loop.
@@ -925,33 +958,82 @@ __isl_give isl_set *TpzTilingPass::computeInnerDomain(pesto::ir::ClastIR &clastI
 	// 2-D one outside). isl_set_from_union_set requires one space and crashes.
 	// The trapezoidal (x,y,z) domain is the one of the highest-dimensional
 	// statement (the reduction nest); take that one rather than the union.
+	// The nest must cover every statement, not just the deepest one. Cholesky's
+	// finalisations live at t2 = 0, where the reduction is empty; keeping only the
+	// deepest domain inherits its 0 <= t3 < t2, so the gap starts at t1 = 3 and
+	// column j = 0 is never generated. Pad the shallower domains with the missing
+	// trailing dims fixed to 0 and union everything instead.
 	isl_set *set = nullptr;
 	{
-		struct PickMax {
-			isl_set *best;
-			int bestDim;
-		} pm{nullptr, -1};
+		int maxDim = 0;
 		isl_union_set_foreach_set(
 			domain,
 			+[](__isl_take isl_set *s, void *user) -> isl_stat {
-				auto *pm = static_cast<PickMax *>(user);
+				int *m = static_cast<int *>(user);
 				int nd = isl_set_dim(s, isl_dim_set);
-				if (nd > pm->bestDim) {
-					if (pm->best)
-						isl_set_free(pm->best);
-					pm->best = isl_set_set_tuple_name(s, nullptr);
-					pm->bestDim = nd;
-				} else {
-					isl_set_free(s);
-				}
+				if (nd > *m)
+					*m = nd;
+				isl_set_free(s);
 				return isl_stat_ok;
 			},
-			&pm);
-		set = pm.best;
+			&maxDim);
+
+		const int nRed = 1; // dimensions de réduction
+		const int nOuter = maxDim - nRed;
+
+		// Union of every statement's domain projected onto the outer dims: the
+		// nest must cover all of them, including the finalisations that live at
+		// t2 = 0 where the reduction is empty.
+		struct Acc {
+			isl_set *acc;
+			int nOuter;
+		} a{nullptr, nOuter};
+		isl_union_set_foreach_set(
+			domain,
+			+[](__isl_take isl_set *s, void *user) -> isl_stat {
+				auto *a = static_cast<Acc *>(user);
+				int nd = isl_set_dim(s, isl_dim_set);
+				// Shallower statements are emitted above this nest; padding the
+				// missing dims with 0 anchors them at a point outside the domain
+				// and makes the hull invent skewed parametric facets.
+				if (nd < a->nOuter) {
+					isl_set_free(s);
+					return isl_stat_ok;
+				}
+				s = isl_set_set_tuple_name(s, nullptr);
+				if (nd > a->nOuter)
+					s = isl_set_project_out(s, isl_dim_set, a->nOuter, nd - a->nOuter);
+				a->acc = a->acc ? isl_set_union(a->acc, s) : s;
+				return isl_stat_ok;
+			},
+			&a);
 		isl_union_set_free(domain);
+
+		// Hull on the outer dims only: hulling padded domains of different
+		// dimensionality invents skewed parametric facets Trahrhe cannot parse.
+		isl_set *outer = isl_set_coalesce(a.acc);
+		if (isl_set_n_basic_set(outer) != 1) {
+			logger->debug("outer domain not convex after coalesce, falling back to hull");
+			outer = isl_set_from_basic_set(isl_set_convex_hull(outer));
+		}
+
+		// Re-add the reduction dim with its own bounds: 0 <= t_red <= t_{nOuter-1}.
+		set = isl_set_add_dims(outer, isl_dim_set, nRed);
+		isl_local_space *ls = isl_local_space_from_space(isl_set_get_space(set));
+		isl_constraint *lo = isl_constraint_alloc_inequality(isl_local_space_copy(ls));
+		lo = isl_constraint_set_coefficient_si(lo, isl_dim_set, nOuter, 1);
+		set = isl_set_add_constraint(set, lo);
+		isl_constraint *hi = isl_constraint_alloc_inequality(ls);
+		hi = isl_constraint_set_coefficient_si(hi, isl_dim_set, nOuter, -1);
+		hi = isl_constraint_set_coefficient_si(hi, isl_dim_set, nOuter - 1, 1);
+		set = isl_set_add_constraint(set, hi);
 	}
+
 	set = isl_set_coalesce(set);
-	set = isl_set_from_basic_set(isl_set_convex_hull(set));
+	if (isl_set_n_basic_set(set) != 1) {
+		logger->debug("inner domain not convex after coalesce, falling back to hull");
+		set = isl_set_from_basic_set(isl_set_convex_hull(set));
+	}
 
 	for (size_t i = 0; i < clastTilingPairs.size(); ++i)
 		logger->debug("clastTilingPair[{}] innerFor iterator: {}", i, clastTilingPairs[i].innerFor->iterator);
@@ -1486,6 +1568,31 @@ std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(osl_s
 		set = isl_set_subtract(set, origin);
 	}
 
+	// Sampling one point per basic set can miss illegal directions when a basic
+	// set spans several (durbin: {[i0,1] : 0<=i0<=1} holds (1,1) and (0,1), and
+	// only the former was sampled). Test the whole set against the cone.
+	{
+		isl_space *sp = isl_set_get_space(set);
+		isl_set *cone = isl_set_universe(isl_space_copy(sp));
+		isl_local_space *ls = isl_local_space_from_space(sp);
+		isl_constraint *c1 = isl_constraint_alloc_inequality(isl_local_space_copy(ls));
+		c1 = isl_constraint_set_coefficient_si(c1, isl_dim_set, 1, 1); // y >= 0
+		cone = isl_set_add_constraint(cone, c1);
+		isl_constraint *c2 = isl_constraint_alloc_inequality(ls);
+		c2 = isl_constraint_set_coefficient_si(c2, isl_dim_set, 0, 1); // x - y >= 0
+		c2 = isl_constraint_set_coefficient_si(c2, isl_dim_set, 1, -1);
+		cone = isl_set_add_constraint(cone, c2);
+		isl_set *outside = isl_set_subtract(isl_set_copy(set), cone);
+		int empty = isl_set_is_empty(outside);
+		isl_set_free(outside);
+		if (!empty) {
+			logger->debug("dependence vectors outside the (1,0)-(1,1) cone");
+			isl_set_free(set);
+			/* … libérations habituelles … */
+			return std::nullopt;
+		}
+	}
+
 	// Helper function for isl_set_foreach_basic_set
 
 	isl_set_foreach_basic_set(
@@ -1749,14 +1856,14 @@ bool TpzTilingPass::isReductionTileable(osl_scop_p scop) {
 			return isl_set_union(pos, neg);
 		};
 
-		auto neg = [&](isl_set *s, int dim) -> isl_set * {
-			isl_space *sp = isl_set_get_space(s);
-			isl_constraint *c = isl_constraint_alloc_inequality(isl_local_space_from_space(isl_space_copy(sp)));
-			c = isl_constraint_set_coefficient_si(c, isl_dim_set, dim, -1);
-			c = isl_constraint_set_constant_si(c, -1); // v[dim] <= -1
-			isl_space_free(sp);
-			return isl_set_add_constraint(isl_set_copy(s), c);
-		};
+		/* auto neg = [&](isl_set *s, int dim) -> isl_set * {
+				isl_space *sp = isl_set_get_space(s);
+				isl_constraint *c = isl_constraint_alloc_inequality(isl_local_space_from_space(isl_space_copy(sp)));
+				c = isl_constraint_set_coefficient_si(c, isl_dim_set, dim, -1);
+				c = isl_constraint_set_constant_si(c, -1); // v[dim] <= -1
+				isl_space_free(sp);
+				return isl_set_add_constraint(isl_set_copy(s), c);
+			}; */
 
 		isl_set *dzNonZero = nz(2);
 		isl_set *dxNonZero = nz(0);

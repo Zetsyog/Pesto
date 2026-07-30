@@ -107,6 +107,8 @@ class TpzTilingPass : public IPass {
 	std::optional<bool> reductionAboveGap_;   // non renseigné = automatique
 	
 	bool isCanonicalLayout(__isl_keep isl_union_set *deltas);
+	
+	struct clast_stmt *diagTail_ = nullptr;
 };
 
 } // namespace pesto::pass
