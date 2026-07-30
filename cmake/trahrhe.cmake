@@ -26,7 +26,7 @@ message(STATUS "Using latest trahrhe from git")
 externalproject_add(
     trahrhe-src
     GIT_REPOSITORY ${TRAHRHE_GIT_URL}
-    GIT_TAG f882850dbf9a6f849479de47bc539e1d72478b0e
+    GIT_TAG 3ee19c89cbbc51edc0e132681b970355328b1177
     PREFIX ${TRAHRHE_PREFIX}
     SOURCE_DIR ${TRAHRHE_PREFIX}/src
     BINARY_DIR ${TRAHRHE_PREFIX}/build
