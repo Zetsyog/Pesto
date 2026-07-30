@@ -295,34 +295,56 @@ void TpzTilingPass::tileClastFor(Bundle &bundle, struct clast_for *clastFor, pes
 			logger->info("Reduction not tiled: the point loop cannot be split");
 			clastTilingPairs.resize(2);
 		} else if (needsSplit) {
-			// garde les éléments dont la nature correspond à keepFor ; les autres
-			// sont détachés et laissés en place (pas d'API de libération de clast).
-			auto keepStmts = [](struct clast_stmt * head, bool keepFor) -> struct clast_stmt * {
-				struct clast_stmt *newHead = NULL;
-				struct clast_stmt *tail = NULL;
-				struct clast_stmt *s = head;
+			// Position de la boucle de réduction dans le corps, et taille du corps.
+			int redIdx = -1, nbStmts = 0;
+			for (struct clast_stmt *s = point->body; s != NULL; s = s->next, ++nbStmts)
+				if (CLAST_STMT_IS_A(s, stmt_for) && (struct clast_for *)s == red)
+					redIdx = nbStmts;
+
+			// garde les éléments d'indice dans [lo, hi] ; les autres sont détachés
+			// et laissés en place (pas d'API de libération de clast).
+			auto keepRange = [](struct clast_stmt * head, int lo, int hi) -> struct clast_stmt * {
+				struct clast_stmt *newHead = NULL, *tail = NULL, *s = head;
+				int i = 0;
 				while (s != NULL) {
 					struct clast_stmt *next = s->next;
-					bool isFor = CLAST_STMT_IS_A(s, stmt_for);
-					if (isFor == keepFor) {
+					if (i >= lo && i <= hi) {
 						s->next = NULL;
-						if (tail != NULL) {
+						if (tail)
 							tail->next = s;
-						} else {
+						else
 							newHead = s;
-						}
 						tail = s;
 					}
 					s = next;
+					++i;
 				}
 				return newHead;
 			};
 
-			struct clast_stmt *copy = clast_stmt_hard_copy(&(point->stmt));
-			((struct clast_for *)copy)->body = keepStmts(((struct clast_for *)copy)->body, false);
-			point->body = keepStmts(point->body, true);
-			clast_insert_before(&(root->stmt), &(point->stmt), copy);
-			logger->debug("Point loop split: statements hoisted out of the reduction tiles");
+			bool hasPre = redIdx > 0;
+			bool hasPost = redIdx >= 0 && redIdx < nbStmts - 1;
+			logger->debug("Point loop split: {} stmt(s) before the reduction, {} after", hasPre ? redIdx : 0,
+						  hasPost ? nbStmts - 1 - redIdx : 0);
+
+			// Finalisations : elles ont besoin de la réduction terminée, donc elles
+			// vont APRÈS la boucle de tuiles (cholesky : /= et sqrt).
+			if (hasPost) {
+				struct clast_stmt *post = clast_stmt_hard_copy(&(point->stmt));
+				((struct clast_for *)post)->body = keepRange(((struct clast_for *)post)->body, redIdx + 1, nbStmts - 1);
+				post->next = point->stmt.next;
+				point->stmt.next = post;
+			}
+
+			// Initialisations : hissées AVANT la boucle de tuiles (comportement actuel).
+			if (hasPre) {
+				struct clast_stmt *pre = clast_stmt_hard_copy(&(point->stmt));
+				((struct clast_for *)pre)->body = keepRange(((struct clast_for *)pre)->body, 0, redIdx - 1);
+				clast_insert_before(&(root->stmt), &(point->stmt), pre);
+			}
+
+			// L'original ne garde que la réduction.
+			point->body = keepRange(point->body, redIdx, redIdx);
 		}
 	}
 
@@ -482,8 +504,22 @@ void TpzTilingPass::insertOuterForLoop(Bundle &bundle, std::vector<ptile::ClastT
 		// The reduction tile loop goes inside t2, as a parent of the t4 point
 		// loop; the other levels stack above the outermost point loop.
 		struct clast_for *target = it->underGap ? clastTilingPairs[1].innerFor : outermostFor;
+
+		// clast_insert_enclosing_for wraps the target AND all its following
+		// siblings. Under the gap, what follows the point loop must run once the
+		// tiles are exhausted (finalisations split out of the reduction,
+		// cholesky's sqrt), so detach it and re-attach it after the tile loop.
+		struct clast_stmt *trailing = nullptr;
+		if (it->underGap) {
+			trailing = target->stmt.next;
+			target->stmt.next = nullptr;
+		}
+
 		struct clast_for *enclosing_for = clast_insert_enclosing_for(
 			&(root->stmt), &(target->stmt), it->underGap ? innerEnclosingDomain : enclosingDomain);
+
+		if (trailing)
+			enclosing_for->stmt.next = trailing;
 
 		// Set iterator name
 		const char *innerItName = it->innerFor->iterator;
