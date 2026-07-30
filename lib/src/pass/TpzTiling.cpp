@@ -442,14 +442,17 @@ std::vector<pesto::pass::ptile::ClastTilingPair> TpzTilingPass::computeTilingPai
 	std::sort(clastTilingPairs.begin(), clastTilingPairs.end(),
 			  [](const ClastTilingPair &a, const ClastTilingPair &b) { return a.depth < b.depth; });
 
-	if (!this->zTileable_ && clastTilingPairs.size() > 2) {
-		if (this->reductionAboveGap_) {
-			// Keep the reduction as a placeable pair, above the gap loop.
-			clastTilingPairs[2].underGap = false;
-		} else if (this->underGapLegal_) {
-			clastTilingPairs[2].underGap = true;
-		} else {
-			clastTilingPairs.resize(2);
+	if (clastTilingPairs.size() > 2) {
+		if (this->reductionAboveGap_.has_value()) {
+			clastTilingPairs[2].underGap = !(*this->reductionAboveGap_);
+			if (!*this->reductionAboveGap_ && !this->underGapLegal_)
+				logger->warn("reductionTileAboveGap=false forces the reduction tile under "
+							 "the gap although the legality test says otherwise");
+		} else if (!this->zTileable_) {
+			if (this->underGapLegal_)
+				clastTilingPairs[2].underGap = true;
+			else
+				clastTilingPairs.resize(2);
 		}
 	}
 

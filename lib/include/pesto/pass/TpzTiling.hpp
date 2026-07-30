@@ -104,7 +104,7 @@ class TpzTilingPass : public IPass {
 	bool underGapLegal_ = true;
 	bool hasReduction_ = false;
 	
-	bool reductionAboveGap_ = false;
+	std::optional<bool> reductionAboveGap_;   // non renseigné = automatique
 	
 	bool isCanonicalLayout(__isl_keep isl_union_set *deltas);
 };
