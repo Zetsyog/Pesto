@@ -34,6 +34,10 @@ class ClastTilingPair {
 
 	struct clast_for *innerFor;
 	struct clast_for *outerFor;
+	
+	std::vector<struct clast_for *>   outerFors;          // une enveloppe par nid
+	std::vector<clast_user_stmt *>    outerHeaderStmts;   // lbzt3/ubzt3, avant chaque enveloppe
+	std::vector<clast_user_stmt *>    outerBodyStmts;     // lbt3/ubt3, dans chaque enveloppe
 
 	struct clast_user_stmt *outerHeaderStmt = nullptr;
 	struct clast_user_stmt *outerBodyStmt = nullptr;

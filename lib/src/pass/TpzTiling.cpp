@@ -290,23 +290,22 @@ void TpzTilingPass::tileClastFor(Bundle &bundle, struct clast_for *clastFor, pes
 		struct clast_for *point = clastTilingPairs[1].innerFor;
 		struct clast_for *red = clastTilingPairs[2].innerFor;
 
-		bool needsSplit = false;
-		for (struct clast_stmt *s = point->body; s != NULL; s = s->next) {
-			if (!CLAST_STMT_IS_A(s, stmt_for) || (struct clast_for *)s != red) {
-				needsSplit = true;
-			}
-		}
+		// Position de la boucle de réduction dans le corps, et taille du corps.
+		int redIdx = -1, nbStmts = 0;
+		for (struct clast_stmt *s = point->body; s != NULL; s = s->next, ++nbStmts)
+			if (CLAST_STMT_IS_A(s, stmt_for) && (struct clast_for *)s == red)
+				redIdx = nbStmts;
+		bool hasPre = redIdx > 0;
+		bool hasPost = redIdx >= 0 && redIdx < nbStmts - 1;
+		bool needsSplit = hasPre || hasPost;
 
-		if (needsSplit && !this->hoistingLegal_) {
+		// Each side has its own condition: hoisting above the tiles is what
+		// hoistingLegal_ tests; moving finalisations below them requires instead
+		// that no same-gap dependence be carried by z, which is underGapLegal_.
+		if ((hasPre && !this->hoistingLegal_) || (hasPost && !this->underGapLegal_)) {
 			logger->info("Reduction not tiled: the point loop cannot be split");
 			clastTilingPairs.resize(2);
 		} else if (needsSplit) {
-			// Position de la boucle de réduction dans le corps, et taille du corps.
-			int redIdx = -1, nbStmts = 0;
-			for (struct clast_stmt *s = point->body; s != NULL; s = s->next, ++nbStmts)
-				if (CLAST_STMT_IS_A(s, stmt_for) && (struct clast_for *)s == red)
-					redIdx = nbStmts;
-
 			// garde les éléments d'indice dans [lo, hi] ; les autres sont détachés
 			// et laissés en place (pas d'API de libération de clast).
 			auto keepRange = [](struct clast_stmt * head, int lo, int hi) -> struct clast_stmt * {
@@ -327,12 +326,8 @@ void TpzTilingPass::tileClastFor(Bundle &bundle, struct clast_for *clastFor, pes
 				}
 				return newHead;
 			};
-
-			bool hasPre = redIdx > 0;
-			bool hasPost = redIdx >= 0 && redIdx < nbStmts - 1;
 			logger->debug("Point loop split: {} stmt(s) before the reduction, {} after", hasPre ? redIdx : 0,
 						  hasPost ? nbStmts - 1 - redIdx : 0);
-
 			// Finalisations : elles ont besoin de la réduction terminée, donc elles
 			// vont APRÈS la boucle de tuiles (cholesky : /= et sqrt).
 			if (hasPost) {
@@ -341,14 +336,12 @@ void TpzTilingPass::tileClastFor(Bundle &bundle, struct clast_for *clastFor, pes
 				post->next = point->stmt.next;
 				point->stmt.next = post;
 			}
-
-			// Initialisations : hissées AVANT la boucle de tuiles (comportement actuel).
+			// Initialisations : hissées AVANT la boucle de tuiles.
 			if (hasPre) {
 				struct clast_stmt *pre = clast_stmt_hard_copy(&(point->stmt));
 				((struct clast_for *)pre)->body = keepRange(((struct clast_for *)pre)->body, 0, redIdx - 1);
 				clast_insert_before(&(root->stmt), &(point->stmt), pre);
 			}
-
 			// L'original ne garde que la réduction.
 			point->body = keepRange(point->body, redIdx, redIdx);
 		}
@@ -380,6 +373,26 @@ void TpzTilingPass::tileClastFor(Bundle &bundle, struct clast_for *clastFor, pes
 
 	int dupClastUserStmtListSize = 0;
 	clast_user_stmt **dupUserStmtList = clast_get_user_stmt_list(secondTileBand, &dupClastUserStmtListSize);
+
+	// The duplicated band holds clones of the reduction tile loops. Register them
+	// so insertInnerLoopBounds recognises their point loops as sitting under a
+	// tile and gives them _tpzlb2/_tpzub2 rather than the full trapezoidal range.
+	for (auto &pair : clastTilingPairs) {
+		if (!pair.underGap)
+			continue;
+		size_t before = pair.outerFors.size();
+		for (auto *b : pair.outerBodyStmts) {
+			int num = b->statement->number;
+			for (int j = 0; j < dupClastUserStmtListSize; ++j)
+				if (dupUserStmtList[j]->statement->number == num) {
+					struct clast_for *dupFor = clast_get_parent_clast_for(secondTileBand, &(dupUserStmtList[j]->stmt));
+					if (dupFor)
+						pair.outerFors.push_back(dupFor);
+					break;
+				}
+		}
+		logger->debug("duplicated band: {} reduction tile loop(s) registered", pair.outerFors.size() - before);
+	}
 
 	for (size_t i = 0; i < clastTilingPairs.size(); ++i) {
 		ClastTilingPair &pair = clastTilingPairs[i];
@@ -501,6 +514,33 @@ std::vector<pesto::pass::ptile::ClastTilingPair> TpzTilingPass::computeTilingPai
 	return clastTilingPairs;
 }
 
+// A sibling that holds a loop on the reduction iterator is another reduction
+// nest (lu's second point loop) and must stay inside the tile loop; only what
+// follows such nests is a finalisation.
+static bool containsReductionLoop(struct clast_stmt *s, const char *redIt) {
+	if (!s || !redIt)
+		return false;
+	if (CLAST_STMT_IS_A(s, stmt_for)) {
+		struct clast_for *f = (struct clast_for *)s;
+		if (f->iterator && strcmp(f->iterator, redIt) == 0)
+			return true;
+		for (struct clast_stmt *b = f->body; b; b = b->next)
+			if (containsReductionLoop(b, redIt))
+				return true;
+	} else if (CLAST_STMT_IS_A(s, stmt_guard)) {
+		struct clast_guard *g = (struct clast_guard *)s;
+		for (struct clast_stmt *b = g->then; b; b = b->next)
+			if (containsReductionLoop(b, redIt))
+				return true;
+	} else if (CLAST_STMT_IS_A(s, stmt_block)) {
+		struct clast_block *bl = (struct clast_block *)s;
+		for (struct clast_stmt *b = bl->body; b; b = b->next)
+			if (containsReductionLoop(b, redIt))
+				return true;
+	}
+	return false;
+}
+
 void TpzTilingPass::insertOuterForLoop(Bundle &bundle, std::vector<ptile::ClastTilingPair> &clastTilingPairs) {
 	using pesto::ptile::NameHelper;
 	assert(bundle.get_ir()->id() == pesto::ir::ClastIR::getID());
@@ -545,60 +585,71 @@ void TpzTilingPass::insertOuterForLoop(Bundle &bundle, std::vector<ptile::ClastT
 	for (auto it = clastTilingPairs.begin(); it != clastTilingPairs.end(); ++it) {
 		// The reduction tile loop goes inside t2, as a parent of the t4 point
 		// loop; the other levels stack above the outermost point loop.
-		struct clast_for *target = it->underGap ? clastTilingPairs[1].innerFor : outermostFor;
-
-		// clast_insert_enclosing_for wraps the target AND all its following
-		// siblings. Under the gap, what follows the point loop must run once the
-		// tiles are exhausted (finalisations split out of the reduction,
-		// cholesky's sqrt), so detach it and re-attach it after the tile loop.
-		struct clast_stmt *trailing = nullptr;
+		// Several reduction nests can be siblings under the gap (lu's two point
+		// loops): each needs its own tile loop, so that its lbt3/ubt3 are
+		// recomputed instead of inheriting the previous nest's last tile.
+		std::vector<struct clast_for *> targets;
 		if (it->underGap) {
-			trailing = target->stmt.next;
-			target->stmt.next = nullptr;
+			const char *redIt = it->innerFor->iterator;
+			for (struct clast_stmt *s = &(clastTilingPairs[1].innerFor->stmt); s; s = s->next)
+				if (CLAST_STMT_IS_A(s, stmt_for) && containsReductionLoop(s, redIt))
+					targets.push_back((struct clast_for *)s);
+		} else {
+			targets.push_back(outermostFor);
 		}
 
-		struct clast_for *enclosing_for = clast_insert_enclosing_for(
-			&(root->stmt), &(target->stmt), it->underGap ? innerEnclosingDomain : enclosingDomain);
-
-		if (trailing)
-			enclosing_for->stmt.next = trailing;
-
-		// Set iterator name
+		// The nests are sequential siblings, so their tile loops never coexist:
+		// they share the same iterator and bound names, each recomputing them.
 		const char *innerItName = it->innerFor->iterator;
 		std::string innerItSafe = innerItName ? std::string(innerItName) : ("d" + std::to_string(it->depth));
 		std::unique_ptr<std::string> it_name = std::make_unique<std::string>("z" + innerItSafe);
-
 		NameHelper nameHelper = NameHelper(it->depth, *it_name, innerItSafe.c_str());
-
 		std::unique_ptr<std::string> lbName = std::make_unique<std::string>(nameHelper.outerForLBName());
 		std::unique_ptr<std::string> ubName = std::make_unique<std::string>(nameHelper.outerForUBName());
-
-		logger->debug("Creating outer for loop with iterator: {}", it_name->c_str());
-
+		logger->debug("Creating outer for loop with iterator: {} ({} nest(s))", it_name->c_str(), targets.size());
 		varDecl.addVar(*it_name);
 		varDecl.addVar(nameHelper.outerForLBName());
 		varDecl.addVar(nameHelper.outerForUBName());
 
-		enclosing_for->iterator = it_name->c_str(); // Set the iterator name for the enclosing loop
+		for (size_t ti = 0; ti < targets.size(); ++ti) {
+			struct clast_for *target = targets[ti];
 
-		enclosing_for->LB = &(new_clast_name(lbName->c_str())->expr);
-		enclosing_for->UB = &(new_clast_name(ubName->c_str())->expr);
+			// clast_insert_enclosing_for wraps the target AND all its following
+			// siblings; detach them so the wrap holds this nest only.
+			struct clast_stmt *trailing = target->stmt.next;
+			target->stmt.next = nullptr;
+			struct clast_for *enclosing_for = clast_insert_enclosing_for(
+				&(root->stmt), &(target->stmt), it->underGap ? innerEnclosingDomain : enclosingDomain);
+			if (trailing)
+				enclosing_for->stmt.next = trailing;
 
-		it->outerFor = enclosing_for;
+			enclosing_for->iterator = it_name->c_str();
+			enclosing_for->LB = &(new_clast_name(lbName->c_str())->expr);
+			enclosing_for->UB = &(new_clast_name(ubName->c_str())->expr);
+
+			it->outerFors.push_back(enclosing_for);
+			if (ti == 0)
+				it->outerFor = enclosing_for;
+
+			this->insertedStmts += 1;
+			auto *hdr = pesto_clast_create_stmt(cloogOptions, nullptr, this->insertedStmts);
+			clast_insert_before(&(root->stmt), &(enclosing_for->stmt), &(hdr->stmt));
+			it->outerHeaderStmts.push_back(hdr);
+			if (ti == 0)
+				it->outerHeaderStmt = hdr;
+
+			this->insertedStmts += 1;
+			auto *bdy = pesto_clast_create_stmt(cloogOptions, nullptr, this->insertedStmts);
+			clast_insert_indepth(&(enclosing_for->stmt), &(bdy->stmt));
+			it->outerBodyStmts.push_back(bdy);
+			if (ti == 0)
+				it->outerBodyStmt = bdy;
+		}
 
 		this->stringKeepAlive.push_back(std::move(it_name));
 		this->stringKeepAlive.push_back(std::move(lbName));
 		this->stringKeepAlive.push_back(std::move(ubName));
-
-		it->innerFor->parallel = CLAST_PARALLEL_NOT; // Disable parallelism for the inner loop
-
-		this->insertedStmts += 1;
-		it->outerHeaderStmt = pesto_clast_create_stmt(cloogOptions, nullptr, this->insertedStmts);
-		clast_insert_before(&(root->stmt), &(it->outerFor->stmt), &(it->outerHeaderStmt->stmt));
-
-		this->insertedStmts += 1;
-		it->outerBodyStmt = pesto_clast_create_stmt(cloogOptions, nullptr, this->insertedStmts);
-		clast_insert_indepth(&(it->outerFor->stmt), &(it->outerBodyStmt->stmt));
+		it->innerFor->parallel = CLAST_PARALLEL_NOT;
 
 		{
 			struct clast_for **loops = NULL;
@@ -882,7 +933,10 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 				std::string stmtStr = nameHelper.outerForLBName() + " = 0;";
 				stmtStr += nameHelper.outerForUBName() + " = ceild((_tpzub - 1) - (_tpzlb - " +
 						   clastTilingPairs[0].innerFor->iterator + ") + 1, " + nameHelper.divName() + ") - 1;";
-				macroData.defineFunc("S" + std::to_string(pair.outerHeaderStmt->statement->number), "", stmtStr);
+				// One tile loop per reduction nest (lu's two point loops): each
+				// gets its own bound statements so it recomputes lbt3/ubt3.
+				for (auto *h : pair.outerHeaderStmts)
+					macroData.defineFunc("S" + std::to_string(h->statement->number), "", stmtStr);
 				varDeclData.addVar(nameHelper.outerForLBName());
 				varDeclData.addVar(nameHelper.outerForUBName());
 
@@ -896,7 +950,8 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 				stmtStr += "_tpzlb2 = max(_tpzlb, " + nameHelper.innerForLBName() + " + 1);";
 				stmtStr += "_tpzub2 = min(_tpzub, " + nameHelper.innerForUBName() + " + " +
 						   clastTilingPairs[0].innerFor->iterator + ");";
-				macroData.defineFunc("S" + std::to_string(pair.outerBodyStmt->statement->number), "", stmtStr);
+				for (auto *b : pair.outerBodyStmts)
+					macroData.defineFunc("S" + std::to_string(b->statement->number), "", stmtStr);
 				varDeclData.addVar(nameHelper.innerForLBName());
 				varDeclData.addVar(nameHelper.innerForUBName());
 				varDeclData.addVar("_tpzlb2");
@@ -1229,9 +1284,20 @@ void TpzTilingPass::insertInnerLoopBounds(pesto::ir::ClastIR &clastIR,
 			std::string lbName = nameHelper.innerForLBName();
 			std::string ubName = nameHelper.innerForUBName();
 			if (pair.depth == 1) {
-				bool underRedTile =
-					clastTilingPairs.size() > 2 && clastTilingPairs[2].underGap &&
-					clast_get_parent_clast_for(&(root->stmt), &(clastFor->stmt)) == clastTilingPairs[2].outerFor;
+				// The reduction level can hold several tile loops (one per nest);
+				// the point loop takes the tile-restricted bounds if any of them
+				// is its parent.
+				bool underRedTile = false;
+				if (clastTilingPairs.size() > 2 && clastTilingPairs[2].underGap) {
+					struct clast_for *p = clast_get_parent_clast_for(&(root->stmt), &(clastFor->stmt));
+					for (auto *of : clastTilingPairs[2].outerFors)
+						if (p == of) {
+							underRedTile = true;
+							break;
+						}
+					if (clastTilingPairs[2].outerFors.empty())
+						underRedTile = (p == clastTilingPairs[2].outerFor);
+				}
 				lbName = underRedTile ? "_tpzlb2" : "_tpzlb";
 				ubName = underRedTile ? "_tpzub2" : "_tpzub";
 			}
