@@ -1242,27 +1242,14 @@ void TpzTilingPass::insertInnerLoopBounds(pesto::ir::ClastIR &clastIR,
 			struct clast_name *paramLB = new_clast_name(lbPtr->c_str());
 			struct clast_name *paramUB = new_clast_name(ubPtr->c_str());
 
-			struct clast_expr *lbExpr = nullptr;
-			struct clast_expr *ubExpr = nullptr;
-
-			if (pair.depth == 1) {
-				lbExpr = &(paramLB->expr);
-				ubExpr = &(paramUB->expr);
-			} else {
-				struct clast_reduction *lbRed = new_clast_reduction(clast_red_max, 2);
-				lbRed->elts[0] = &(paramLB->expr);
-				lbRed->elts[1] = clastFor->LB;
-
-				struct clast_reduction *ubRed = new_clast_reduction(clast_red_min, 2);
-				ubRed->elts[0] = &(paramUB->expr);
-				ubRed->elts[1] = clastFor->UB;
-
-				lbExpr = &(lbRed->expr);
-				ubExpr = &(ubRed->expr);
-			}
-
-			clastFor->LB = lbExpr;
-			clastFor->UB = ubExpr;
+			struct clast_reduction *lbRed = new_clast_reduction(clast_red_max, 2);
+			lbRed->elts[0] = &(paramLB->expr);
+			lbRed->elts[1] = clastFor->LB;
+			struct clast_reduction *ubRed = new_clast_reduction(clast_red_min, 2);
+			ubRed->elts[0] = &(paramUB->expr);
+			ubRed->elts[1] = clastFor->UB;
+			clastFor->LB = &(lbRed->expr);
+			clastFor->UB = &(ubRed->expr);
 
 			this->stringKeepAlive.push_back(std::move(lbPtr));
 			this->stringKeepAlive.push_back(std::move(ubPtr));
