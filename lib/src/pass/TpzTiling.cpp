@@ -580,9 +580,10 @@ void TpzTilingPass::insertOuterForLoop(Bundle &bundle, std::vector<ptile::ClastT
 		const char *pit = point->iterator;
 		struct clast_stmt *prev = nullptr;
 		for (struct clast_stmt *s = gap->body; s != NULL; prev = s, s = s->next) {
-			bool isPointLoop = CLAST_STMT_IS_A(s, stmt_for) && ((struct clast_for *)s)->iterator && pit &&
-							   strcmp(((struct clast_for *)s)->iterator, pit) == 0;
-			if (!isPointLoop) {
+			// A guard wrapping the point loop still carries the front: fdtd-2d
+			// emits one per statement domain. Only a sibling that carries the
+			// point iterator nowhere is a diagonal tail.
+			if (!containsReductionLoop(s, pit)) {
 				this->diagTail_ = s;
 				if (prev)
 					prev->next = nullptr;
@@ -1749,6 +1750,25 @@ std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(osl_s
 		this->printer = isl_printer_flush(this->printer);
 	}
 
+	// The steepest direction is a property of the whole delta set: sampling one
+	// point per basic set returns a corner, not the steepest ray. seidel-2d and
+	// fdtd-2d both yield { x > 0, x-1 <= y <= 1 }, whose steepest ray is (1,1),
+	// while sampling returns (1,0). A slope of 0 then lets a (1,1) dependence
+	// cross from one slice to the next inside a front, and fronts run in
+	// parallel. The cone check below guarantees 0 <= y <= x, so a slope of 1 is
+	// always safe; 0 is used only when no dependence moves in y at all.
+	bool flatSlope = true;
+	{
+		isl_space *sp = isl_set_get_space(set);
+		isl_local_space *ls = isl_local_space_from_space(sp);
+		isl_constraint *c = isl_constraint_alloc_inequality(ls); // y >= 1
+		c = isl_constraint_set_coefficient_si(c, isl_dim_set, 1, 1);
+		c = isl_constraint_set_constant_si(c, -1);
+		isl_set *movesInY = isl_set_add_constraint(isl_set_copy(set), c);
+		flatSlope = isl_set_is_empty(movesInY);
+		isl_set_free(movesInY);
+	}
+
 	isl_set_free(set);
 
 	isl_union_map_free(sanitized_dep_flow);
@@ -1777,13 +1797,8 @@ std::optional<pesto::maths::Vec2i> TpzTilingPass::computeDepDistanceVector(osl_s
 	}
 
 	// then we return the vector with the steepest slope
-	pesto::maths::Vec2i bestVec(1, 0);
-	for (const auto &vec : depDistanceVector) {
-		if (vec.x != 0 && vec.y / vec.x > bestVec.y / bestVec.x) {
-			bestVec = vec;
-		}
-	}
-	return std::make_optional(bestVec); // return the best vector
+	pesto::maths::Vec2i bestVec = flatSlope ? pesto::maths::Vec2i(1, 0) : pesto::maths::Vec2i(1, 1);
+	return std::make_optional(bestVec);
 }
 
 std::pair<std::string, std::string> TpzTilingPass::computeInnerMinMaxStr(__isl_keep isl_set *innerDomain,
