@@ -286,7 +286,7 @@ void TpzTilingPass::tileClastFor(Bundle &bundle, struct clast_for *clastFor, pes
 	// dimension de réduction sortent donc dans une copie de la boucle point, placée
 	// avant elle. L'original garde la réduction, de sorte que
 	// clastTilingPairs[1].innerFor reste la boucle à envelopper.
-	if (clastTilingPairs.size() > 2 && clastTilingPairs[2].underGap) {
+	if (clastTilingPairs.size() == 3 && clastTilingPairs[2].underGap) {
 		struct clast_for *point = clastTilingPairs[1].innerFor;
 		struct clast_for *red = clastTilingPairs[2].innerFor;
 
@@ -493,8 +493,10 @@ std::vector<pesto::pass::ptile::ClastTilingPair> TpzTilingPass::computeTilingPai
 
 	std::sort(clastTilingPairs.begin(), clastTilingPairs.end(),
 			  [](const ClastTilingPair &a, const ClastTilingPair &b) { return a.depth < b.depth; });
-
-	if (clastTilingPairs.size() > 2) {
+	// The reduction handling assumes the three-level shape (gap, point,
+	// reduction). With more levels the third pair is an ordinary space
+	// dimension — 3d7pt has four — so every pair stacks above the point loops.
+	if (clastTilingPairs.size() == 3) {
 		if (this->scalarInReduction_) {
 			// Correctness, not a placement preference: no form of z tiling works.
 			clastTilingPairs.resize(2);
@@ -554,7 +556,7 @@ void TpzTilingPass::insertOuterForLoop(Bundle &bundle, std::vector<ptile::ClastT
 	CloogDomain *enclosingDomain =
 		cloog_domain_universe(cloogOptions->state, cloog_domain_dimension(outermostFor->domain));
 	CloogDomain *innerEnclosingDomain = nullptr;
-	if (clastTilingPairs.size() > 2)
+	if (clastTilingPairs.size() == 3)
 		innerEnclosingDomain =
 			cloog_domain_universe(cloogOptions->state, cloog_domain_dimension(clastTilingPairs[1].innerFor->domain));
 
@@ -1042,7 +1044,7 @@ __isl_give isl_set *TpzTilingPass::computeInnerDomain(pesto::ir::ClastIR &clastI
 			},
 			&maxDim);
 
-		const int nRed = 1; // dimensions de réduction
+		const int nRed = (clastTilingPairs.size() == 3) ? 1 : 0;
 		const int nOuter = maxDim - nRed;
 
 		// Union of every statement's domain projected onto the outer dims: the
@@ -1082,15 +1084,19 @@ __isl_give isl_set *TpzTilingPass::computeInnerDomain(pesto::ir::ClastIR &clastI
 		}
 
 		// Re-add the reduction dim with its own bounds: 0 <= t_red <= t_{nOuter-1}.
-		set = isl_set_add_dims(outer, isl_dim_set, nRed);
-		isl_local_space *ls = isl_local_space_from_space(isl_set_get_space(set));
-		isl_constraint *lo = isl_constraint_alloc_inequality(isl_local_space_copy(ls));
-		lo = isl_constraint_set_coefficient_si(lo, isl_dim_set, nOuter, 1);
-		set = isl_set_add_constraint(set, lo);
-		isl_constraint *hi = isl_constraint_alloc_inequality(ls);
-		hi = isl_constraint_set_coefficient_si(hi, isl_dim_set, nOuter, -1);
-		hi = isl_constraint_set_coefficient_si(hi, isl_dim_set, nOuter - 1, 1);
-		set = isl_set_add_constraint(set, hi);
+		set = outer;
+		if (nRed > 0) {
+			// Re-add the reduction dim with its own bounds: 0 <= t_red <= t_{nOuter-1}.
+			set = isl_set_add_dims(set, isl_dim_set, nRed);
+			isl_local_space *ls = isl_local_space_from_space(isl_set_get_space(set));
+			isl_constraint *lo = isl_constraint_alloc_inequality(isl_local_space_copy(ls));
+			lo = isl_constraint_set_coefficient_si(lo, isl_dim_set, nOuter, 1);
+			set = isl_set_add_constraint(set, lo);
+			isl_constraint *hi = isl_constraint_alloc_inequality(ls);
+			hi = isl_constraint_set_coefficient_si(hi, isl_dim_set, nOuter, -1);
+			hi = isl_constraint_set_coefficient_si(hi, isl_dim_set, nOuter - 1, 1);
+			set = isl_set_add_constraint(set, hi);
+		}
 	}
 
 	set = isl_set_coalesce(set);
@@ -1288,7 +1294,7 @@ void TpzTilingPass::insertInnerLoopBounds(pesto::ir::ClastIR &clastIR,
 				// the point loop takes the tile-restricted bounds if any of them
 				// is its parent.
 				bool underRedTile = false;
-				if (clastTilingPairs.size() > 2 && clastTilingPairs[2].underGap) {
+				if (clastTilingPairs.size() == 3 && clastTilingPairs[2].underGap) {
 					struct clast_for *p = clast_get_parent_clast_for(&(root->stmt), &(clastFor->stmt));
 					for (auto *of : clastTilingPairs[2].outerFors)
 						if (p == of) {
@@ -1451,7 +1457,7 @@ void TpzTilingPass::insertOmpPragmas(pesto::ir::ClastIR &clastIR,
 		privateVars += nameHelper.innerForLBName() + ", " + nameHelper.innerForUBName();
 	}
 	privateVars += std::string(", _tpzlb") + ", _tpzub" + ", tile_offset";
-	if (clastTilingPairs.size() > 2 && clastTilingPairs[2].underGap)
+	if (clastTilingPairs.size() == 3 && clastTilingPairs[2].underGap)
 		privateVars += ", _tpzlb2, _tpzub2";
 
 	// Scalars written in the region are not indexed by the point: without this,
