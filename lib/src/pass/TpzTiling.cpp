@@ -6,6 +6,7 @@
  */
 
 #include <algorithm>
+#include <climits>
 #include <functional>
 #include <numeric>
 #include <set>
@@ -432,6 +433,16 @@ void TpzTilingPass::tileClastFor(Bundle &bundle, struct clast_for *clastFor, pes
 		free(set_str);
 		this->printer = isl_printer_flush(this->printer);
 	} */
+
+	// Note: this domain counts raw index values of the gap dimension, not
+	// effective iterations — the parity of a strided gap (t1 += 2 under diamond
+	// tiling) is deliberately left out. Adding a congruence would force Trahrhe
+	// to produce quasi-polynomials with periodic coefficients, heavier to
+	// evaluate and more fragile, for no benefit: the overcount cancels in the
+	// slicing, since TARGET_VOL_L1 and max_cut_volume scale with it and the
+	// Trahrhe inverse works on the same polynomial. It would matter only if the
+	// count were ever compared to a real measure of work.
+
 	this->generateTrahrheHeaders(bundle, innerDomain);
 	logger->debug("Trahrhe header generation done.");
 
@@ -769,12 +780,23 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 			varDeclData.addVar(trapezoidalLBName);
 			varDeclData.addVar(trapezoidalUBName);
 
+			// The gap loop can have a stride (2 for diamond tiling): count bands in
+			// effective iterations, so DIV0 means the same number of verticals as
+			// on unit-stride kernels and no band spans empty ones.
+			long strideVal = 1;
+			if (pair.innerFor) {
+				long s = mpz_get_si(pair.innerFor->stride);
+				if (s > 0)
+					strideVal = s;
+			}
+			std::string stride = std::to_string(strideVal);
+
 			NameHelper nextHelper =
 				NameHelper(1, clastTilingPairs[1].outerFor->iterator, clastTilingPairs[1].innerFor->iterator);
 
 			std::string stmtStr = nameHelper.outerForLBName() + " = 0;";
 			stmtStr += nameHelper.outerForUBName() + " = ";
-			stmtStr += std::string() + "ceild((" + max_str + ") - (" + min_str + ")";
+			stmtStr += std::string() + "ceild((" + max_str + " - (" + min_str + ")) / " + stride + " + 1";
 			stmtStr += ", " + nameHelper.divName() + ") - 1;";
 			stmtStr += nthreadsName + " = omp_get_max_threads();";
 
@@ -786,9 +808,9 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 			varDeclData.addVar(nameHelper.pcMaxName());
 
 			stmtStr = nameHelper.innerForLBName() + " = " + pair.outerFor->iterator + " * " + nameHelper.divName() +
-					  " + " + min_str + ";";
-			stmtStr += nameHelper.innerForUBName() + " = " + "min((" + pair.outerFor->iterator + " + 1) * " +
-					   nameHelper.divName() + " - 1 + " + min_str + ", " + max_str + ");";
+					  " * " + stride + " + " + min_str + ";";
+			stmtStr += nameHelper.innerForUBName() + " = min((" + pair.outerFor->iterator + " + 1) * " +
+					   nameHelper.divName() + " * " + stride + " - " + stride + " + " + min_str + ", " + max_str + ");";
 
 			macroData.defineFunc("S" + std::to_string(pair.outerBodyStmt->statement->number), "", stmtStr);
 
@@ -815,6 +837,7 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 				macroData.defineFunc("S" + std::to_string(s->statement->number), "", stmtStr);
 			}
 		}
+
 		if (pair.depth == 1) {
 
 			// header (out of tiling loop) stmt
@@ -884,15 +907,25 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 			stmtStr += nameHelper.innerForUBName() + " = " + max_str + ";";
 			stmtStr += "}" + std::string("");
 
-			// volume check (fail if the target volume is too small)
-			// volume check: a trapezoid must be at least as TALL (in y) as the
 			// band is WIDE (in x), otherwise the diagonal cut cannot span the
 			// band. Using the actual band width is correct for any cone slope;
 			// the previous floord(slope.y*DIV, slope.x) degenerated to 0 when
 			// slope.y was 0 (e.g. nussinov), disabling the check.
-			stmtStr += "if(" + nameHelper.innerForUBName() + " - " + nameHelper.innerForLBName() + " + 1 < (" +
-					   rootHelper.innerForUBName() + " - " + rootHelper.innerForLBName() + " + 1) && (" +
-					   pair.outerFor->iterator + " != " + nameHelper.outerForUBName() + ") && (" +
+
+			// The band width must be counted in effective iterations: the gap
+			// loop can have a stride (2 for diamond tiling), so ubt1 - lbt1 + 1
+			// over-counts and the check demands more than the band holds.
+			long rootStrideVal = 1;
+			if (clastTilingPairs[0].innerFor) {
+				long s = mpz_get_si(clastTilingPairs[0].innerFor->stride);
+				if (s > 0)
+					rootStrideVal = s;
+			}
+			std::string stride = std::to_string(rootStrideVal);
+
+			stmtStr += "if(" + nameHelper.innerForUBName() + " - " + nameHelper.innerForLBName() + " + 1 < ((" +
+					   rootHelper.innerForUBName() + " - " + rootHelper.innerForLBName() + ") / " + stride +
+					   " + 1) && (" + pair.outerFor->iterator + " != " + nameHelper.outerForUBName() + ") && (" +
 					   nameHelper.outerForUBName() + " > 1)) {";
 			stmtStr += "fprintf(stderr, \"Error: Target volume too small.\\n(" + //
 					   nameHelper.targetVolName() + ", " +						 // target volume
@@ -965,18 +998,15 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 					macroData.defineFunc("S" + std::to_string(s->statement->number), "", "");
 			} else {
 				std::string stmtStr = "";
-
 				stmtStr += nameHelper.outerForLBName() + " = 0;";
 				stmtStr += nameHelper.outerForUBName() + " = ceild(" + max_str + " - (" + min_str + "), " +
 						   nameHelper.divName() + ");";
 				macroData.defineFunc("S" + std::to_string(pair.outerHeaderStmt->statement->number), "", stmtStr);
-
 				stmtStr = nameHelper.innerForLBName() + " = " + pair.outerFor->iterator + " * " + nameHelper.divName() +
 						  " + " + min_str + ";";
 				stmtStr += nameHelper.innerForUBName() + " = min((" + pair.outerFor->iterator + " + 1) * " +
 						   nameHelper.divName() + " + " + min_str + " - 1, " + max_str + ");";
 				macroData.defineFunc("S" + std::to_string(pair.outerBodyStmt->statement->number), "", stmtStr);
-
 				for (auto *s : pair.innerBodyStmts0)
 					macroData.defineFunc("S" + std::to_string(s->statement->number), "", "");
 				for (auto *s : pair.innerBodyStmts1)
@@ -1031,22 +1061,31 @@ __isl_give isl_set *TpzTilingPass::computeInnerDomain(pesto::ir::ClastIR &clastI
 	// trailing dims fixed to 0 and union everything instead.
 	isl_set *set = nullptr;
 	{
-		int maxDim = 0;
+		struct Dims {
+			int max;
+			int min;
+		} d{0, INT_MAX};
 		isl_union_set_foreach_set(
 			domain,
 			+[](__isl_take isl_set *s, void *user) -> isl_stat {
-				int *m = static_cast<int *>(user);
+				auto *d = static_cast<Dims *>(user);
 				int nd = isl_set_dim(s, isl_dim_set);
-				if (nd > *m)
-					*m = nd;
+				if (nd > d->max)
+					d->max = nd;
+				if (nd < d->min)
+					d->min = nd;
 				isl_set_free(s);
 				return isl_stat_ok;
 			},
-			&maxDim);
+			&d);
+		const int maxDim = d.max;
 
-		const int nRed = (clastTilingPairs.size() == 3) ? 1 : 0;
+		// The projection and the re-added dimension exist to reconcile statements
+		// of differing depth: cholesky's and lu's finalisations live where the
+		// reduction is empty. With a uniform depth — seidel-2d, 3d7pt — every
+		// dimension keeps its own bounds and nothing needs re-adding.
+		const int nRed = (d.max > d.min) ? 1 : 0;
 		const int nOuter = maxDim - nRed;
-
 		// Union of every statement's domain projected onto the outer dims: the
 		// nest must cover all of them, including the finalisations that live at
 		// t2 = 0 where the reduction is empty.
