@@ -504,10 +504,11 @@ std::vector<pesto::pass::ptile::ClastTilingPair> TpzTilingPass::computeTilingPai
 
 	std::sort(clastTilingPairs.begin(), clastTilingPairs.end(),
 			  [](const ClastTilingPair &a, const ClastTilingPair &b) { return a.depth < b.depth; });
-	// The reduction handling assumes the three-level shape (gap, point,
-	// reduction). With more levels the third pair is an ordinary space
-	// dimension — 3d7pt has four — so every pair stacks above the point loops.
-	if (clastTilingPairs.size() == 3) {
+	// The reduction handling applies only where there is a reduction: statements
+	// of differing depth. A pure stencil has a single depth, and its innermost
+	// level is a space dimension — life and seidel-2d have three levels, 3d7pt
+	// four — so every pair stacks above the point loops.
+	if (this->hasReduction_ && clastTilingPairs.size() == 3) {
 		if (this->scalarInReduction_) {
 			// Correctness, not a placement preference: no form of z tiling works.
 			clastTilingPairs.resize(2);
@@ -523,7 +524,6 @@ std::vector<pesto::pass::ptile::ClastTilingPair> TpzTilingPass::computeTilingPai
 				clastTilingPairs.resize(2);
 		}
 	}
-
 	return clastTilingPairs;
 }
 
@@ -2068,13 +2068,24 @@ bool TpzTilingPass::isReductionTileable(osl_scop_p scop) {
 		isl_set_free(set);
 	}
 
+	// A reduction shows up as statements of differing depth: the accumulation is
+	// one level deeper than the initializations or finalizations around it. A
+	// pure stencil has a single depth, and its innermost level is a space
+	// dimension that must not be treated as an accumulation.
+	int maxDepth = 0, minDepth = INT_MAX;
+	for (osl_statement_p s = scop->statement; s; s = s->next) {
+		int d = (int)s->domain->nb_output_dims;
+		if (d > maxDepth)
+			maxDepth = d;
+		if (d < minDepth)
+			minDepth = d;
+	}
+	this->hasReduction_ = (maxDepth > minDepth);
+	logger->debug("has reduction: {}", this->hasReduction_);
+
 	// Independent of the delta analysis: a statement at maximum depth runs inside
 	// the reduction loop, and if it writes a scalar, tiling z scatters it.
 	if (tileable) {
-		int maxDepth = 0;
-		for (osl_statement_p s = scop->statement; s; s = s->next)
-			if ((int)s->domain->nb_output_dims > maxDepth)
-				maxDepth = (int)s->domain->nb_output_dims;
 		for (osl_statement_p s = scop->statement; s; s = s->next)
 			if ((int)s->domain->nb_output_dims == maxDepth && hasScalarWrite(s)) {
 				logger->debug("scalar written inside the reduction loop: z not tileable");
