@@ -736,13 +736,25 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 		free(dstr);
 		isl_printer_free(dp);
 
+		// The gap loop can have a stride (2 for diamond tiling), and gen_maxcut
+		// expects the band height in index values, not in effective iterations.
+		long gapStride = 1;
+		if (!clastTilingPairs.empty() && clastTilingPairs[0].innerFor) {
+			long s = mpz_get_si(clastTilingPairs[0].innerFor->stride);
+			if (s > 0)
+				gapStride = s;
+		}
+		std::string tArg = (gapStride == 1) ? std::string("$DIV0") : ("$((DIV0 * " + std::to_string(gapStride) + "))");
+
 		std::string maxcutCmd = "/* max_cut_volume() comes from maxcut.h.\n"
 								" * Regenerate it for THIS transformed domain (set --t to your DIV0 value):\n"
 								"    python3 gen_maxcut.py \\\n"
 								"      --domain \"" +
 								domainStr +
 								"\" \\\n"
-								"      --t $DIV0 \\\n"
+								"      --t " +
+								tArg +
+								" \\\n"
 								"      --func max_cut_volume \\\n"
 								"      --out maxcut.h\n"
 								" * gen_maxcut computes min(x1) by lexmin; add --f1 <x_min> if it is piecewise.\n"
