@@ -353,17 +353,29 @@ void TpzTilingPass::tileClastFor(Bundle &bundle, struct clast_for *clastFor, pes
 	// duplicate ast at depth 1
 	ClastTilingPair &trapezoidalPair = clastTilingPairs[1];
 
-	this->logger->debug("Duplicating outer for loop {}", trapezoidalPair.outerFor->iterator);
-	// TODO: we might have to find a way to group user statement by pair of original and duplicated
-	struct clast_stmt *secondTileBand = clast_stmt_hard_copy(&(trapezoidalPair.outerFor->stmt));
-	trapezoidalPair.outerFor->stmt.next = secondTileBand;
+	// A flat cut needs no second front: with slope 0 no dependence moves in y, so
+	// the slices are independent over the whole band and one front spans the full
+	// range of the parallel index.
+	struct clast_stmt *secondTileBand = nullptr;
+	bool twoFronts = (slope.y != 0);
+	struct clast_stmt *lastBand = &(trapezoidalPair.outerFor->stmt);
+
+	if (twoFronts) {
+		this->logger->debug("Duplicating outer for loop {}", trapezoidalPair.outerFor->iterator);
+		// TODO: we might have to find a way to group user statement by pair of original and duplicated
+		struct clast_stmt *secondTileBand = clast_stmt_hard_copy(&(trapezoidalPair.outerFor->stmt));
+		trapezoidalPair.outerFor->stmt.next = secondTileBand;
+		lastBand = secondTileBand;
+	} else {
+		this->logger->debug("Flat cut: single front");
+	}
 
 	if (this->diagTail_) {
-		logger->debug("re-emitting diagonal tail after the second front");
+		logger->debug("re-emitting diagonal tail after the last front");
 		struct clast_stmt *diagLoop = clast_stmt_hard_copy(&(clastTilingPairs[0].innerFor->stmt));
 		((struct clast_for *)diagLoop)->body = this->diagTail_;
-		diagLoop->next = secondTileBand->next;
-		secondTileBand->next = diagLoop;
+		diagLoop->next = lastBand->next;
+		lastBand->next = diagLoop;
 		this->diagTail_ = nullptr;
 	} else {
 		logger->debug("no diagonal tail to re-emit");
@@ -372,53 +384,63 @@ void TpzTilingPass::tileClastFor(Bundle &bundle, struct clast_for *clastFor, pes
 
 	// replace the duplicated inner for user statements
 
-	int dupClastUserStmtListSize = 0;
-	clast_user_stmt **dupUserStmtList = clast_get_user_stmt_list(secondTileBand, &dupClastUserStmtListSize);
+	if (secondTileBand) {
+		int dupClastUserStmtListSize = 0;
+		clast_user_stmt **dupUserStmtList = clast_get_user_stmt_list(secondTileBand, &dupClastUserStmtListSize);
 
-	// The duplicated band holds clones of the reduction tile loops. Register them
-	// so insertInnerLoopBounds recognises their point loops as sitting under a
-	// tile and gives them _tpzlb2/_tpzub2 rather than the full trapezoidal range.
-	for (auto &pair : clastTilingPairs) {
-		if (!pair.underGap)
-			continue;
-		size_t before = pair.outerFors.size();
-		for (auto *b : pair.outerBodyStmts) {
-			int num = b->statement->number;
-			for (int j = 0; j < dupClastUserStmtListSize; ++j)
-				if (dupUserStmtList[j]->statement->number == num) {
-					struct clast_for *dupFor = clast_get_parent_clast_for(secondTileBand, &(dupUserStmtList[j]->stmt));
-					if (dupFor)
-						pair.outerFors.push_back(dupFor);
-					break;
-				}
-		}
-		logger->debug("duplicated band: {} reduction tile loop(s) registered", pair.outerFors.size() - before);
-	}
-
-	for (size_t i = 0; i < clastTilingPairs.size(); ++i) {
-		ClastTilingPair &pair = clastTilingPairs[i];
-		pair.innerBodyStmts1.clear();
-		for (auto *orig : pair.innerBodyStmts0) {
-			int targetStmtNumber = orig->statement->number;
-			clast_user_stmt *targetStmt = nullptr;
-			for (int j = 0; j < dupClastUserStmtListSize; ++j) {
-				if (dupUserStmtList[j]->statement->number == targetStmtNumber) {
-					targetStmt = dupUserStmtList[j];
-					break;
-				}
-			}
-			if (targetStmt == nullptr) {
-				this->logger->error("Error: could not find duplicated user statement for number {}", targetStmtNumber);
+		// The duplicated band holds clones of the reduction tile loops. Register
+		// them so insertInnerLoopBounds recognises their point loops as sitting
+		// under a tile and gives them _tpzlb2/_tpzub2 rather than the full range.
+		for (auto &pair : clastTilingPairs) {
+			if (!pair.underGap)
 				continue;
+			size_t before = pair.outerFors.size();
+			for (auto *b : pair.outerBodyStmts) {
+				int num = b->statement->number;
+				for (int j = 0; j < dupClastUserStmtListSize; ++j)
+					if (dupUserStmtList[j]->statement->number == num) {
+						struct clast_for *dupFor =
+							clast_get_parent_clast_for(secondTileBand, &(dupUserStmtList[j]->stmt));
+						if (dupFor)
+							pair.outerFors.push_back(dupFor);
+						break;
+					}
 			}
-			this->insertedStmts += 1;
-			targetStmt->statement->number = this->insertedStmts;
-			pair.innerBodyStmts1.push_back(targetStmt);
+			logger->debug("duplicated band: {} reduction tile loop(s) registered", pair.outerFors.size() - before);
 		}
-		pair.innerBodyStmt1 = pair.innerBodyStmts1.empty() ? nullptr : pair.innerBodyStmts1[0];
-	}
 
-	free(dupUserStmtList);
+		for (size_t i = 0; i < clastTilingPairs.size(); ++i) {
+			ClastTilingPair &pair = clastTilingPairs[i];
+			pair.innerBodyStmts1.clear();
+			for (auto *orig : pair.innerBodyStmts0) {
+				int targetStmtNumber = orig->statement->number;
+				clast_user_stmt *targetStmt = nullptr;
+				for (int j = 0; j < dupClastUserStmtListSize; ++j) {
+					if (dupUserStmtList[j]->statement->number == targetStmtNumber) {
+						targetStmt = dupUserStmtList[j];
+						break;
+					}
+				}
+				if (targetStmt == nullptr) {
+					this->logger->error("Error: could not find duplicated user statement for number {}",
+										targetStmtNumber);
+					continue;
+				}
+				this->insertedStmts += 1;
+				targetStmt->statement->number = this->insertedStmts;
+				pair.innerBodyStmts1.push_back(targetStmt);
+			}
+			pair.innerBodyStmt1 = pair.innerBodyStmts1.empty() ? nullptr : pair.innerBodyStmts1[0];
+		}
+
+		free(dupUserStmtList);
+	} else {
+		// Flat cut: no second band, so no duplicated statements to pair up.
+		for (auto &pair : clastTilingPairs) {
+			pair.innerBodyStmts1.clear();
+			pair.innerBodyStmt1 = nullptr;
+		}
+	}
 
 	this->insertInnerLoopBounds(*clastIR, clastTilingPairs);
 	this->insertOmpPragmas(*clastIR, clastTilingPairs);
@@ -816,26 +838,33 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 			macroData.defineFunc("S" + std::to_string(pair.outerBodyStmt->statement->number), "", stmtStr);
 
 			// Trapezoidal bounds
+			// Trapezoidal bounds
 			auto d1Bounds = this->computeInnerMinMaxStr(innerDomain, 1);
-
-			stmtStr = trapezoidalLBName + " = max(" + d1Bounds.first + ", " + nextHelper.innerForLBName() + " + " +
-					  offsetName //
-					  + " + floord(" + std::to_string(slope.y) + " * (" + pair.innerFor->iterator + " - " +
-					  nameHelper.innerForLBName() + "), " + std::to_string(slope.x) + "));";
+			if (slope.y == 0) {
+				// Flat cut: no dependence moves in y, so the slices are independent
+				// over the whole band and the single front spans the full range.
+				stmtStr = trapezoidalLBName + " = max(" + d1Bounds.first + ", " + nextHelper.innerForLBName() + ");";
+			} else {
+				stmtStr = trapezoidalLBName + " = max(" + d1Bounds.first + ", " + nextHelper.innerForLBName() + " + " +
+						  offsetName + " + floord(" + std::to_string(slope.y) + " * (" + pair.innerFor->iterator +
+						  " - " + nameHelper.innerForLBName() + "), " + std::to_string(slope.x) + "));";
+			}
 			stmtStr += trapezoidalUBName + " = min(" + d1Bounds.second + ", " + nextHelper.innerForUBName() + ");";
 
 			for (auto *s : pair.innerBodyStmts0)
 				macroData.defineFunc("S" + std::to_string(s->statement->number), "", stmtStr);
 
-			stmtStr = "";
-			stmtStr += trapezoidalLBName + " = max(" + d1Bounds.first + ", " + nextHelper.innerForLBName() + ");";
-			stmtStr += trapezoidalUBName + " = min(min(" + d1Bounds.second + ", " + nextHelper.innerForUBName() +
-					   "), " + nextHelper.innerForLBName() + " + " + offsetName //
-					   + " + floord(" + std::to_string(slope.y) + " * (" + pair.innerFor->iterator + " - " +
-					   nameHelper.innerForLBName() + "), " + std::to_string(slope.x) + ") - 1);";
-
-			for (auto *s : pair.innerBodyStmts1) {
-				macroData.defineFunc("S" + std::to_string(s->statement->number), "", stmtStr);
+			// Second front: emitted only when the cut has a slope, since
+			// innerBodyStmts1 is then empty and the band was not duplicated.
+			if (slope.y != 0) {
+				stmtStr = "";
+				stmtStr += trapezoidalLBName + " = max(" + d1Bounds.first + ", " + nextHelper.innerForLBName() + ");";
+				stmtStr += trapezoidalUBName + " = min(min(" + d1Bounds.second + ", " + nextHelper.innerForUBName() +
+						   "), " + nextHelper.innerForLBName() + " + " + offsetName + " + floord(" +
+						   std::to_string(slope.y) + " * (" + pair.innerFor->iterator + " - " +
+						   nameHelper.innerForLBName() + "), " + std::to_string(slope.x) + ") - 1);";
+				for (auto *s : pair.innerBodyStmts1)
+					macroData.defineFunc("S" + std::to_string(s->statement->number), "", stmtStr);
 			}
 		}
 
