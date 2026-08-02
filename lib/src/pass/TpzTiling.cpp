@@ -363,7 +363,7 @@ void TpzTilingPass::tileClastFor(Bundle &bundle, struct clast_for *clastFor, pes
 	if (twoFronts) {
 		this->logger->debug("Duplicating outer for loop {}", trapezoidalPair.outerFor->iterator);
 		// TODO: we might have to find a way to group user statement by pair of original and duplicated
-		struct clast_stmt *secondTileBand = clast_stmt_hard_copy(&(trapezoidalPair.outerFor->stmt));
+		secondTileBand = clast_stmt_hard_copy(&(trapezoidalPair.outerFor->stmt));
 		trapezoidalPair.outerFor->stmt.next = secondTileBand;
 		lastBand = secondTileBand;
 	} else {
