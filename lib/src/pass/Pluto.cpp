@@ -370,16 +370,15 @@ pesto::Bundle PlutoPass::apply(pesto::Bundle &&bundle) {
 			std::string iter = "t" + std::to_string(pd + 1);
 			if (ll != nullptr) {
 				if (iter != std::string(ll->iter)) {
-					logger->warn("pluto named '{}' parallel, but that dim is not a loop in the AST; using '{}'",
-								 ll->iter, iter);
-					free(ll->iter);
-					ll->iter = strdup(iter.c_str());
-				} else {
-					logger->debug("parallel loop: '{}' (agrees with pluto)", iter);
+					// A scop can hold several bands with different parallel
+					// dimensions; this analysis is global and cannot arbitrate
+					// per entry. Leave the names alone — clast_annotate_loops
+					// matches by name and falls back on the statement ids.
+					logger->debug("pluto named '{}' parallel, global analysis says '{}'; keeping pluto's", ll->iter,
+								  iter);
 				}
 			} else {
 				logger->info("pluto found no parallel loop; '{}' is parallel — build an osl_loop entry", iter);
-				/* TODO: construct an osl_loop and osl_generic_add it */
 			}
 		} else if (ll != nullptr) {
 			logger->warn("pluto named '{}' parallel, but no dim is; dropping the extension", ll->iter);

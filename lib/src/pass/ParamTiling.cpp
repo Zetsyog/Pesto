@@ -937,11 +937,13 @@ void ClastParamTilingPass::declareGroupVariables(StmtGroup &group) {
 }
 
 void ClastParamTilingPass::updateOmpPragma(StmtGroup &group) {
-	// first find the parallel for
 	struct clast_for *parallel_for = nullptr;
 	int tiling_depth = -1;
 	for (auto &data : group.tilingData) {
 		struct clast_for *outer_for = data->outer_for;
+		logger->debug("group {} depth {}: outer_for '{}' parallel={}", group.id, data->tiling_depth,
+					  outer_for->iterator ? outer_for->iterator : "?",
+					  (outer_for->parallel & CLAST_PARALLEL_OMP) ? "yes" : "no");
 		if (outer_for->parallel & CLAST_PARALLEL_OMP) {
 			parallel_for = outer_for;
 			tiling_depth = data->tiling_depth;

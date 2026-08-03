@@ -897,25 +897,16 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 
 			stmtStr += nameHelper.outerForLBName() + " = 0;";
 
-			/* if (this->useMinVolume) {
-				stmtStr +=
-					std::string("long int NB = max(floord(") + nameHelper.pcMaxName() + ", " + minVolName + "), 1);";
-
-				stmtStr += std::string("if(NB < ") + nthreadsName + ") {";
-				stmtStr += nameHelper.outerForUBName() + " = NB - 1;";
-				stmtStr += nameHelper.targetVolName() + " = floord(" + nameHelper.pcMaxName() + ", NB);";
-				stmtStr += "} else {";
-				stmtStr += nameHelper.outerForUBName() + " = NB - (NB % " + nthreadsName + ") - 1;";
-				stmtStr += nameHelper.targetVolName() + " = floord(" + nameHelper.pcMaxName() + ", " +
-						   nameHelper.outerForUBName() + " + 1);";
-				stmtStr += "}";
-			} else { */
+			// max_cut_volume gives the volume of DIV0 columns, but the slice ends
+			// before the column where the cumulative count reaches the target:
+			// ubt2 = trahrhe(v) - 1. A target equal to that volume therefore
+			// spans DIV0-1 columns and trips the width guard. One point more is
+			// enough to push the inverse past the DIV0-th column.
 			std::string bandIter = clastTilingPairs[0].outerFor->iterator;
 			stmtStr += nameHelper.targetVolName() + " = max(" + nameHelper.pcMaxName() + " / " + nameHelper.divName() +
-					   ", max_cut_volume(" + bandIter + "));";
+					   ", max_cut_volume(" + bandIter + ") + 1);";
 			stmtStr += nameHelper.outerForUBName() + " = max(floord(" + nameHelper.pcMaxName() + ", " +
 					   nameHelper.targetVolName() + "), 1) - 1;";
-			//}
 
 			macroData.defineFunc(std::string("S") + std::to_string(pair.outerHeaderStmt->statement->number), "",
 								 stmtStr);
