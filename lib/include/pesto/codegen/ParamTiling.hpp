@@ -43,6 +43,7 @@ class NameHelper {
 	std::string targetVolName();
 	std::string pcMaxName();
 	std::string ehrhartFnName();
+	std::string ehrhartMaxFnName();
 	std::string trahrheFnName();
 	std::string trahrheIteratorName();
 	std::string tileArrayName();

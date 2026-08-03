@@ -44,7 +44,29 @@ ParamTilingCodegen::ParamTilingCodegen(StmtGroup &group, TilingData &data, int n
 	(void)nestId;
 	this->innerDomain = isl_set_copy(innerDomain);
 	isl_set_free(innerDomain);
-	this->volumeCheckThreshold = this->nameHelper.divName() + " * 1000";
+	// The granularity floor is one column of the level being cut: a slice thinner
+	// than a column cannot be split cleanly. That is the _Ehrhart_max of the next
+	// level, which fixes this one to width 1 and counts what lies below. When
+	// this is the innermost level a column is a single point, so the floor is 1
+	// and the check is vacuous.
+	{
+		auto nextIt = std::find_if(this->group.tilingData.begin(), this->group.tilingData.end(),
+								   [this](const std::unique_ptr<TilingData> &d) {
+									   return static_cast<size_t>(d->tiling_depth) == this->tilingDepth + 1;
+								   });
+		if (nextIt == this->group.tilingData.end()) {
+			this->volumeCheckThreshold = "1";
+		} else {
+			std::string paramList;
+			isl_size npar = isl_set_dim(this->innerDomain, isl_dim_param);
+			for (isl_size i = 0; i < npar; i += 1) {
+				if (i != 0) paramList += ", ";
+				paramList += isl_set_get_dim_name(this->innerDomain, isl_dim_param, i);
+			}
+			this->volumeCheckThreshold =
+				(*nextIt)->trahrheNameHelper->ehrhartMaxFnName() + "(" + paramList + ")";
+		}
+	}
 	this->logger = pesto::log::get_logger("param-tiling-codegen");
 }
 
@@ -160,14 +182,20 @@ void ParamTilingCodegen::genHeaderStmtRectangular(std::ostream &os) {
 
 void ParamTilingCodegen::genHeaderStmtAlgebraic(std::ostream &os) {
 	isl_size npar = isl_set_dim(this->innerDomain, isl_dim_param);
-	os << this->nameHelper.outerForUBName() << " = " << this->nameHelper.divName() << " - 1;" << this->endline;
-	os << this->nameHelper.pcMaxName() << " = " << this->trahrheNameHelper.ehrhartFnName() << "(";
+	std::string paramList;
 	for (isl_size i = 0; i < npar; i += 1) {
-		if (i != 0) {
-			os << ", ";
-		}
-		os << isl_set_get_dim_name(this->innerDomain, isl_dim_param, i);
+		if (i != 0) paramList += ", ";
+		paramList += isl_set_get_dim_name(this->innerDomain, isl_dim_param, i);
 	}
+
+	// The granularity floor is one column: a slice thinner than the largest
+	// column cannot be cut cleanly. _Ehrhart_max gives exactly that, and takes
+	// only the program parameters since it maximises over the enclosing bands.
+	std::string threshold =
+		this->trahrheNameHelper.ehrhartMaxFnName() + "(" + paramList + ")";
+
+	os << this->nameHelper.outerForUBName() << " = " << this->nameHelper.divName() << " - 1;" << this->endline;
+	os << this->nameHelper.pcMaxName() << " = " << this->trahrheNameHelper.ehrhartFnName() << "(" << paramList;
 	for (std::size_t i = 0; i < this->tilingDepth; i += 1) {
 		auto dataIt = std::find_if(this->group.tilingData.begin(), this->group.tilingData.end(),
 								   [i](const std::unique_ptr<TilingData> &d) {
@@ -607,6 +635,11 @@ std::string NameHelper::ehrhartFnName() {
 	std::string itName = this->trahrheIteratorName();
 	return itName + this->sep_ + "Ehrhart";
 }
+
+std::string NameHelper::ehrhartMaxFnName() {
+	return this->trahrheIteratorName() + this->sep_ + "Ehrhart" + this->sep_ + "max";
+}
+
 std::string NameHelper::trahrheFnName() {
 	std::string itName = this->trahrheIteratorName();
 	return itName + this->sep_ + "trahrhe" + this->sep_ + itName;
