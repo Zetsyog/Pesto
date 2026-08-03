@@ -314,6 +314,9 @@ int clast_annotate_loops(osl_scop_p program, struct clast_stmt *root) {
 	while (ll) {
 		// for each loop
 		osl_loop_p loop = ll;
+		printf("osl_loop: iter='%s' directive=%d stmts=", loop->iter, loop->directive);
+		for (size_t s = 0; s < loop->nb_stmts; s++) printf("%d ", loop->stmt_ids[s]);
+		printf("\n");
 		ClastFilter filter = {loop->iter, loop->stmt_ids, loop->nb_stmts, subset};
 
 		clast_filter(root, filter, &clastloops, &nclastloops, &claststmts, &nclaststmts);
@@ -322,6 +325,22 @@ int clast_annotate_loops(osl_scop_p program, struct clast_stmt *root) {
 			free(claststmts);
 			claststmts = NULL;
 		}
+		
+		if (nclastloops == 0 && (loop->directive & CLAST_PARALLEL_OMP)) {
+			/* Pluto names the loop after its own scattering dimension for the
+			 * statement concerned; CLooG names by depth in the AST. The two
+			 * diverge when the statements of a scop have different depths.
+			 * Fall back on the statement ids and take the outermost loop of the
+			 * band, which is the one Pluto's dimension 1 corresponds to. */
+			ClastFilter byStmts = {NULL, loop->stmt_ids, loop->nb_stmts, subset};
+			clast_filter(root, byStmts, &clastloops, &nclastloops, &claststmts, &nclaststmts);
+			if (claststmts) { free(claststmts); claststmts = NULL; }
+			if (nclastloops > 1) {
+				clastloops[0] = clastloops[nclastloops - 1];   /* la plus externe */
+				nclastloops = 1;
+			}
+		}
+		
 
 		/* There should be at least one */
 		if (nclastloops == 0) { // FROM PLUTO

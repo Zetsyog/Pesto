@@ -380,6 +380,7 @@ void CLI::sandwichCode(const std::filesystem::path &input, const std::filesystem
 	/* copy original file until reaching scop section */
 	std::string line;
 	long int currentLine = 1;
+	/* copy original file until reaching scop section */
 	while (std::getline(inputFile, line)) {
 		if (currentLine == coord->line_start) {
 			// append generated code with proper indentation
@@ -390,7 +391,16 @@ void CLI::sandwichCode(const std::filesystem::path &input, const std::filesystem
 			generatedFile.close();
 		}
 		if (currentLine > coord->line_end || currentLine < coord->line_start) {
-			outputFile << line << std::endl;
+			/* The scop delimiters sit just outside the coordinates, so they would
+			 * be copied verbatim. The generated nest is no longer an analysable
+			 * scop — its bounds are non-affine and it calls the ranking
+			 * polynomials — so keeping them would announce something false. */
+			bool isDelimiter =
+				(currentLine == coord->line_start - 1 && line.find("#pragma scop") != std::string::npos) ||
+				(currentLine == coord->line_end + 1 && line.find("#pragma endscop") != std::string::npos);
+			if (!isDelimiter) {
+				outputFile << line << std::endl;
+			}
 		}
 		currentLine++;
 	}

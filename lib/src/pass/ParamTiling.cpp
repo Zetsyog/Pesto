@@ -246,6 +246,44 @@ Bundle pesto::pass::ClastParamTilingPass::apply(Bundle &&bundle) {
 		}
 
 		for (auto &pair : this->trahrheDomainList_) {
+			// The _max function bounds the volume of a front when that volume
+			// varies with the enclosing indices. If the dimension at this level is
+			// constrained by none of them, every front has the same volume and the
+			// bound is an expression in the parameters alone, which isl gives
+			// directly — no ranking polynomial is needed, and asking for one only
+			// exercises Trahrhe on a case where its answer is a constant.
+			bool independent = true;
+			{
+				isl_set *dom = isl_set_read_from_str(this->ctx, pair.second.c_str());
+				int d = pair.first - 1;                 // 0-based index of the level
+				if (dom && d > 0 && d < isl_set_dim(dom, isl_dim_set)) {
+					isl_basic_set *hull = isl_set_unshifted_simple_hull(isl_set_copy(dom));
+					struct Probe { int d; bool coupled; } pr{d, false};
+					isl_basic_set_foreach_constraint(hull,
+						+[](__isl_take isl_constraint *c, void *user) -> isl_stat {
+							auto *pr = static_cast<Probe *>(user);
+							isl_val *v = isl_constraint_get_coefficient_val(c, isl_dim_set, pr->d);
+							bool onD = (isl_val_get_num_si(v) != 0);
+							isl_val_free(v);
+							if (onD)
+								for (int k = 0; k < pr->d; ++k) {
+									isl_val *w = isl_constraint_get_coefficient_val(c, isl_dim_set, k);
+									if (isl_val_get_num_si(w) != 0) pr->coupled = true;
+									isl_val_free(w);
+								}
+							isl_constraint_free(c);
+							return isl_stat_ok;
+						}, &pr);
+					isl_basic_set_free(hull);
+					independent = !pr.coupled;
+				}
+				isl_set_free(dom);
+			}
+			if (independent) {
+				logger->debug("level {}: front volume independent of the enclosing "
+							  "indices, no ranking polynomial generated", pair.first);
+				continue;
+			}
 			std::string header_filename = filename + "trahrhe." + std::to_string(domainCount) + ".h";
 
 			trahrhe_context_t *trahrhe_ctx = trahrhe_context_alloc();
