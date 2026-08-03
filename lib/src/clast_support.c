@@ -314,9 +314,6 @@ int clast_annotate_loops(osl_scop_p program, struct clast_stmt *root) {
 	while (ll) {
 		// for each loop
 		osl_loop_p loop = ll;
-		printf("osl_loop: iter='%s' directive=%d stmts=", loop->iter, loop->directive);
-		for (size_t s = 0; s < loop->nb_stmts; s++) printf("%d ", loop->stmt_ids[s]);
-		printf("\n");
 		ClastFilter filter = {loop->iter, loop->stmt_ids, loop->nb_stmts, subset};
 
 		clast_filter(root, filter, &clastloops, &nclastloops, &claststmts, &nclaststmts);
@@ -340,7 +337,6 @@ int clast_annotate_loops(osl_scop_p program, struct clast_stmt *root) {
 				nclastloops = 1;
 			}
 		}
-		
 
 		/* There should be at least one */
 		if (nclastloops == 0) { // FROM PLUTO
