@@ -57,6 +57,7 @@ Usage
 
 import argparse
 import os
+import math
 import re
 import shutil
 import subprocess
@@ -235,8 +236,12 @@ def rational_poly_to_c(expr, varnames):
         num_c = sympy_to_c(num, syms)
         # division entiere exacte (le resultat est entier par construction)
         return f"FLOORDIV({num_c}, {den_int})"
-    except Exception:
-        # repli : pas de sympy ou expression non geree -> nettoyage minimal
+    except Exception as exc:
+        # Le repli ne doit pas produire silencieusement du C faux : signaler,
+        # puis passer par la mise au denominateur commun sans sympy.
+        sys.stderr.write(
+            "gen_maxcut: sympy indisponible ou expression non geree (%s) ;\n"
+            "            repli exact sans sympy sur : %s\n" % (exc, e.strip()))
         return normalize_basic(e, varnames)
 
 
@@ -270,9 +275,60 @@ def sympy_to_c(node, syms):
     return str(node)
 
 
+def _rational_denominators(e):
+    """Denominateurs des coefficients rationnels, hors arguments de floor().
+    Les divisions internes a floor(...) ont leur propre semantique et ne
+    doivent pas etre mises au denominateur commun avec le reste."""
+    masked = re.sub(r"floor\s*\([^()]*(?:\([^()]*\)[^()]*)*\)", " FLOORARG ", e)
+    return [int(d) for _, d in re.findall(r"(\d+)\s*/\s*(\d+)", masked)]
+
+
+def _scale_term(term, L):
+    """Multiplie un terme par l'entier L en restant exact.
+    Un coefficient a/b devient a*(L//b) ; un terme sans coefficient
+    rationnel est simplement multiplie par L."""
+    masked = re.sub(r"floor\s*\([^()]*(?:\([^()]*\)[^()]*)*\)", " FLOORARG ", term)
+    m = re.search(r"(\d+)\s*/\s*(\d+)", masked)
+    if not m:
+        return "(%d * (%s))" % (L, term.strip()) if term.strip() else term
+    a, b = int(m.group(1)), int(m.group(2))
+    assert L % b == 0
+    # remplacer la premiere occurrence reelle de "a/b" dans le terme
+    return re.sub(r"%d\s*/\s*%d" % (a, b), str(a * (L // b)), term, count=1)
+
+
 def normalize_basic(expr, varnames):
-    """Repli sans sympy : puissances, floor, * implicite. Coeffs entiers."""
+    """Repli sans sympy. Les coefficients rationnels sont mis au denominateur
+    commun et la division entiere est faite une seule fois a la fin : emettre
+    "49335/4 - 135/2 * b" tel quel tronquerait chaque coefficient
+    independamment et donnerait une valeur fausse sans le moindre signe."""
     e = expr.strip()
+
+    dens = _rational_denominators(e)
+    if dens:
+        L = 1
+        for d in dens:
+            L = L * d // math.gcd(L, d)
+        # decouper en termes au niveau 0, en conservant les signes
+        spaced = re.sub(r"(?<=[\w\)\]])\s*([+-])\s*", r" \1 ", e)
+        parts, sign, cur = [], "+", []
+        for tok in split_top_level(spaced, " "):
+            if tok in ("+", "-") and cur:
+                parts.append((sign, "".join(cur))); sign, cur = tok, []
+            elif tok in ("+", "-") and not cur:
+                sign = tok if sign == "+" else "+"
+            else:
+                cur.append(tok)
+        if cur:
+            parts.append((sign, "".join(cur)))
+        scaled = []
+        for sg, term in parts:
+            if not term.strip():
+                continue
+            scaled.append(("- " if sg == "-" else "+ ") + _scale_term(term, L))
+        joined = " ".join(scaled).lstrip("+ ").strip()
+        e = "FLOORDIV(%s, %d)" % (joined, L)
+
     def pow_repl(m):
         base, k = m.group(1), int(m.group(2))
         return "(" + "*".join([base] * k) + ")"
@@ -951,6 +1007,8 @@ def main():
                          "par lexmin. Utile quand la borne inf de x1 est "
                          "evidente (ex: --f1 1) ou quand lexmin renvoie une "
                          "forme piecewise compliquee.")
+    ap.add_argument("--allow-exists", action="store_true",
+                    help="ecrire le fichier meme si un terme exists n'a pas ete traduit")
     ap.add_argument("--no-bmax", action="store_true",
                     help="ne pas borner l'indice de tranche b par le haut "
                          "(par defaut b est borne via max(x1) pour eliminer "
@@ -1093,6 +1151,18 @@ def main():
 
     pieces = parse_pw_qpoly(full_out, params, params + ["b"])
     c_code = emit_c(pieces, params, args.func, args.t)
+
+    # Un terme existentiel non traduit devient "1" dans la condition, donc la
+    # branche s'applique toujours et peut renvoyer le polynome d'un autre cas.
+    # Mieux vaut refuser que d'ecrire un fichier faux sans le dire.
+    if "unrecognized_exists_term" in c_code and not args.allow_exists:
+        print("gen_maxcut: un terme 'exists' n'a pas pu etre traduit ; la\n"
+              "            condition serait toujours vraie et le resultat faux.\n"
+              "            Sur un domaine de periode 2, essayez un --t pair.\n"
+              "            Utilisez --allow-exists pour ecrire quand meme.",
+              file=sys.stderr)
+        sys.exit(1)
+
     with open(args.out, "w") as f:
         f.write(c_code)
     print(f"Fonction C ecrite dans {args.out}")
