@@ -1012,18 +1012,20 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 		// for depth > 1 we do rectangular tiling
 		if (pair.depth > 1) {
 			if (pair.underGap) {
-				// The tile range must cover what every nest of the gap body scans.
-				// Deriving it from _tpzub - 1 assumes the canonical shape z < y:
-				// that holds for a reduction bounded by the point index, and
-				// truncates one bounded by the gap minus the point — nw's first
-				// nest runs to x - y, and its last terms were never accumulated.
-				auto zBounds = this->computeInnerMinMaxStr(innerDomain, 2);
+				// The inner domain carries the artificial bound 0 <= z <= y that
+				// computeInnerDomain re-adds, so it cannot tell the two shapes
+				// apart. Cover both by maximising over the front: a reduction
+				// bounded by the point reaches _tpzub, one bounded by the gap
+				// minus the point reaches x - _tpzlb.
+				std::string gapIt = clastTilingPairs[0].innerFor->iterator;
+				std::string zlo = "min(0, _tpzlb - " + gapIt + ")";
+				std::string zhi = "max(_tpzub, " + gapIt + " - _tpzlb)";
 
 				// lbzt6 / ubzt6 : posés juste avant la boucle zt6, donc dans le
 				// corps de t2, après les bornes trapézoïdales dont ils dépendent.
 				std::string stmtStr = nameHelper.outerForLBName() + " = 0;";
-				stmtStr += nameHelper.outerForUBName() + " = ceild((" + zBounds.second + ") - (" + zBounds.first +
-						   ") + 1, " + nameHelper.divName() + ") - 1;";
+				stmtStr += nameHelper.outerForUBName() + " = ceild((" + zhi + ") - (" + zlo + ") + 1, " +
+						   nameHelper.divName() + ") - 1;";
 				// One tile loop per reduction nest (lu's two point loops): each
 				// gets its own bound statements so it recomputes lbt3/ubt3.
 				for (auto *h : pair.outerHeaderStmts)
@@ -1033,9 +1035,9 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 
 				// corps de zt6 : bornes de la tuile de réduction.
 				stmtStr = nameHelper.innerForLBName() + " = " + pair.outerFor->iterator + " * " + nameHelper.divName() +
-						  " + (" + zBounds.first + ");";
+						  " + (" + zlo + ");";
 				stmtStr += nameHelper.innerForUBName() + " = min((" + pair.outerFor->iterator + " + 1) * " +
-						   nameHelper.divName() + " - 1 + (" + zBounds.first + "), " + zBounds.second + ");";
+						   nameHelper.divName() + " - 1 + (" + zlo + "), " + zhi + ");";
 				// Restricting the point to those whose reduction range meets the
 				// tile is an optimisation, and its direction depends on how each
 				// nest bounds its reduction — upper for one bounded by y, lower
