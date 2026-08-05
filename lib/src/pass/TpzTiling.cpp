@@ -1012,11 +1012,18 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 		// for depth > 1 we do rectangular tiling
 		if (pair.depth > 1) {
 			if (pair.underGap) {
+				// The tile range must cover what every nest of the gap body scans.
+				// Deriving it from _tpzub - 1 assumes the canonical shape z < y:
+				// that holds for a reduction bounded by the point index, and
+				// truncates one bounded by the gap minus the point — nw's first
+				// nest runs to x - y, and its last terms were never accumulated.
+				auto zBounds = this->computeInnerMinMaxStr(innerDomain, 2);
+
 				// lbzt6 / ubzt6 : posés juste avant la boucle zt6, donc dans le
 				// corps de t2, après les bornes trapézoïdales dont ils dépendent.
 				std::string stmtStr = nameHelper.outerForLBName() + " = 0;";
-				stmtStr += nameHelper.outerForUBName() + " = ceild((_tpzub - 1) - (_tpzlb - " +
-						   clastTilingPairs[0].innerFor->iterator + ") + 1, " + nameHelper.divName() + ") - 1;";
+				stmtStr += nameHelper.outerForUBName() + " = ceild((" + zBounds.second + ") - (" + zBounds.first +
+						   ") + 1, " + nameHelper.divName() + ") - 1;";
 				// One tile loop per reduction nest (lu's two point loops): each
 				// gets its own bound statements so it recomputes lbt3/ubt3.
 				for (auto *h : pair.outerHeaderStmts)
@@ -1024,16 +1031,18 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 				varDeclData.addVar(nameHelper.outerForLBName());
 				varDeclData.addVar(nameHelper.outerForUBName());
 
-				// corps de zt6 : bornes de la tuile de réduction, et restriction de
-				// t4 aux valeurs dont la plage de réduction rencontre cette tuile.
+				// corps de zt6 : bornes de la tuile de réduction.
 				stmtStr = nameHelper.innerForLBName() + " = " + pair.outerFor->iterator + " * " + nameHelper.divName() +
-						  " + (_tpzlb - " + clastTilingPairs[0].innerFor->iterator + ");";
+						  " + (" + zBounds.first + ");";
 				stmtStr += nameHelper.innerForUBName() + " = min((" + pair.outerFor->iterator + " + 1) * " +
-						   nameHelper.divName() + " - 1 + (_tpzlb - " + clastTilingPairs[0].innerFor->iterator +
-						   "), _tpzub - 1);";
-				stmtStr += "_tpzlb2 = max(_tpzlb, " + nameHelper.innerForLBName() + " + 1);";
-				stmtStr += "_tpzub2 = min(_tpzub, " + nameHelper.innerForUBName() + " + " +
-						   clastTilingPairs[0].innerFor->iterator + ");";
+						   nameHelper.divName() + " - 1 + (" + zBounds.first + "), " + zBounds.second + ");";
+				// Restricting the point to those whose reduction range meets the
+				// tile is an optimisation, and its direction depends on how each
+				// nest bounds its reduction — upper for one bounded by y, lower
+				// for one bounded by x - y. The inner min/max against each nest's
+				// own bounds already skips the empty iterations, so stay neutral.
+				stmtStr += "_tpzlb2 = _tpzlb;";
+				stmtStr += "_tpzub2 = _tpzub;";
 				for (auto *b : pair.outerBodyStmts)
 					macroData.defineFunc("S" + std::to_string(b->statement->number), "", stmtStr);
 				varDeclData.addVar(nameHelper.innerForLBName());
