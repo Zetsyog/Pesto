@@ -62,6 +62,7 @@ namespace pesto::pass {} // namespace pesto::pass
 
 static bool hasScalarWrite(osl_statement_p stmt);
 static void collectScalarWrites(osl_scop_p scop, std::vector<std::string> &names);
+static bool containsReductionLoop(struct clast_stmt *s, const char *redIt);
 
 Bundle TpzTilingPass::apply(Bundle &&bundle) {
 	auto *scopIR = dynamic_cast<pesto::ir::OpenScopIR *>(bundle.get_ir());
@@ -289,24 +290,27 @@ void TpzTilingPass::tileClastFor(Bundle &bundle, struct clast_for *clastFor, pes
 	// clastTilingPairs[1].innerFor reste la boucle à envelopper.
 	if (clastTilingPairs.size() == 3 && clastTilingPairs[2].underGap) {
 		struct clast_for *point = clastTilingPairs[1].innerFor;
-		struct clast_for *red = clastTilingPairs[2].innerFor;
+		const char *redIt = clastTilingPairs[2].innerFor->iterator;
 
-		// Position de la boucle de réduction dans le corps, et taille du corps.
-		int redIdx = -1, nbStmts = 0;
+		// Positions of the reduction nests among the direct children of the point
+		// body. There can be several: nw computes two maxima per point, each with
+		// its own initialization, and a finalization after the last.
+		std::vector<int> redIdx;
+		int nbStmts = 0;
 		for (struct clast_stmt *s = point->body; s != NULL; s = s->next, ++nbStmts)
-			if (CLAST_STMT_IS_A(s, stmt_for) && (struct clast_for *)s == red)
-				redIdx = nbStmts;
-		bool hasPre = redIdx > 0;
-		bool hasPost = redIdx >= 0 && redIdx < nbStmts - 1;
-		bool needsSplit = hasPre || hasPost;
+			if (containsReductionLoop(s, redIt))
+				redIdx.push_back(nbStmts);
 
-		// Each side has its own condition: hoisting above the tiles is what
-		// hoistingLegal_ tests; moving finalisations below them requires instead
-		// that no same-gap dependence be carried by z, which is underGapLegal_.
-		if ((hasPre && !this->hoistingLegal_) || (hasPost && !this->underGapLegal_)) {
+		bool hasPre = !redIdx.empty() && redIdx.front() > 0;
+		bool hasPost = !redIdx.empty() && redIdx.back() < nbStmts - 1;
+		// A statement between two nests finalizes the first and initializes the
+		// second, so both legality conditions bear on it.
+		bool hasBetween = redIdx.size() > 1;
+
+		if (((hasPre || hasBetween) && !this->hoistingLegal_) || ((hasPost || hasBetween) && !this->underGapLegal_)) {
 			logger->info("Reduction not tiled: the point loop cannot be split");
 			clastTilingPairs.resize(2);
-		} else if (needsSplit) {
+		} else if (!redIdx.empty() && (hasPre || hasPost || hasBetween)) {
 			// garde les éléments d'indice dans [lo, hi] ; les autres sont détachés
 			// et laissés en place (pas d'API de libération de clast).
 			auto keepRange = [](struct clast_stmt * head, int lo, int hi) -> struct clast_stmt * {
@@ -327,24 +331,36 @@ void TpzTilingPass::tileClastFor(Bundle &bundle, struct clast_for *clastFor, pes
 				}
 				return newHead;
 			};
-			logger->debug("Point loop split: {} stmt(s) before the reduction, {} after", hasPre ? redIdx : 0,
-						  hasPost ? nbStmts - 1 - redIdx : 0);
-			// Finalisations : elles ont besoin de la réduction terminée, donc elles
-			// vont APRÈS la boucle de tuiles (cholesky : /= et sqrt).
-			if (hasPost) {
-				struct clast_stmt *post = clast_stmt_hard_copy(&(point->stmt));
-				((struct clast_for *)post)->body = keepRange(((struct clast_for *)post)->body, redIdx + 1, nbStmts - 1);
-				post->next = point->stmt.next;
-				point->stmt.next = post;
+
+			// Cut at every boundary: [0,r1-1] [r1,r1] [r1+1,r2-1] [r2,r2] ...
+			// [rn+1,nb-1]. The pieces are emitted as siblings in the original
+			// order; the enveloping step then wraps in a tile loop only those
+			// that carry a reduction, leaving the others as plain point loops
+			// before or after it. Order is preserved by construction, which the
+			// previous hoist/sink pair could not guarantee with several nests.
+			std::vector<std::pair<int, int>> ranges;
+			int prev = 0;
+			for (int r : redIdx) {
+				if (r > prev)
+					ranges.push_back({prev, r - 1});
+				ranges.push_back({r, r});
+				prev = r + 1;
 			}
-			// Initialisations : hissées AVANT la boucle de tuiles.
-			if (hasPre) {
-				struct clast_stmt *pre = clast_stmt_hard_copy(&(point->stmt));
-				((struct clast_for *)pre)->body = keepRange(((struct clast_for *)pre)->body, 0, redIdx - 1);
-				clast_insert_before(&(root->stmt), &(point->stmt), pre);
+			if (prev <= nbStmts - 1)
+				ranges.push_back({prev, nbStmts - 1});
+
+			logger->debug("Point loop split into {} sibling(s), {} reduction nest(s)", ranges.size(), redIdx.size());
+
+			struct clast_stmt *tail = point->stmt.next, *head = nullptr;
+			for (size_t i = ranges.size(); i-- > 1;) {
+				struct clast_stmt *cp = clast_stmt_hard_copy(&(point->stmt));
+				((struct clast_for *)cp)->body =
+					keepRange(((struct clast_for *)cp)->body, ranges[i].first, ranges[i].second);
+				cp->next = head ? head : tail;
+				head = cp;
 			}
-			// L'original ne garde que la réduction.
-			point->body = keepRange(point->body, redIdx, redIdx);
+			point->stmt.next = head ? head : tail;
+			point->body = keepRange(point->body, ranges[0].first, ranges[0].second);
 		}
 	}
 
