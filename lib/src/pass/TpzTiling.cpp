@@ -2133,32 +2133,37 @@ bool TpzTilingPass::isReductionTileable(osl_scop_p scop) {
 		badTileable = isl_set_intersect(badTileable, isl_set_copy(set));
 		tileable = isl_set_is_empty(badTileable);
 
-		// Statements at maximum depth run inside the reduction loop. If one of them
-		// writes a scalar, tiling z scatters it across the tiles: the reset only
-		// fires in the tile holding z = 0, and later tiles keep the value left by
-		// the previous point.
+		// A reduction is an accumulation in place: a dependence carried by z alone,
+		// with no component along the gap or the front. Unequal statement depths are
+		// only a proxy and fail both ways — triang2 fuses its initialization into the
+		// reduction with a ternary and has a single depth, while fdtd-2d has unequal
+		// depths and no reduction at all.
+		{
+			isl_space *sp = isl_set_get_space(set);
+			isl_local_space *ls = isl_local_space_from_space(isl_space_copy(sp));
+			isl_constraint *ex = isl_constraint_alloc_equality(isl_local_space_copy(ls));
+			ex = isl_constraint_set_coefficient_si(ex, isl_dim_set, 0, 1); /* dx = 0 */
+			isl_constraint *ey = isl_constraint_alloc_equality(ls);
+			ey = isl_constraint_set_coefficient_si(ey, isl_dim_set, 1, 1); /* dy = 0 */
+			isl_space_free(sp);
+			isl_set *pure = isl_set_add_constraint(isl_set_copy(set), ex);
+			pure = isl_set_add_constraint(pure, ey);
+			pure = isl_set_intersect(pure, nz(2)); /* dz != 0 */
+			this->hasReduction_ = (isl_set_is_empty(pure) == isl_bool_false);
+			isl_set_free(pure);
+			logger->debug("has reduction (pure accumulation on z): {}", this->hasReduction_);
+		}
 
 		isl_set_free(badTileable);
 		isl_set_free(set);
 	}
 
-	// A reduction shows up as statements of differing depth: the accumulation is
-	// one level deeper than the initializations or finalizations around it. A
-	// pure stencil has a single depth, and its innermost level is a space
-	// dimension that must not be treated as an accumulation.
-	int maxDepth = 0, minDepth = INT_MAX;
-	for (osl_statement_p s = scop->statement; s; s = s->next) {
-		int d = (int)s->domain->nb_output_dims;
-		if (d > maxDepth)
-			maxDepth = d;
-		if (d < minDepth)
-			minDepth = d;
-	}
-	this->hasReduction_ = (maxDepth > minDepth);
-	logger->debug("has reduction: {}", this->hasReduction_);
+	// Statements at maximum depth run inside the reduction loop.
+	int maxDepth = 0;
+	for (osl_statement_p s = scop->statement; s; s = s->next)
+		if ((int)s->domain->nb_output_dims > maxDepth)
+			maxDepth = (int)s->domain->nb_output_dims;
 
-	// Independent of the delta analysis: a statement at maximum depth runs inside
-	// the reduction loop, and if it writes a scalar, tiling z scatters it.
 	if (tileable) {
 		for (osl_statement_p s = scop->statement; s; s = s->next)
 			if ((int)s->domain->nb_output_dims == maxDepth && hasScalarWrite(s)) {
