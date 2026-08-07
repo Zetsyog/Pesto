@@ -175,7 +175,7 @@ void ParamTilingCodegen::genStmtScheduled(std::ostream &os, StmtType type) {
 }
 
 void ParamTilingCodegen::genHeaderStmtRectangular(std::ostream &os) {
-	os << this->nameHelper.outerForUBName() << " = ceild(" << this->data.innerForUBExpr;
+	os << this->nameHelper.outerForUBName() << " = ceild((" << this->data.innerForUBExpr << ")";
 	if (this->data.innerForLBExpr.length() > 0) {
 		os << " - (" << this->data.innerForLBExpr << ")";
 	}
@@ -267,15 +267,15 @@ void ParamTilingCodegen::genHeaderStmtAlgebraic(std::ostream &os) {
 
 void ParamTilingCodegen::genBodyStmtRectangular(std::ostream &os) {
 	os << this->nameHelper.innerForLBName() << " = " << this->nameHelper.divName() << " * " << this->outerFor.iterator;
-	os << "+" << this->data.innerForLBExpr << ";" << this->endline;
+	os << "+(" << this->data.innerForLBExpr << ");" << this->endline;
 
 	os << this->nameHelper.innerForUBName() << " = min(" << this->nameHelper.divName() << " * "
 	   << this->outerFor.iterator << " + " << this->nameHelper.divName() << " - 1";
-	os << "+" << this->data.innerForLBExpr;
-	os << ", " << this->data.innerForUBExpr << ");" << this->endline;
+	os << "+(" << this->data.innerForLBExpr << ")";
+	os << ", (" << this->data.innerForUBExpr << "));" << this->endline;
 	os << "if(" << this->data.outer_for->iterator << " == " << this->nameHelper.outerForUBName() << ") {"
 	   << this->endline;
-	os << "\t" << this->nameHelper.innerForUBName() << " = " << this->data.innerForUBExpr << ";" << this->endline;
+	os << "\t" << this->nameHelper.innerForUBName() << " = (" << this->data.innerForUBExpr << ");" << this->endline;
 	os << "}";
 }
 
@@ -332,7 +332,7 @@ void ParamTilingCodegen::genBodyStmtAlgebraic(std::ostream &os) {
 	if (this->boundComputeMethod == BoundComputeMethod::FILL_LAST) {
 		os << ";" << this->endline;
 		os << "if(" << this->outerFor.iterator << " == " << this->nameHelper.outerForUBName() << ") {" << this->endline;
-		os << "\t" << this->nameHelper.innerForUBName() << " = " << this->data.innerForUBExpr << ";" << this->endline;
+		os << "\t" << this->nameHelper.innerForUBName() << " = (" << this->data.innerForUBExpr << ");" << this->endline;
 		os << "}";
 	}
 
@@ -521,7 +521,7 @@ void ParamTilingCodegen::genScheduleHeaderFile(std::ostream &os) {
 	INDENT_TABS(os, 2);
 	os << "if(__pesto_t0 == " << this->nameHelper.divName() << " - 1) {" << this->endline;
 	INDENT_TABS(os, 3);
-	os << this->nameHelper.innerForUBName() << " = " << this->data.innerForUBExpr << ";" << this->endline;
+	os << "\t" << this->nameHelper.innerForUBName() << " = (" << this->data.innerForUBExpr << ");" << this->endline;
 	INDENT_TABS(os, 2);
 	os << "}" << this->endline;
 
