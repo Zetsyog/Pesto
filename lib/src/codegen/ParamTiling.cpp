@@ -44,11 +44,15 @@ ParamTilingCodegen::ParamTilingCodegen(StmtGroup &group, TilingData &data, int n
 	(void)nestId;
 	this->innerDomain = isl_set_copy(innerDomain);
 	isl_set_free(innerDomain);
+	this->innerDomain = isl_set_copy(innerDomain);
+	isl_set_free(innerDomain);
+
 	// The granularity floor is one column of the level being cut: a slice thinner
-	// than a column cannot be split cleanly. That is the _Ehrhart_max of the next
-	// level, which fixes this one to width 1 and counts what lies below. When
-	// this is the innermost level a column is a single point, so the floor is 1
-	// and the check is vacuous.
+	// than a column cannot be split cleanly, the column being the granularity of
+	// the partition. That is the _Ehrhart_max of the next level, which fixes this
+	// one to width 1 and counts what lies below. When this level is the innermost
+	// of its group a column is a single point, so the floor is 1 and the check is
+	// vacuous — where DIV0 * 1000 was an arbitrary constant.
 	{
 		auto nextIt = std::find_if(this->group.tilingData.begin(), this->group.tilingData.end(),
 								   [this](const std::unique_ptr<TilingData> &d) {
@@ -60,13 +64,15 @@ ParamTilingCodegen::ParamTilingCodegen(StmtGroup &group, TilingData &data, int n
 			std::string paramList;
 			isl_size npar = isl_set_dim(this->innerDomain, isl_dim_param);
 			for (isl_size i = 0; i < npar; i += 1) {
-				if (i != 0) paramList += ", ";
+				if (i != 0)
+					paramList += ", ";
 				paramList += isl_set_get_dim_name(this->innerDomain, isl_dim_param, i);
 			}
-			this->volumeCheckThreshold =
-				(*nextIt)->trahrheNameHelper->ehrhartMaxFnName() + "(" + paramList + ")";
+			this->volumeCheckThreshold = (*nextIt)->trahrheNameHelper->ehrhartMaxFnName() + "(" + paramList + ")";
 		}
 	}
+
+	this->logger = pesto::log::get_logger("param-tiling-codegen");
 	this->logger = pesto::log::get_logger("param-tiling-codegen");
 }
 
@@ -169,33 +175,23 @@ void ParamTilingCodegen::genStmtScheduled(std::ostream &os, StmtType type) {
 }
 
 void ParamTilingCodegen::genHeaderStmtRectangular(std::ostream &os) {
-	os << this->nameHelper.outerForUBName() << " = ceild(("
-	   << "(" << this->data.innerForUBExpr << ")"
-	   << ")";
+	os << this->nameHelper.outerForUBName() << " = ceild(" << this->data.innerForUBExpr;
 	if (this->data.innerForLBExpr.length() > 0) {
-		os << " - ("
-		   << "(" << this->data.innerForLBExpr << ")"
-		   << ")";
+		os << " - (" << this->data.innerForLBExpr << ")";
 	}
-	os << " + 1, " << this->nameHelper.divName() << ") - 1";
+	os << ", " << this->nameHelper.divName() << ") - 1";
 }
 
 void ParamTilingCodegen::genHeaderStmtAlgebraic(std::ostream &os) {
 	isl_size npar = isl_set_dim(this->innerDomain, isl_dim_param);
 	std::string paramList;
 	for (isl_size i = 0; i < npar; i += 1) {
-		if (i != 0) paramList += ", ";
+		if (i != 0)
+			paramList += ", ";
 		paramList += isl_set_get_dim_name(this->innerDomain, isl_dim_param, i);
 	}
 
-	// The granularity floor is one column: a slice thinner than the largest
-	// column cannot be cut cleanly. _Ehrhart_max gives exactly that, and takes
-	// only the program parameters since it maximises over the enclosing bands.
-	std::string threshold =
-		this->trahrheNameHelper.ehrhartMaxFnName() + "(" + paramList + ")";
-
-	os << this->nameHelper.outerForUBName() << " = " << this->nameHelper.divName() << " - 1;" << this->endline;
-	os << this->nameHelper.pcMaxName() << " = " << this->trahrheNameHelper.ehrhartFnName() << "(" << paramList;
+	std::string nonEmpty, boundArgs;
 	for (std::size_t i = 0; i < this->tilingDepth; i += 1) {
 		auto dataIt = std::find_if(this->group.tilingData.begin(), this->group.tilingData.end(),
 								   [i](const std::unique_ptr<TilingData> &d) {
@@ -204,10 +200,24 @@ void ParamTilingCodegen::genHeaderStmtAlgebraic(std::ostream &os) {
 								   });
 		assert(dataIt != this->group.tilingData.end());
 		auto &data = *dataIt;
-		os << ", " << data->nameHelper->innerForLBName();
-		os << ", " << data->nameHelper->innerForUBName();
+		boundArgs += ", " + data->nameHelper->innerForLBName();
+		boundArgs += ", " + data->nameHelper->innerForUBName();
+		if (!nonEmpty.empty())
+			nonEmpty += " && ";
+		nonEmpty += data->nameHelper->innerForLBName() + " <= " + data->nameHelper->innerForUBName();
 	}
-	os << ");" << this->endline;
+
+	// Slicing an enclosing level can leave an empty slice near the tip of a
+	// triangular domain, with lb > ub. The count is meaningless there and Trahrhe
+	// finds no matching branch. The guard is an expression, not a block: a header
+	// statement is inserted text, and a closing brace would land in another
+	// statement at another level of the tree.
+	std::string ok = nonEmpty.empty() ? std::string("1") : ("(" + nonEmpty + ")");
+
+	os << this->nameHelper.outerForUBName() << " = " << ok << " ? " << this->nameHelper.divName() << " - 1 : -1;"
+	   << this->endline;
+	os << this->nameHelper.pcMaxName() << " = " << ok << " ? " << this->trahrheNameHelper.ehrhartFnName() << "("
+	   << paramList << boundArgs << ") : 0;" << this->endline;
 	os << this->nameHelper.targetVolName() << " = ";
 	if (this->boundComputeMethod == BoundComputeMethod::FILL_FIRST) {
 		os << "ceild(" << this->nameHelper.pcMaxName() << ", " << this->nameHelper.divName() << ")";
@@ -257,9 +267,7 @@ void ParamTilingCodegen::genHeaderStmtAlgebraic(std::ostream &os) {
 
 void ParamTilingCodegen::genBodyStmtRectangular(std::ostream &os) {
 	os << this->nameHelper.innerForLBName() << " = " << this->nameHelper.divName() << " * " << this->outerFor.iterator;
-	os << "+"
-	   << "(" << this->data.innerForLBExpr << ")"
-	   << ";" << this->endline;
+	os << "+" << this->data.innerForLBExpr << ";" << this->endline;
 
 	os << this->nameHelper.innerForUBName() << " = min(" << this->nameHelper.divName() << " * "
 	   << this->outerFor.iterator << " + " << this->nameHelper.divName() << " - 1";

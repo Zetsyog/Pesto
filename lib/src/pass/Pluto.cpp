@@ -23,6 +23,8 @@
 #include <isl/union_set.h>
 
 #include <osl/scop.h>
+#include <cloog/cloog.h>
+#include <cloog/clast.h>
 
 #include <pluto/osl_pluto.h>
 #include <pluto/pluto.h>
@@ -379,6 +381,24 @@ pesto::Bundle PlutoPass::apply(pesto::Bundle &&bundle) {
 				}
 			} else {
 				logger->info("pluto found no parallel loop; '{}' is parallel — build an osl_loop entry", iter);
+				osl_loop_p nl = osl_loop_malloc();
+				nl->iter = strdup(iter.c_str());
+				// Every statement deep enough to carry that dimension.
+				int n = 0, num = 0;
+				for (osl_statement_p s = c_scop->statement; s; s = s->next)
+					if ((int)s->scattering->nb_output_dims > pd) n++;
+				nl->nb_stmts = n;
+				nl->stmt_ids = (int *)malloc((n ? n : 1) * sizeof(int));
+				int idx = 0;
+				for (osl_statement_p s = c_scop->statement; s; s = s->next) {
+					num++;
+					if ((int)s->scattering->nb_output_dims > pd)
+						nl->stmt_ids[idx++] = num;
+				}
+				nl->directive = CLAST_PARALLEL_OMP;
+				nl->private_vars = strdup("");
+				osl_generic_add(&c_scop->extension,
+								osl_generic_shell(nl, osl_loop_interface()));
 			}
 		} else if (ll != nullptr) {
 			logger->warn("pluto named '{}' parallel, but no dim is; dropping the extension", ll->iter);
