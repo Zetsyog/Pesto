@@ -45,6 +45,9 @@ class ClastTilingPair {
 	std::vector<struct clast_user_stmt *> innerBodyStmts1;
 	struct clast_user_stmt *innerBodyStmt0 = nullptr; // == innerBodyStmts0[0], kept for the null checks
 	struct clast_user_stmt *innerBodyStmt1 = nullptr;
+	// Bornes de la boucle de reduction, une paire (LB, UB) par nid, capturees
+	// en texte avant toute reecriture des bornes par insertInnerLoopBounds.
+	std::vector<std::pair<std::string, std::string>> redBounds;
 };
 } // namespace ptile
 

@@ -64,6 +64,33 @@ static bool hasScalarWrite(osl_statement_p stmt);
 static void collectScalarWrites(osl_scop_p scop, std::vector<std::string> &names);
 static bool containsReductionLoop(struct clast_stmt *s, const char *redIt);
 
+static std::string clastExprToString(CloogOptions *opt, struct clast_expr *e) {
+	if (!e) return "";
+	char *buf = nullptr; size_t len = 0;
+	FILE *fp = open_memstream(&buf, &len);
+	if (!fp) return "";
+	clast_pprint_expr(opt, fp, e);
+	fclose(fp);
+	std::string s = buf ? buf : "";
+	free(buf);
+	return s;
+}
+
+static struct clast_for *findLoopOn(struct clast_stmt *s, const char *it) {
+	for (; s; s = s->next) {
+		if (CLAST_STMT_IS_A(s, stmt_for)) {
+			struct clast_for *f = (struct clast_for *)s;
+			if (f->iterator && it && strcmp(f->iterator, it) == 0) return f;
+			if (struct clast_for *r = findLoopOn(f->body, it)) return r;
+		} else if (CLAST_STMT_IS_A(s, stmt_guard)) {
+			if (struct clast_for *r = findLoopOn(((struct clast_guard *)s)->then, it)) return r;
+		} else if (CLAST_STMT_IS_A(s, stmt_block)) {
+			if (struct clast_for *r = findLoopOn(((struct clast_block *)s)->body, it)) return r;
+		}
+	}
+	return nullptr;
+}
+
 Bundle TpzTilingPass::apply(Bundle &&bundle) {
 	auto *scopIR = dynamic_cast<pesto::ir::OpenScopIR *>(bundle.get_ir());
 	osl_scop_p scop = scopIR->c_scop();
@@ -666,6 +693,18 @@ void TpzTilingPass::insertOuterForLoop(Bundle &bundle, std::vector<ptile::ClastT
 		for (size_t ti = 0; ti < targets.size(); ++ti) {
 			struct clast_for *target = targets[ti];
 
+			// Bornes de la boucle de reduction de CE nid, capturees en texte
+			// avant qu'insertInnerLoopBounds n'y intercale lbt6/ubt6. Elles
+			// serviront a donner a chaque nid sa plage de tuiles exacte.
+			if (it->underGap) {
+				struct clast_for *rf = findLoopOn(&(target->stmt), it->innerFor->iterator);
+				if (rf)
+					it->redBounds.push_back({clastExprToString(cloogOptions, rf->LB),
+											 clastExprToString(cloogOptions, rf->UB)});
+				else
+					it->redBounds.push_back({"", ""});
+			}
+
 			// clast_insert_enclosing_for wraps the target AND all its following
 			// siblings; detach them so the wrap holds this nest only.
 			struct clast_stmt *trailing = target->stmt.next;
@@ -1012,41 +1051,76 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 		// for depth > 1 we do rectangular tiling
 		if (pair.depth > 1) {
 			if (pair.underGap) {
-				// The inner domain carries the artificial bound 0 <= z <= y that
-				// computeInnerDomain re-adds, so it cannot tell the two shapes
-				// apart. Cover both by maximising over the front: a reduction
-				// bounded by the point reaches _tpzub, one bounded by the gap
-				// minus the point reaches x - _tpzlb.
-				std::string gapIt = clastTilingPairs[0].innerFor->iterator;
-				std::string zlo = "min(0, _tpzlb - " + gapIt + ")";
-				std::string zhi = "max(_tpzub, " + gapIt + " - _tpzlb)";
+				std::string gapIt   = clastTilingPairs[0].innerFor->iterator;
+				std::string pointIt = clastTilingPairs[1].innerFor->iterator;
 
-				// lbzt6 / ubzt6 : posés juste avant la boucle zt6, donc dans le
-				// corps de t2, après les bornes trapézoïdales dont ils dépendent.
-				std::string stmtStr = nameHelper.outerForLBName() + " = 0;";
-				stmtStr += nameHelper.outerForUBName() + " = ceild((" + zhi + ") - (" + zlo + ") + 1, " +
-						   nameHelper.divName() + ") - 1;";
-				// One tile loop per reduction nest (lu's two point loops): each
-				// gets its own bound statements so it recomputes lbt3/ubt3.
-				for (auto *h : pair.outerHeaderStmts)
-					macroData.defineFunc("S" + std::to_string(h->statement->number), "", stmtStr);
+				// Repli : plage couvrant les deux formes de plafond, utilisee
+				// quand la borne du nid n'est pas exploitable.
+				std::string wideLo = "min(0, _tpzlb - " + gapIt + ")";
+				std::string wideHi = "max(_tpzub, " + gapIt + " - _tpzlb)";
+
+				// Substituer les extremites du front dans la borne n'est exact que
+				// si celle-ci est monotone en l'indice de point. Vrai d'une
+				// expression affine ; un min/max d'expressions de sens contraires
+				// ne l'est pas, d'ou le repli.
+				auto affine = [](const std::string &e) {
+					return !e.empty() &&
+						   e.find("min(") == std::string::npos &&
+						   e.find("max(") == std::string::npos &&
+						   e.find("floord(") == std::string::npos &&
+						   e.find("ceild(") == std::string::npos;
+				};
+				auto subst = [](std::string e, const std::string &from, const std::string &to) {
+					std::string out; size_t i = 0;
+					while (i < e.size()) {
+						size_t p = e.find(from, i);
+						if (p == std::string::npos) { out += e.substr(i); break; }
+						size_t q = p + from.size();
+						bool lok = (p == 0) || (!isalnum((unsigned char)e[p-1]) && e[p-1] != '_');
+						bool rok = (q >= e.size()) || (!isalnum((unsigned char)e[q]) && e[q] != '_');
+						out += e.substr(i, p - i);
+						out += (lok && rok) ? to : from;
+						i = q;
+					}
+					return out;
+				};
+
+				// Une boucle de tuiles par nid de reduction, chacune avec la plage
+				// exacte de SA reduction : la plage large faisait parcourir des
+				// tuiles entierement vides sur les nids de forme canonique.
+				for (size_t ni = 0; ni < pair.outerHeaderStmts.size(); ++ni) {
+					std::string zlo = wideLo, zhi = wideHi;
+					if (ni < pair.redBounds.size() &&
+						affine(pair.redBounds[ni].first) && affine(pair.redBounds[ni].second)) {
+						const std::string &lb = pair.redBounds[ni].first;
+						const std::string &ub = pair.redBounds[ni].second;
+						zlo = "min(" + subst(lb, pointIt, "_tpzlb") + ", "
+									 + subst(lb, pointIt, "_tpzub") + ")";
+						zhi = "max(" + subst(ub, pointIt, "_tpzlb") + ", "
+									 + subst(ub, pointIt, "_tpzub") + ")";
+					}
+
+					std::string hdr = nameHelper.outerForLBName() + " = 0;";
+					hdr += nameHelper.outerForUBName() + " = ceild((" + zhi + ") - ("
+						 + zlo + ") + 1, " + nameHelper.divName() + ") - 1;";
+					macroData.defineFunc(
+						"S" + std::to_string(pair.outerHeaderStmts[ni]->statement->number), "", hdr);
+
+					std::string bdy = nameHelper.innerForLBName() + " = " + pair.outerFor->iterator
+									+ " * " + nameHelper.divName() + " + (" + zlo + ");";
+					bdy += nameHelper.innerForUBName() + " = min((" + pair.outerFor->iterator
+						 + " + 1) * " + nameHelper.divName() + " - 1 + (" + zlo + "), " + zhi + ");";
+					// La restriction du point reste neutre : son sens depend de la
+					// forme du nid, et les min/max interieurs ecartent deja les
+					// iterations vides.
+					bdy += "_tpzlb2 = _tpzlb;";
+					bdy += "_tpzub2 = _tpzub;";
+					macroData.defineFunc(
+						"S" + std::to_string(pair.outerBodyStmts[ni]->statement->number), "", bdy);
+				}
+
 				varDeclData.addVar(nameHelper.outerForLBName());
 				varDeclData.addVar(nameHelper.outerForUBName());
-
-				// corps de zt6 : bornes de la tuile de réduction.
-				stmtStr = nameHelper.innerForLBName() + " = " + pair.outerFor->iterator + " * " + nameHelper.divName() +
-						  " + (" + zlo + ");";
-				stmtStr += nameHelper.innerForUBName() + " = min((" + pair.outerFor->iterator + " + 1) * " +
-						   nameHelper.divName() + " - 1 + (" + zlo + "), " + zhi + ");";
-				// Restricting the point to those whose reduction range meets the
-				// tile is an optimisation, and its direction depends on how each
-				// nest bounds its reduction — upper for one bounded by y, lower
-				// for one bounded by x - y. The inner min/max against each nest's
-				// own bounds already skips the empty iterations, so stay neutral.
-				stmtStr += "_tpzlb2 = _tpzlb;";
-				stmtStr += "_tpzub2 = _tpzub;";
-				for (auto *b : pair.outerBodyStmts)
-					macroData.defineFunc("S" + std::to_string(b->statement->number), "", stmtStr);
 				varDeclData.addVar(nameHelper.innerForLBName());
 				varDeclData.addVar(nameHelper.innerForUBName());
 				varDeclData.addVar("_tpzlb2");
