@@ -808,7 +808,6 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 
 	{
 		isl_printer *dp = isl_printer_to_str(this->ctx);
-
 		// pour le commentaire gen_maxcut : domaine sans nom de tuple
 		isl_set *domainForComment = isl_set_copy(innerDomain);
 		domainForComment = isl_set_set_tuple_name(domainForComment, nullptr);
@@ -830,18 +829,45 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 		}
 		std::string tArg = (gapStride == 1) ? std::string("$DIV0") : ("$((DIV0 * " + std::to_string(gapStride) + "))");
 
+		// Minimum de la premiere dimension. gen_maxcut le calcule par lexmin mais
+		// echoue quand il est defini par morceaux, et il change avec le domaine :
+		// un --f1 perime decale tout le comptage d'un gap sans rien signaler.
+		// Le domaine etant ici sous forme isl, autant emettre la valeur.
+		std::string f1Arg;
+		{
+			isl_pw_aff *mn = isl_set_dim_min(isl_set_copy(innerDomain), 0);
+			struct C { long v; bool ok; } c{0, false};
+			if (mn) {
+				isl_pw_aff_foreach_piece(
+					mn,
+					+[](__isl_take isl_set *s, __isl_take isl_aff *a, void *user) -> isl_stat {
+						auto *c = static_cast<C *>(user);
+						if (!c->ok && isl_aff_is_cst(a) == isl_bool_true) {
+							isl_val *v = isl_aff_get_constant_val(a);
+							c->v = isl_val_get_num_si(v);
+							c->ok = true;
+							isl_val_free(v);
+						}
+						isl_set_free(s);
+						isl_aff_free(a);
+						return isl_stat_ok;
+					},
+					&c);
+				isl_pw_aff_free(mn);
+			}
+			if (c.ok)
+				f1Arg = "      --f1 " + std::to_string(c.v) + " \\\n";
+		}
+
 		std::string maxcutCmd = "/* max_cut_volume() comes from maxcut.h.\n"
 								" * Regenerate it for THIS transformed domain (set --t to your DIV0 value):\n"
 								"    python3 gen_maxcut.py \\\n"
-								"      --domain \"" +
-								domainStr +
-								"\" \\\n"
-								"      --t " +
-								tArg +
-								" \\\n"
+								"      --domain \"" + domainStr + "\" \\\n"
+								"      --t " + tArg + " \\\n"
+								+ f1Arg +
 								"      --func max_cut_volume \\\n"
 								"      --out maxcut.h\n"
-								" * gen_maxcut computes min(x1) by lexmin; add --f1 <x_min> if it is piecewise.\n"
+								" * The --f1 above is min(x1) on this domain; it changes with the domain.\n"
 								" */";
 		macroData.nonProcessedList.push_back(maxcutCmd);
 	}
