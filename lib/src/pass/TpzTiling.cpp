@@ -1308,6 +1308,24 @@ __isl_give isl_set *TpzTilingPass::computeInnerDomain(pesto::ir::ClastIR &clastI
 				return isl_stat_ok;
 			},
 			&a);
+		// Etendue reelle de la reduction, prise sur les instructions de profondeur
+		// maximale. La borne inventee 0 <= t_red <= t_{nOuter-1} fait croitre le
+		// comptage lineairement avec l'indice de front, donc son cumul
+		// quadratiquement : les frontieres de tranches sortent en racine carree.
+		// Mesure sur nw, ou le travail est pourtant constant le long du front :
+		// les largeurs vont de 83 a 6, et le thread le plus charge fait douze fois
+		// le moins charge.
+		struct Deep { isl_set *acc; int maxDim; } dp{nullptr, maxDim};
+		isl_union_set_foreach_set(
+			domain,
+			+[](__isl_take isl_set *s, void *user) -> isl_stat {
+				auto *dp = static_cast<Deep *>(user);
+				if (isl_set_dim(s, isl_dim_set) != dp->maxDim) { isl_set_free(s); return isl_stat_ok; }
+				s = isl_set_set_tuple_name(s, nullptr);
+				dp->acc = dp->acc ? isl_set_union(dp->acc, s) : s;
+				return isl_stat_ok;
+			},
+			&dp);
 		isl_union_set_free(domain);
 
 		// Hull on the outer dims only: hulling padded domains of different
@@ -1321,16 +1339,46 @@ __isl_give isl_set *TpzTilingPass::computeInnerDomain(pesto::ir::ClastIR &clastI
 		// Re-add the reduction dim with its own bounds: 0 <= t_red <= t_{nOuter-1}.
 		set = outer;
 		if (nRed > 0) {
-			// Re-add the reduction dim with its own bounds: 0 <= t_red <= t_{nOuter-1}.
 			set = isl_set_add_dims(set, isl_dim_set, nRed);
-			isl_local_space *ls = isl_local_space_from_space(isl_set_get_space(set));
-			isl_constraint *lo = isl_constraint_alloc_inequality(isl_local_space_copy(ls));
-			lo = isl_constraint_set_coefficient_si(lo, isl_dim_set, nOuter, 1);
-			set = isl_set_add_constraint(set, lo);
-			isl_constraint *hi = isl_constraint_alloc_inequality(ls);
-			hi = isl_constraint_set_coefficient_si(hi, isl_dim_set, nOuter, -1);
-			hi = isl_constraint_set_coefficient_si(hi, isl_dim_set, nOuter - 1, 1);
-			set = isl_set_add_constraint(set, hi);
+			if (dp.acc) {
+				isl_set *deep = isl_set_coalesce(dp.acc);
+				if (isl_set_n_basic_set(deep) != 1) {
+					logger->debug("deep domain not convex after coalesce, falling back to hull");
+					deep = isl_set_from_basic_set(isl_set_convex_hull(deep));
+				}
+				// Pas d'align_params : la projection laisse un parametre anonyme
+				// dans set, et isl refuse d'aligner sur un modele non nomme. Les
+				// deux ensembles viennent du meme scop, leurs parametres sont
+				// deja dans le meme ordre.
+				int nd = isl_set_dim(set, isl_dim_set);
+				for (int k = 0; k < nd; k++) {
+					std::string nm = "d" + std::to_string(k);
+					set  = isl_set_set_dim_name(set,  isl_dim_set, k, nm.c_str());
+					deep = isl_set_set_dim_name(deep, isl_dim_set, k, nm.c_str());
+				}
+				set  = isl_set_set_tuple_name(set,  "T");
+				deep = isl_set_set_tuple_name(deep, "T");
+				isl_set *inter = isl_set_intersect(isl_set_copy(set), deep);
+				if (inter) {
+					isl_set_free(set);
+					set = inter;
+				} else {
+					logger->warn("inner domain: could not intersect the real reduction extent");
+				}
+			} else {
+				// Repli : aucun domaine profond retrouve, on garde l'ancien
+				// intervalle plutot que de laisser la dimension non bornee.
+				isl_local_space *ls = isl_local_space_from_space(isl_set_get_space(set));
+				isl_constraint *lo = isl_constraint_alloc_inequality(isl_local_space_copy(ls));
+				lo = isl_constraint_set_coefficient_si(lo, isl_dim_set, nOuter, 1);
+				set = isl_set_add_constraint(set, lo);
+				isl_constraint *hi = isl_constraint_alloc_inequality(ls);
+				hi = isl_constraint_set_coefficient_si(hi, isl_dim_set, nOuter, -1);
+				hi = isl_constraint_set_coefficient_si(hi, isl_dim_set, nOuter - 1, 1);
+				set = isl_set_add_constraint(set, hi);
+			}
+		} else {
+			if (dp.acc) isl_set_free(dp.acc);
 		}
 	}
 
