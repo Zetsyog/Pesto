@@ -574,14 +574,35 @@ std::vector<pesto::pass::ptile::ClastTilingPair> TpzTilingPass::computeTilingPai
 	// level is a space dimension — life and seidel-2d have three levels, 3d7pt
 	// four — so every pair stacks above the point loops.
 	if (this->hasReduction_ && clastTilingPairs.size() == 3) {
+		// Le corps de la boucle point contient-il autre chose que les nids de
+		// reduction ? Au-dessus du gap, aucune scission n'est possible : la
+		// finalisation devrait suivre toutes les tuiles, donc tous les gaps, et
+		// serait trop tardive pour les gaps suivants qui la lisent.
+		bool bodyNeedsSplit = false;
+		{
+			struct clast_for *point = clastTilingPairs[1].innerFor;
+			const char *redIt = clastTilingPairs[2].innerFor->iterator;
+			for (struct clast_stmt *s = point->body; s != NULL; s = s->next)
+				if (!containsReductionLoop(s, redIt)) { bodyNeedsSplit = true; break; }
+		}
+
 		if (this->scalarInReduction_) {
 			// Correctness, not a placement preference: no form of z tiling works.
 			clastTilingPairs.resize(2);
 		} else if (this->reductionAboveGap_.has_value()) {
-			clastTilingPairs[2].underGap = !(*this->reductionAboveGap_);
-			if (!*this->reductionAboveGap_ && !this->underGapLegal_)
-				logger->warn("reductionTileAboveGap=false forces the reduction tile under "
-							 "the gap although the legality test says otherwise");
+			if (*this->reductionAboveGap_ && bodyNeedsSplit) {
+				// nw et sw y produisaient une sortie fausse en silence : chaque
+				// tuile reinitialisait l'accumulateur et ecrasait la finalisation
+				// a partir d'une somme partielle.
+				logger->warn("reductionTileAboveGap=true is not applicable: the point loop "
+							 "body needs a split; reduction not tiled");
+				clastTilingPairs.resize(2);
+			} else {
+				clastTilingPairs[2].underGap = !(*this->reductionAboveGap_);
+				if (!*this->reductionAboveGap_ && !this->underGapLegal_)
+					logger->warn("reductionTileAboveGap=false forces the reduction tile under "
+								 "the gap although the legality test says otherwise");
+			}
 		} else if (!this->zTileable_) {
 			if (this->underGapLegal_)
 				clastTilingPairs[2].underGap = true;
@@ -1090,10 +1111,13 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 				// tuiles entierement vides sur les nids de forme canonique.
 				for (size_t ni = 0; ni < pair.outerHeaderStmts.size(); ++ni) {
 					std::string zlo = wideLo, zhi = wideHi;
-					if (ni < pair.redBounds.size() &&
-						affine(pair.redBounds[ni].first) && affine(pair.redBounds[ni].second)) {
-						const std::string &lb = pair.redBounds[ni].first;
-						const std::string &ub = pair.redBounds[ni].second;
+					std::string lb, ub;
+					bool tight = ni < pair.redBounds.size() &&
+								 affine(pair.redBounds[ni].first) &&
+								 affine(pair.redBounds[ni].second);
+					if (tight) {
+						lb = pair.redBounds[ni].first;
+						ub = pair.redBounds[ni].second;
 						zlo = "min(" + subst(lb, pointIt, "_tpzlb") + ", "
 									 + subst(lb, pointIt, "_tpzub") + ")";
 						zhi = "max(" + subst(ub, pointIt, "_tpzlb") + ", "
@@ -1110,11 +1134,36 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 									+ " * " + nameHelper.divName() + " + (" + zlo + ");";
 					bdy += nameHelper.innerForUBName() + " = min((" + pair.outerFor->iterator
 						 + " + 1) * " + nameHelper.divName() + " - 1 + (" + zlo + "), " + zhi + ");";
-					// La restriction du point reste neutre : son sens depend de la
-					// forme du nid, et les min/max interieurs ecartent deja les
-					// iterations vides.
-					bdy += "_tpzlb2 = _tpzlb;";
-					bdy += "_tpzub2 = _tpzub;";
+
+					if (tight) {
+						const std::string LZ = nameHelper.innerForLBName();
+						const std::string UZ = nameHelper.innerForUBName();
+						// Restreindre le front aux points dont la plage de reduction
+						// rencontre la tuile. Sans cette restriction chaque tuile
+						// reparcourt tout le front, dont une large part n'a rien a y
+						// faire : sur nw et counting_im cela double le temps.
+						// Le sens de la restriction depend de la pente de la borne le
+						// long du front, mesuree ici a ses deux extremites — croissante
+						// elle donne un plancher, decroissante un plafond. Une pente
+						// autre que +/-1 ne restreint rien, ce qui est conservateur.
+						bdy += "_zub_lo = " + subst(ub, pointIt, "_tpzlb") + ";";
+						bdy += "_zub_hi = " + subst(ub, pointIt, "_tpzub") + ";";
+						bdy += "_zlb_lo = " + subst(lb, pointIt, "_tpzlb") + ";";
+						bdy += "_zlb_hi = " + subst(lb, pointIt, "_tpzub") + ";";
+						bdy += "_tpzw = _tpzub - _tpzlb;";
+						bdy += "_tpzlb2 = _tpzlb; _tpzub2 = _tpzub;";
+						bdy += "if (_zub_hi - _zub_lo == _tpzw) "
+							   "_tpzlb2 = max(_tpzlb2, _tpzlb + " + LZ + " - _zub_lo);";
+						bdy += "else if (_zub_hi - _zub_lo == -_tpzw) "
+							   "_tpzub2 = min(_tpzub2, _tpzlb + _zub_lo - " + LZ + ");";
+						bdy += "if (_zlb_hi - _zlb_lo == _tpzw) "
+							   "_tpzub2 = min(_tpzub2, _tpzlb + " + UZ + " - _zlb_lo);";
+						bdy += "else if (_zlb_hi - _zlb_lo == -_tpzw) "
+							   "_tpzlb2 = max(_tpzlb2, _tpzlb + _zlb_lo - " + UZ + ");";
+					} else {
+						bdy += "_tpzlb2 = _tpzlb;";
+						bdy += "_tpzub2 = _tpzub;";
+					}
 					macroData.defineFunc(
 						"S" + std::to_string(pair.outerBodyStmts[ni]->statement->number), "", bdy);
 				}
@@ -1125,6 +1174,11 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 				varDeclData.addVar(nameHelper.innerForUBName());
 				varDeclData.addVar("_tpzlb2");
 				varDeclData.addVar("_tpzub2");
+				varDeclData.addVar("_zub_lo");
+				varDeclData.addVar("_zub_hi");
+				varDeclData.addVar("_zlb_lo");
+				varDeclData.addVar("_zlb_hi");
+				varDeclData.addVar("_tpzw");
 
 				for (auto *s : pair.innerBodyStmts0)
 					macroData.defineFunc("S" + std::to_string(s->statement->number), "", "");
@@ -1631,7 +1685,7 @@ void TpzTilingPass::insertOmpPragmas(pesto::ir::ClastIR &clastIR,
 	}
 	privateVars += std::string(", _tpzlb") + ", _tpzub" + ", tile_offset";
 	if (clastTilingPairs.size() == 3 && clastTilingPairs[2].underGap)
-		privateVars += ", _tpzlb2, _tpzub2";
+		privateVars += ", _tpzlb2, _tpzub2, _zub_lo, _zub_hi, _zlb_lo, _zlb_hi, _tpzw";
 
 	// Scalars written in the region are not indexed by the point: without this,
 	// every slice shares one location (symm's temp2).
