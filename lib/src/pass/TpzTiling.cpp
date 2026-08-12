@@ -585,8 +585,16 @@ std::vector<pesto::pass::ptile::ClastTilingPair> TpzTilingPass::computeTilingPai
 			for (struct clast_stmt *s = point->body; s != NULL; s = s->next)
 				if (!containsReductionLoop(s, redIt)) { bodyNeedsSplit = true; break; }
 		}
-
-		if (this->scalarInReduction_) {
+		
+		if (!this->tileReduction_) {
+			// Choix de configuration : sans tuilage de la reduction, pas de
+			// scission, donc le corps du point reste d'un seul tenant et ses
+			// accumulateurs peuvent rester en registre. Sur nw et sw la scission
+			// materialise m1 et m2 en memoire et fait balayer le front cinq fois
+			// par gap, ce qui coute plus que le pavage ne rapporte.
+			logger->info("tileReduction=false: reduction not tiled");
+			clastTilingPairs.resize(2);
+		} else if (this->scalarInReduction_) {
 			// Correctness, not a placement preference: no form of z tiling works.
 			clastTilingPairs.resize(2);
 		} else if (this->reductionAboveGap_.has_value()) {

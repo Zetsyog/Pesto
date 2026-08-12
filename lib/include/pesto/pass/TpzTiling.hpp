@@ -70,6 +70,7 @@ class TpzTilingPass : public IPass {
 	}
 	
 	void setReductionAboveGap(bool v) { reductionAboveGap_ = v; }
+	void setTileReduction(bool v) { this->tileReduction_ = v; }
 
   private:
 	isl_ctx *ctx;
@@ -112,6 +113,8 @@ class TpzTilingPass : public IPass {
 	bool hasReduction_ = false;
 	
 	std::optional<bool> reductionAboveGap_;   // non renseigné = automatique
+	
+	bool tileReduction_ = true;
 	
 	bool isCanonicalLayout(__isl_keep isl_union_set *deltas);
 	

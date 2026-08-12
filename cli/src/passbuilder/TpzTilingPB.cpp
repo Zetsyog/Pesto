@@ -39,6 +39,12 @@ std::unique_ptr<pesto::pass::IPass> TpzTilingPB::build(PassManagerBuilder &build
 				continue;
 			}
 			pass->setReductionAboveGap(val.get<bool>());
+		} else if (key == "tileReduction") {
+			if (!val.is_boolean()) {
+				logger->warn("Option {} must be a boolean. Ignoring.", key.c_str());
+				continue;
+			}
+			pass->setTileReduction(val.get<bool>());	
 		} else {
 			logger->warn("Unknown option {}. Ignoring.", key.c_str());
 		}
