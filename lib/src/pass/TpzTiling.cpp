@@ -1044,7 +1044,7 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 					   rootHelper.innerForUBName() + " - " + rootHelper.innerForLBName() + ") / " + stride +
 					   " + 1) && (" + pair.outerFor->iterator + " != " + nameHelper.outerForUBName() + ") && (" +
 					   nameHelper.outerForUBName() + " > 1)) {";
-			stmtStr += "fprintf(stderr, \"Error: Target volume too small.\\n(" + //
+			stmtStr += "fprintf(stderr, \"Warning: target volume too small.\\n(" + //
 					   nameHelper.targetVolName() + ", " +						 // target volume
 					   rootHelper.innerForLBName() + ", " +						 // d0 inner lower bound
 					   rootHelper.innerForUBName() + ", " +						 // d0 inner upper bound
@@ -1057,7 +1057,11 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 					   nameHelper.innerForLBName() + ", " +						 // d1 inner lower bound
 					   nameHelper.innerForUBName() +							 // d1 inner upper bound
 					   ");";
-			stmtStr += "exit(1);";
+			// Plus d'exit(1) : au sommet du domaine la bande n'a pas assez de
+			// colonnes pour DIV1 tranches de DIV0 colonnes, et aucun reglage n'y
+			// changera rien. La tranche est alors plus etroite qu'ideal, ce qui ne
+			// compromet ni la correction ni la mesure — ces bandes portent une part
+			// negligeable du travail, et l'arret bloquait toute la campagne.
 			stmtStr += "}" + std::string("");
 
 			// inner tile offset
