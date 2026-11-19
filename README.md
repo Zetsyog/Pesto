@@ -59,7 +59,7 @@ cmake .. -DPESTO_BUILD_JOBS=16
 cmake --build . -j
 # make install # not implemented
 # now you can call cli with
-./pesto [args]
+./cli/pesto [args]
 ```
 
 ### Build using Docker
@@ -176,7 +176,31 @@ flake.nix
 
 ## CLI interface
 
-Using cli (*TODO*)
+After building, the executable is `build/cli/pesto`. With no configuration file,
+PESTO applies Pluto transformations and generates C through CLooG:
+
+```bash
+./build/cli/pesto test/workflow/kernel.c -o /tmp/kernel.pesto.c
+gcc -O2 -fopenmp test/workflow/kernel.c -o /tmp/kernel.baseline -lm
+gcc -O2 -fopenmp /tmp/kernel.pesto.c -o /tmp/kernel.transformed -lm
+/tmp/kernel.baseline > /tmp/kernel.expected
+OMP_NUM_THREADS=2 /tmp/kernel.transformed > /tmp/kernel.actual
+cmp /tmp/kernel.expected /tmp/kernel.actual
+```
+
+The equivalent JSON pipeline is in `test/workflow/default.json`:
+
+```bash
+./build/cli/pesto --config test/workflow/default.json test/workflow/kernel.c -o /tmp/kernel.pesto.c
+```
+
+This source-to-source workflow accepts one `#pragma scop` / `#pragma endscop`
+region per C input file. Input and output must be different files, and the output
+directory must already exist. Generated iterators have their own block scope.
+Intermediate code is isolated per invocation and removed when the bundle is
+destroyed; the final source is published only after it has been written successfully.
+Failures return a nonzero exit status. `--readscop` remains available for analysis
+and dump pipelines; assembling a complete C source requires the original C input.
 
 ### JSON configuration
 
@@ -190,53 +214,33 @@ pesto --config opt.json 2mm.c -o 2mm.pesto.c
 
 ```json
 {
-    "options": {
-        "input-format": "c"
-    },
     "passes": [
-        {
-            "uuid": "pluto",
-            "options": {
-                "tile": false,
-                "parallel": false,
-                "prevector": false,
-                "silent": true
-            }
-        },
-        {
-            "uuid": "split-nested-loops"
-        },
-        {
-            "uuid": "param-tiling",
-            "gen-trahrhe": true,
-            "trahrhe-mask": "d",
-            "pluto": {
-                "options": {
-                    "tile": true,
-                    "parallel": true,
-                    "prevector": true,
-                    "intratileopt": true
-                }
-            }
-        },
-        {
-            "uuid": "clast-custom-vec-pragma",
-            "pragma": "GCC ivdep"
-        },
-        {
-            "uuid": "codegen-cloog"
-        }
+        { "uuid": "pluto" },
+        { "uuid": "codegen-cloog" }
     ]
 }
 ```
 
 ## Test (wip)
 
+Run the fast workflow regressions (builds the CLI and unit tests first):
+
+```bash
+cmake -S . -B build
+cmake --build build --target check-workflow -j4
+```
+
+These checks exercise default and JSON pipelines, skew pass integration, generated
+code compilation and full output comparison at sizes 1, 7, and 24 with one and two
+threads, concurrent invocations, and error handling. Once built, they can also run
+from the build root with `ctest --test-dir build --output-on-failure -L workflow`.
+
 ```bash
 # Unit tests (wip)
-cmake --build . --target pesto-unit-tests
+cmake --build build --target unit-tests
 # polybench
-cmake --build . --target test-polybench
+cmake --build build --target test-polybench-hybrid
+cmake --build build --target test-polybench-tpz
 ```
 
 ### Tested benchmarks
