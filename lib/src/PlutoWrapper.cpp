@@ -12,7 +12,9 @@
 
 #include <pesto/Pluto.hpp>
 
+#include <algorithm>
 #include <iostream>
+#include <stdexcept>
 
 using namespace pesto;
 
@@ -26,6 +28,22 @@ PlutoWrapper::~PlutoWrapper() {
 }
 
 void PlutoWrapper::run(osl_scop_p scop) {
+	// Pluto's OSL importer exits the process on these relations. Reject them
+	// at the library boundary so callers get an actionable, catchable error.
+	auto check = [](osl_relation_p relation) {
+		for (; relation; relation = relation->next) {
+			if (relation->nb_local_dims > 0) {
+				throw std::invalid_argument(
+					"Pluto does not support local dimensions (including non-unit loop strides)");
+			}
+		}
+	};
+	for (auto *stmt = scop->statement; stmt; stmt = stmt->next) {
+		check(stmt->domain);
+		check(stmt->scattering);
+		for (auto *access = stmt->access; access; access = access->next)
+			check(access->elt);
+	}
 	pluto_options_validate(context->options);
 	// TODO: should be this done in place, or should we create a new scop?
 	PlutoProg *pluto_prog = osl_scop_to_pluto_prog(scop, context);
@@ -99,16 +117,13 @@ PlutoOptions &PlutoWrapper::getOptions() {
 }
 
 PlutoWrapper &PlutoWrapper::setTileSizes(std::initializer_list<int> sizes) {
-	if (getOptions().tile_sizes != nullptr) {
-		free(getOptions().tile_sizes);
-	}
-	getOptions().tile_sizes_len = sizes.size();
-	getOptions().tile_sizes = (int *)malloc(getOptions().tile_sizes_len * sizeof(int));
-	std::copy(sizes.begin(), sizes.end(), getOptions().tile_sizes);
-	return *this;
+	return setTileSizes(std::vector<int>(sizes));
 }
 
 PlutoWrapper &PlutoWrapper::setTileSizes(std::vector<int> sizes) {
+	if (sizes.empty() || std::any_of(sizes.begin(), sizes.end(), [](int size) { return size <= 0; })) {
+		throw std::invalid_argument("Tile sizes must be a nonempty list of strictly positive integers");
+	}
 	if (getOptions().tile_sizes != nullptr) {
 		free(getOptions().tile_sizes);
 	}
@@ -119,6 +134,9 @@ PlutoWrapper &PlutoWrapper::setTileSizes(std::vector<int> sizes) {
 }
 
 PlutoWrapper &PlutoWrapper::pushTileSize(int size) {
+	if (size <= 0) {
+		throw std::invalid_argument("Tile sizes must be strictly positive integers");
+	}
 	getOptions().tile_sizes_len += 1;
 	getOptions().tile_sizes = (int *)realloc(getOptions().tile_sizes, getOptions().tile_sizes_len * sizeof(int));
 	getOptions().tile_sizes[getOptions().tile_sizes_len - 1] = size;

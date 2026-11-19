@@ -96,9 +96,8 @@ pesto::pass::ClastParamTilingPass::ClastParamTilingPass()
 	this->gen_clast_pass = std::make_unique<GenClastPass>();
 	this->gen_clast_pass->cloogF = -1;
 	this->gen_clast_pass->cloogL = 1;
-	// TODO: WHY IS THIS HERE?
-	// This should be set in a separate pass
-	this->gen_clast_pass->codegenContext = 1;
+	// Keep guards for empty parameter domains; generated counting functions
+	// are only defined where the iteration domain is nonempty.
 
 	this->ctx = isl_ctx_alloc();
 	this->printer = isl_printer_to_str(this->ctx);

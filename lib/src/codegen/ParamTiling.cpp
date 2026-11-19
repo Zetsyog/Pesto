@@ -179,7 +179,8 @@ void ParamTilingCodegen::genHeaderStmtRectangular(std::ostream &os) {
 	if (this->data.innerForLBExpr.length() > 0) {
 		os << " - (" << this->data.innerForLBExpr << ")";
 	}
-	os << ", " << this->nameHelper.divName() << ") - 1";
+	// CLooG bounds are inclusive: a singleton interval contains one point.
+	os << " + 1, " << this->nameHelper.divName() << ") - 1";
 }
 
 void ParamTilingCodegen::genHeaderStmtAlgebraic(std::ostream &os) {

@@ -59,6 +59,14 @@ Bundle CloogCodegenPass::apply(Bundle &&bundle) {
 	if (!program || !program->names || !options || !root) {
 		throw std::runtime_error("CloogCodegenPass: incomplete Cloog AST");
 	}
+	// clast_pprint emits these helpers in bounds, but does not define them.
+	// Expand them in the private preprocessing stage rather than relying on
+	// benchmark headers or adding macros to the user's translation unit.
+	auto &macro = bundle.metadata.get<pesto::bundle::metadata::Macro>();
+	macro.defineFunc("min", "x,y", "((x) < (y) ? (x) : (y))");
+	macro.defineFunc("max", "x,y", "((x) > (y) ? (x) : (y))");
+	macro.defineFunc("floord", "n,d", "((n)/(d) - ((n)%(d) != 0 && ((n)<0) != ((d)<0)))");
+	macro.defineFunc("ceild", "n,d", "((n)/(d) + ((n)%(d) != 0 && ((n)<0) == ((d)<0)))");
 
 	// Generate variable declarations
 	auto &varDecl = bundle.metadata.get<pesto::bundle::metadata::VarDecl>();
