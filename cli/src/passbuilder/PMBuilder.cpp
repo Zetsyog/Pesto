@@ -78,6 +78,9 @@ std::unique_ptr<pesto::PassManager> PassManagerBuilder::build(std::string path) 
 	std::unique_ptr<PassManager> pm = std::make_unique<PassManager>();
 
 	try {
+		if (!j.at("passes").is_array()) {
+			throw std::invalid_argument("Configuration field 'passes' must be an array");
+		}
 		for (const auto &json_pass : j.at("passes")) {
 			auto pass = this->buildPass(json_pass);
 			if (pass) {
@@ -100,8 +103,7 @@ bool PassManagerBuilder::hasPassBuilder(std::string uuid) {
 std::unique_ptr<pesto::pass::IPass> PassManagerBuilder::buildPass(const json &j) {
 	// Build a pass from a JSON object
 	if (j.contains("uuid") == false) {
-		logger->error("Can't parse pass. JSON object does not contain a uuid field");
-		return nullptr;
+		throw std::invalid_argument("Each pass must contain a uuid field");
 	}
 	std::string uuid = j["uuid"];
 	auto builder = this->getPassBuilder(uuid);

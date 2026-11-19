@@ -16,11 +16,12 @@
 #include <pesto/metadata/VarDecl.hpp>
 #include <pesto/pass/CloogCodegen.hpp>
 #include <pesto/pass/clast/GenClast.hpp>
+#include <pesto/utils/TemporaryDirectory.hpp>
 
 using namespace pesto;
 using namespace pesto::pass;
 
-CloogCodegenPass::CloogCodegenPass() : IPass("codegen-cloog"), genClastPass() {}
+CloogCodegenPass::CloogCodegenPass() : IPass("codegen-cloog"), genClastPass(std::make_unique<GenClastPass>()) {}
 
 CloogCodegenPass::~CloogCodegenPass() {}
 
@@ -33,7 +34,12 @@ std::string CloogCodegenPass::outputIR() const {
 }
 
 Bundle CloogCodegenPass::apply(Bundle &&bundle) {
-	std::filesystem::path outputPath(".output.cloog.c");
+	// Keep the workspace alive with the bundle, including for library callers.
+	auto &workspace = bundle.metadata.get<std::shared_ptr<utils::TemporaryDirectory>>();
+	if (!workspace) {
+		workspace = std::make_shared<utils::TemporaryDirectory>();
+	}
+	const auto outputPath = workspace->path() / "output.cloog.c";
 	std::string path = outputPath.string();
 
 	if (bundle.ir_id() == pesto::ir::OpenScopIR::getID()) {
@@ -50,6 +56,9 @@ Bundle CloogCodegenPass::apply(Bundle &&bundle) {
 	CloogProgram *program = clastIR.getCloogProgram();
 	CloogOptions *options = clastIR.getCloogOptions();
 	struct clast_stmt *root = clastIR.get();
+	if (!program || !program->names || !options || !root) {
+		throw std::runtime_error("CloogCodegenPass: incomplete Cloog AST");
+	}
 
 	// Generate variable declarations
 	auto &varDecl = bundle.metadata.get<pesto::bundle::metadata::VarDecl>();
@@ -61,28 +70,19 @@ Bundle CloogCodegenPass::apply(Bundle &&bundle) {
 		varDecl.addVar(program->names->scattering[i]);
 	}
 
-	logger->info("Writing var decls to {}", outputPath.string().c_str());
-
-	std::ofstream outFile;
-	outFile.open(outputPath, std::ios::out);
-	if (!outFile.is_open()) {
-		logger->error("Failed to open file: {}", outputPath.string().c_str());
-		throw std::runtime_error("Failed to open output file for writing variable declarations");
-	}
-
-	outFile.close();
-
-	assert(options != nullptr);
-	assert(program != nullptr);
-	assert(root != nullptr);
-
 	logger->info("Writing code to {}", path.c_str());
 
-	FILE *file = fopen(path.c_str(), "a");
+	FILE *file = fopen(path.c_str(), "w");
+	if (!file) {
+		throw std::runtime_error("Failed to open generated code file: " + path);
+	}
 	// then print cloog ast
 	clast_pprint(file, root, 0, options);
 
-	fclose(file);
+	const bool writeFailed = ferror(file) != 0;
+	if (fclose(file) != 0 || writeFailed) {
+		throw std::runtime_error("Failed to write generated code file: " + path);
+	}
 
 	bundle.set_ir(nullptr);
 	bundle.add_byproduct(std::make_unique<pesto::bundle::byproduct::OutputSourceFile>(outputPath));
@@ -90,5 +90,8 @@ Bundle CloogCodegenPass::apply(Bundle &&bundle) {
 }
 
 void pesto::pass::CloogCodegenPass::setGenClastPass(std::unique_ptr<pesto::pass::GenClastPass> pass) {
+	if (!pass) {
+		throw std::invalid_argument("CloogCodegenPass: cannot use a null GenClastPass");
+	}
 	this->genClastPass = std::move(pass);
 }

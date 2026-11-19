@@ -22,8 +22,8 @@ using namespace pesto::pass;
 SkewPass::SkewPass() : IPass("skew") {}
 SkewPass::~SkewPass() {}
 
-std::set<std::string> SkewPass::inputIR() const { return {"OpenScopIR"}; }
-std::string SkewPass::outputIR() const { return "OpenScopIR"; }
+std::set<std::string> SkewPass::inputIR() const { return {pesto::ir::OpenScopIR::getID()}; }
+std::string SkewPass::outputIR() const { return pesto::ir::OpenScopIR::getID(); }
 
 void SkewPass::setTransform(const std::vector<std::string> &lines) {
 	transform_ = SkewTransform::parse(lines);

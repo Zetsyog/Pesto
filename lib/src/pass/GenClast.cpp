@@ -55,7 +55,7 @@ Bundle GenClastPass::apply(Bundle &&bundle) {
 	while (statement != NULL) {
 		osl_body_p body = (osl_body_p)osl_generic_lookup(statement->extension, OSL_URI_BODY);
 		if (body == NULL) {
-			continue;
+			throw std::runtime_error("Clast generation requires a body for every statement");
 		}
 		int it_size = osl_strings_size(body->iterators);
 		// osl statements are 1-indexed

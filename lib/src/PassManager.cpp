@@ -29,7 +29,8 @@ Bundle PassManager::run(Bundle &&bundle) {
 						 pass->getName().c_str());
 			return current;
 		}
-		if (pass->inputIR().find(current.get_ir()->id()) == pass->inputIR().end()) {
+		const auto acceptedIRs = pass->inputIR();
+		if (acceptedIRs.find(current.get_ir()->id()) == acceptedIRs.end()) {
 			logger->error("Pass '{}' cannot be applied to IR '{}'", pass->getName().c_str(),
 						  current.get_ir()->id().c_str());
 			throw std::runtime_error("PassManager: incompatible pass and IR");
@@ -41,5 +42,8 @@ Bundle PassManager::run(Bundle &&bundle) {
 }
 
 void PassManager::addPass(std::unique_ptr<pass::IPass> pass) {
+	if (!pass) {
+		throw std::invalid_argument("PassManager: cannot add a null pass");
+	}
 	this->passList.push_back(std::move(pass));
 }

@@ -67,16 +67,18 @@ bool Options::isValid() {
 std::unique_ptr<Options> Options::build(int argc, char **argv) {
 	auto opt = std::make_unique<Options>();
 
+	// getopt keeps process-wide state; each build parses a fresh argument list.
+	optind = 0;
 	int c;
 	while (1) {
-		static struct option long_options[] = {{"readscop", no_argument, &opt->readScop_, 1},
-											   {"config", required_argument, 0, 'c'},
-											   {"output", required_argument, 0, 'o'},
-											   {"indent", no_argument, 0, 'i'},
-											   {"help", no_argument, 0, 'h'},
-											   {"version", no_argument, 0, 'v'},
-											   {"debug", no_argument, &opt->debug_, 1},
-											   {0, 0, 0, 0}};
+		struct option long_options[] = {{"readscop", no_argument, &opt->readScop_, 1},
+										{"config", required_argument, 0, 'c'},
+										{"output", required_argument, 0, 'o'},
+										{"indent", no_argument, 0, 'i'},
+										{"help", no_argument, 0, 'h'},
+										{"version", no_argument, 0, 'v'},
+										{"debug", no_argument, &opt->debug_, 1},
+										{0, 0, 0, 0}};
 
 		int option_index = 0;
 
@@ -105,17 +107,19 @@ std::unique_ptr<Options> Options::build(int argc, char **argv) {
 			opt->printVersion_ = 1;
 			break;
 		case '?':
-			// getopt already printed a message
-			break;
+			throw std::invalid_argument("Unknown option or missing option argument");
 		default:
 			throw std::logic_error("Unexpected option");
 		}
 	}
-	if (optind != argc) {
+	if (argc - optind > 1) {
+		throw std::invalid_argument("Expected exactly one input file");
+	}
+	if (optind < argc) {
 		opt->input_ = argv[optind];
 	}
 
-	if (opt->output_ == std::nullopt) {
+	if (!opt->output_.has_value() && opt->input_.has_value()) {
 		opt->output_ = opt->input_->stem().string() + ".pesto.c";
 	}
 
