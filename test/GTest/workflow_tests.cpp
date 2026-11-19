@@ -2,6 +2,7 @@
 
 #include <pesto/Options.hpp>
 #include <pesto/PassManager.hpp>
+#include <pesto/Pluto.hpp>
 #include <pesto/ir/OpenScopIR.hpp>
 #include <pesto/pass/SkewPass.hpp>
 #include <pesto/pass/clast/GenClast.hpp>
@@ -98,6 +99,19 @@ TEST(GenClast, RejectsStatementsWithoutBodies) {
 	pesto::Bundle bundle(std::make_unique<pesto::ir::OpenScopIR>(scop));
 	pesto::pass::GenClastPass pass;
 	EXPECT_THROW(pass.apply(std::move(bundle)), std::runtime_error);
+}
+
+TEST(PlutoOptions, RejectsInvalidTileSizesWithoutChangingTheConfiguration) {
+	pesto::PlutoWrapper pluto;
+	pluto.setTileSizes({1, 3, 64});
+	EXPECT_THROW(pluto.setTileSizes({0}), std::invalid_argument);
+	EXPECT_THROW(pluto.setTileSizes({-1, 3}), std::invalid_argument);
+	EXPECT_THROW(pluto.setTileSizes(std::vector<int>{}), std::invalid_argument);
+	EXPECT_THROW(pluto.pushTileSize(0), std::invalid_argument);
+	EXPECT_EQ(pluto.getOptions().tile_sizes_len, 3);
+	EXPECT_EQ(pluto.getOptions().tile_sizes[0], 1);
+	EXPECT_EQ(pluto.getOptions().tile_sizes[1], 3);
+	EXPECT_EQ(pluto.getOptions().tile_sizes[2], 64);
 }
 
 } // namespace

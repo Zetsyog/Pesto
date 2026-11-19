@@ -1,5 +1,6 @@
 # unit tests (Google Test)
 add_subdirectory(GTest)
+add_subdirectory(regression)
 
 # Fast correctness checks, independent of the external benchmark suites.
 foreach(workflow_case IN ITEMS default json skew errors concurrent)
