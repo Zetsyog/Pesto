@@ -1,6 +1,8 @@
 # Exercise the public CLI, the generated C compiler, and the resulting program.
 file(MAKE_DIRECTORY "${WORK_DIR}")
 set(ENV{TMPDIR} "${WORK_DIR}")
+set(ENV{ASAN_OPTIONS} "detect_leaks=0:halt_on_error=1")
+set(ENV{UBSAN_OPTIONS} "halt_on_error=1:print_stacktrace=1")
 
 function(run)
     execute_process(

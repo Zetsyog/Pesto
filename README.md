@@ -235,6 +235,59 @@ code compilation and full output comparison at sizes 1, 7, and 24 with one and t
 threads, concurrent invocations, and error handling. Once built, they can also run
 from the build root with `ctest --test-dir build --output-on-failure -L workflow`.
 
+The compiler regression suite extends these smoke checks with small, deterministic
+kernels, rather than performance benchmarks:
+
+```bash
+cmake --build build --target check-regressions -j4
+```
+
+It checks empty and tiny domains, negative and shifted bounds, triangular domains,
+scalar temporaries, reductions with initialization and finalization, guarded loops,
+multiple statements and nests, and a time-dependent stencil. The matrix covers
+the default pipeline, Pluto tiles of size 3 and 64, rectangular parameter tiling,
+hybrid tiling, and algebraic tiling. Parameter tiling is checked with unit,
+uneven `(3,5,7)`, and oversized `(64,65,66)` dividers. Every generated program is
+compared against the original at sizes `0,1,2,3,4,7,8,9,17`, with two fixed input
+patterns and `1,2,4` OpenMP threads. Full result dumps include untouched borders;
+the fixtures use bounded integer arithmetic so equality is exact.
+
+Baseline and generated C are compiled with AddressSanitizer and
+UndefinedBehaviorSanitizer by default. Unsupported toolchains can explicitly use
+`-DPESTO_REGRESSION_SANITIZERS=OFF`. To instrument PESTO itself as well, enable:
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DPESTO_ENABLE_SANITIZERS=ON
+cmake --build build --target check-regressions -j4
+```
+
+This adds ASan/UBSan to PESTO's own C/C++ targets, keeps assertions enabled, and
+enables libstdc++ assertions without changing its ABI. External libraries retain
+their own build flags. LeakSanitizer is disabled: this suite checks memory-access
+safety and undefined behavior, rather than leaks in the dependency stack.
+Restore the ordinary build with
+`-DPESTO_ENABLE_SANITIZERS=OFF`.
+
+The suite has 47 CTest entries including the workflow tests and usually takes
+tens of seconds after building. The target uses a CTest processor budget of 8;
+individual matrix tests reserve 4 for their OpenMP runs. To replay a failure:
+
+```bash
+ctest --test-dir build --output-on-failure -R '^regression-triangle-algebraic$'
+```
+
+Inputs, generated code and headers, configurations, command logs, diagnostics,
+and result dumps remain in `build/test/regression/cases/<test-name>/`. Set
+`PESTO_REGRESSION_ARTIFACT_DIR` to change that directory. The CI job retains these
+artifacts when a test fails. No random sampling or timing thresholds are used.
+
+The strided-loop fixture goes directly through CLooG; Pluto's importer cannot
+handle its local dimensions and has a separate diagnostic regression. Nonpositive
+tile sizes and multiple SCoP regions must also fail cleanly. Trapezoidal tiling
+and its domain-specific `maxcut.h` generation remain in the benchmark workflows.
+To configure only the fast checks, use `-DPESTO_ENABLE_BENCHMARKS=OFF`; this avoids
+fetching the external performance benchmark repositories.
+
 ```bash
 # Unit tests (wip)
 cmake --build build --target unit-tests

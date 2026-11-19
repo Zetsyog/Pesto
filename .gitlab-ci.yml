@@ -50,11 +50,23 @@ build:pesto:
       echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
       export DOCKER_IMAGE=$(cat .gitlab-ci-docker-image)
       docker pull $DOCKER_IMAGE
-test:workflow:
+test:compiler-regressions:
   extends: .test
   script:
     - |
-      docker run --rm "$DOCKER_IMAGE" cmake --build build/ --target check-workflow
+      mkdir -p compiler-regressions
+      docker run --rm \
+        -v "$CI_PROJECT_DIR/compiler-regressions:/regression-artifacts" \
+        "$DOCKER_IMAGE" sh -c '
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug \
+            -DPESTO_ENABLE_SANITIZERS=ON -DPESTO_ENABLE_BENCHMARKS=OFF \
+            -DPESTO_REGRESSION_ARTIFACT_DIR=/regression-artifacts &&
+          cmake --build build/ --target check-regressions -j4'
+  artifacts:
+    when: on_failure
+    paths:
+      - compiler-regressions/
+    expire_in: 1 week
 test:polybench:algebraic:
   extends: .test
   script:

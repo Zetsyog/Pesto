@@ -26,6 +26,11 @@ add_custom_target(
 )
 
 # Pesto bench repository
+option(PESTO_ENABLE_BENCHMARKS "Configure the external performance benchmark suites" ON)
+if(NOT PESTO_ENABLE_BENCHMARKS)
+    return()
+endif()
+
 message(STATUS "Fetching pesto-bench repository")
 
 set(PESTO_BENCH_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/pesto-bench)
