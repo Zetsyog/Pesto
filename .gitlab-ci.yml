@@ -50,6 +50,11 @@ build:pesto:
       echo "$CI_REGISTRY_PASSWORD" | docker login $CI_REGISTRY -u $CI_REGISTRY_USER --password-stdin
       export DOCKER_IMAGE=$(cat .gitlab-ci-docker-image)
       docker pull $DOCKER_IMAGE
+test:workflow:
+  extends: .test
+  script:
+    - |
+      docker run --rm "$DOCKER_IMAGE" cmake --build build/ --target check-workflow
 test:polybench:algebraic:
   extends: .test
   script:

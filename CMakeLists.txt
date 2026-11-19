@@ -131,6 +131,7 @@ set(PESTO_CLI_BIN "${CMAKE_BINARY_DIR}/cli/pesto")
 # ##################################################################################################
 # Tests
 # ##################################################################################################
+enable_testing()
 add_subdirectory(test EXCLUDE_FROM_ALL)
 
 # TODO: Documentation if(DOXYGEN_FOUND) configure_file(${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile.in

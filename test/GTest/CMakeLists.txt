@@ -5,15 +5,17 @@ set(TEST_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR})
 
 add_executable(
     pesto_gtest
-    # osl_to_isl_test.cpp
-    dumb_test.cpp
+    workflow_tests.cpp
+    ${PROJECT_SOURCE_DIR}/cli/src/Options.cpp
 )
 
 add_dependencies(pesto_gtest pesto)
 
 target_link_libraries(pesto_gtest pesto GTest::gtest_main)
+target_include_directories(pesto_gtest PRIVATE ${PROJECT_SOURCE_DIR}/cli/include)
+target_compile_definitions(pesto_gtest PRIVATE _GLIBCXX_ASSERTIONS)
 
-gtest_discover_tests(pesto_gtest)
+gtest_discover_tests(pesto_gtest PROPERTIES LABELS workflow TIMEOUT 30)
 
 file(GLOB SCOP_FILES "${CMAKE_CURRENT_SOURCE_DIR}/*.scop")
 

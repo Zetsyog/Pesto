@@ -1,0 +1,6 @@
+{
+    "passes": [
+        { "uuid": "pluto" },
+        { "uuid": "codegen-cloog" }
+    ]
+}

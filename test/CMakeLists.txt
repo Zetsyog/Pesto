@@ -1,6 +1,29 @@
 # unit tests (Google Test)
 add_subdirectory(GTest)
 
+# Fast correctness checks, independent of the external benchmark suites.
+foreach(workflow_case IN ITEMS default json skew errors concurrent)
+    add_test(
+        NAME workflow-${workflow_case}
+        COMMAND ${CMAKE_COMMAND}
+            -DPESTO=$<TARGET_FILE:pesto-cli>
+            -DCC=${CMAKE_C_COMPILER}
+            -DCASE=${workflow_case}
+            -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/workflow
+            -DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/workflow-${workflow_case}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/workflow/run.cmake
+    )
+    set_tests_properties(workflow-${workflow_case} PROPERTIES LABELS workflow TIMEOUT 120)
+endforeach()
+
+add_custom_target(
+    check-workflow
+    COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -L workflow
+    DEPENDS pesto-cli pesto_gtest
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    COMMENT "Checking transform, compile, and result comparison workflows"
+)
+
 # Pesto bench repository
 message(STATUS "Fetching pesto-bench repository")
 
