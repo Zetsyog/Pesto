@@ -5,34 +5,46 @@ import json
 import os
 import re
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+# pylint: disable=wrong-import-position
 import harness  # noqa: E402
+from harness import CmdArg  # noqa: E402
+# pylint: enable=wrong-import-position
 
 
-def parse_args():
+class Args(argparse.Namespace):  # pylint: disable=too-few-public-methods
+    """Command-line arguments."""
+
+    pesto: str
+    source_dir: Path
+    work_dir: Path
+
+
+def parse_args() -> Args:
+    """Parse the command line."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pesto", required=True)
     parser.add_argument("--source-dir", required=True, type=Path)
     parser.add_argument("--work-dir", required=True, type=Path)
-    return parser.parse_args()
+    return parser.parse_args(namespace=Args())
 
 
-def body(args):
+def body(args: Args) -> None:
+    """Run every rejection case."""
     work = args.work_dir.resolve()
     work.mkdir(parents=True, exist_ok=True)
     os.environ.update(harness.SANITIZER_ENV, TMPDIR=str(work))
 
-    def reject(name, diagnostic, *pesto_args):
+    def reject(name: str, diagnostic: str, *pesto_args: CmdArg) -> None:
         generated = work / "generated.c"
         generated.unlink(missing_ok=True)
         out, err = work / f"{name}.out", work / f"{name}.err"
         with open(out, "wb") as out_file, open(err, "wb") as err_file:
             code = harness.spawn([args.pesto, *pesto_args, "-o", "generated.c"], work, 15,
-                                 out_file, err_file)
+                                 stdout=out_file, stderr=err_file)
         errors = err.read_text(errors="replace")
         if (code != 1 or not re.search(diagnostic, errors)
                 or harness.SANITIZER_REPORT.search(errors) or generated.exists()):
@@ -42,10 +54,11 @@ def body(args):
 
     fixtures = args.source_dir / "fixtures"
     shutil.copyfile(fixtures / "pointwise.c", work / "input.c")
-    for tiles in ([0], [-3, 2], []):
+    invalid_tiles: list[list[int]] = [[0], [-3, 2], []]
+    for tiles in invalid_tiles:
         config = {"passes": [{"uuid": "pluto", "options": {"tile": True, "tile-sizes": tiles}},
                              {"uuid": "codegen-cloog"}]}
-        (work / "invalid-tiles.json").write_text(json.dumps(config))
+        (work / "invalid-tiles.json").write_text(json.dumps(config), encoding="utf-8")
         reject(f"tiles-{json.dumps(tiles, separators=(',', ':'))}", "Tile sizes must be",
                "--config", "invalid-tiles.json", "input.c")
 
@@ -54,10 +67,10 @@ def body(args):
     shutil.copyfile(fixtures / "guarded_stride.c", work / "stride.c")
     reject("stride", "Pluto does not support local dimensions", "stride.c")
 
-    source = (work / "input.c").read_text().replace(
+    source = (work / "input.c").read_text(encoding="utf-8").replace(
         "#pragma endscop",
         "#pragma endscop\n#pragma scop\nfor(i=0;i<n;i++) output[i][0] += 1;\n#pragma endscop")
-    (work / "multiple.c").write_text(source)
+    (work / "multiple.c").write_text(source, encoding="utf-8")
     reject("multiple-regions", "Only one scop region", "multiple.c")
 
     leftovers = sorted(work.glob(".pesto-*"))
@@ -65,6 +78,11 @@ def body(args):
         raise harness.CaseFailed("Temporary workspace leak: " + " ".join(map(str, leftovers)))
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Entry point."""
     args = parse_args()
     harness.main(lambda: body(args))
+
+
+if __name__ == "__main__":
+    main()

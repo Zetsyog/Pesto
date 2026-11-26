@@ -1,6 +1,6 @@
 # Test scripts (test/harness/*.py) are plain-stdlib Python, run with -I so the
 # environment cannot inject modules, and -B so they never write into the source tree.
-find_package(Python3 3.8 COMPONENTS Interpreter REQUIRED)
+find_package(Python3 3.10 COMPONENTS Interpreter REQUIRED)
 set(PESTO_TEST_PYTHON "${Python3_EXECUTABLE}" -I -B)
 set(PESTO_TEST_HARNESS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/harness")
 

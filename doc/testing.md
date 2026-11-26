@@ -3,7 +3,7 @@
 Pesto's correctness tests are differential: a program and its transformed version
 are compiled with the same flags, run on the same inputs, and their full result
 dumps must be byte-identical. Everything runs through CTest: CMake registers the
-cases, and each case runs a Python script from `test/harness/` (Python >= 3.8,
+cases, and each case runs a Python script from `test/harness/` (Python >= 3.10,
 standard library only; `gen_maxcut.py` additionally needs `sympy`).
 
 | Suite | Label | Content | Run with |
