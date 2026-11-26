@@ -17,14 +17,14 @@ FetchContent_Declare(
 	URL https://downloads.sourceforge.net/project/polybench/polybench-c-4.2.1-beta.tar.gz
 	URL_HASH SHA256=426519ee8443a5f2175de6a3e9328cda8917a5e33053d0e8f59855ab56d689a4
 	SOURCE_SUBDIR do-not-build
-	DOWNLOAD_EXTRACT_TIMESTAMP
+	DOWNLOAD_EXTRACT_TIMESTAMP true
 )
 FetchContent_Declare(
 	pesto_npdp
 	GIT_REPOSITORY https://github.com/Zetsyog/NPDP_Bench.git
 	GIT_TAG a8c2cbf1e194f0fad575324aee6270bc5e628c48
 	SOURCE_SUBDIR do-not-build
-	DOWNLOAD_EXTRACT_TIMESTAMP
+	DOWNLOAD_EXTRACT_TIMESTAMP true
 )
 FetchContent_MakeAvailable(pesto_polybench pesto_npdp)
 if(NOT EXISTS "${pesto_polybench_SOURCE_DIR}/utilities/polybench.c"
