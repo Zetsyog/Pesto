@@ -121,14 +121,18 @@ harness:
 2. resolves the domain parameters for the instance: PolyBench `_PB_X` is the
    dataset macro `X` (printed by a small helper program); NPDP `n` is `N` and `l`
    is 0 (`NPDP_MIN_LOOP`);
-3. pins the parameters in the domain (`n = 23 and ...`), which also keeps
-   `lexmin(x1)` from being piecewise in a parameter;
+3. instantiates the domain: substitutes the values for the parameters
+   (`4_PB_TSTEPS` becomes `4*100`) and empties the parameter list (`[] -> { ... }`).
+   The constraints left without variables (pesto's parameter context, such as
+   `_PB_N >= 0`) are checked, then dropped: an instance outside that context is
+   a `maxcut-fail`. A concrete domain also keeps `lexmin(x1)` from being
+   piecewise in a parameter;
 4. runs `utilities/gen_maxcut.py` (Python 3, `sympy`, barvinok's `iscc` from the
-   build) with `--func pesto_maxcut_impl`, and appends
-   `static long max_cut_volume(long b)` binding the parameter values.
+   build) with `--func max_cut_volume`. Without parameters it emits
+   `max_cut_volume(long b)`, the function the generated code calls.
 
-Step 4 works around a mismatch: the generated code calls `max_cut_volume(b)`,
-while `gen_maxcut.py` emits `max_cut_volume(params..., b)`.
+`maxcut.h` is regenerated for every `DIV0` (one `maxcut-<instance>-t<t>` phase
+each), since `--t` depends on it.
 
 ### Pipelines and kernel classes
 

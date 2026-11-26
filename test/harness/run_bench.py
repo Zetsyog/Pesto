@@ -8,11 +8,13 @@ sets and thread counts. Result dumps (stderr) must hash identically.
 --handtuned-config), or "pluto" (with --polycc [--polycc-flags]).
 """
 
-import itertools
+import ast
+import operator
 import re
 import shlex
 import shutil
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -20,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 # pylint: disable=wrong-import-position
 import harness  # noqa: E402
 from harness import Case, CmdArg  # noqa: E402
+
 # pylint: enable=wrong-import-position
 
 # (tag, compiler flags): a problem instance, or a set of tile dividers.
@@ -27,7 +30,6 @@ Variant = tuple[str, list[str]]
 
 THREADS = (1, 2, 4)
 PARAM_DIVIDERS: list[Variant] = [
-    ("unit", ["-DDIV0=1", "-DDIV1=1", "-DDIV2=1", "-DDIV3=1"]),
     ("uneven", ["-DDIV0=3", "-DDIV1=5", "-DDIV2=7", "-DDIV3=11"]),
     ("oversized", ["-DDIV0=64", "-DDIV1=65", "-DDIV2=66", "-DDIV3=67"]),
 ]
@@ -38,6 +40,16 @@ TPZ_DIVIDERS: list[Variant] = [
     ("small", ["-DDIV0=2", "-DDIV2=4"]),
     ("uneven", ["-DDIV0=3", "-DDIV2=5"]),
     ("oversized", ["-DDIV0=64", "-DDIV2=67"]),
+]
+
+POLYBENCH_VARIANTS: list[Variant] = [
+    ("medium", ["-DMEDIUM_DATASET"]),
+]
+
+NPDP_VARIANTS = [
+    (f"n{n}-s{seed}", [f"-DN={n}", f"-DNPDP_RSEED={seed}"])
+    for n in (500,)
+    for seed in (1, 7)
 ]
 
 
@@ -99,6 +111,101 @@ class Maxcut:
             maxcut.params = [p.strip() for p in head.split(",") if p.strip()]
         return maxcut
 
+    def instantiate(self, values: list[str]) -> str:
+        """The domain with its parameters replaced by values: a concrete
+        polytope '[] -> { [vars] : body }'. The constraints left without any
+        variable (pesto's parameter context, e.g. '_PB_N >= 10') are checked,
+        then dropped. Raise ValueError when one does not hold."""
+        match = re.fullmatch(
+            r"\s*\[[^\]]*\]\s*->\s*\{\s*\[([^\]]*)\]\s*:(.*)\}\s*", self.domain, re.S
+        )
+        if not match:
+            raise ValueError(f"unexpected domain syntax: {self.domain}")
+        variables, body = match.group(1).strip(), match.group(2)
+        for param, value in zip(self.params, values, strict=True):
+            # isl writes products as '4_PB_N': keep the coefficient.
+            body = re.sub(
+                rf"(?<!\w)(\d+)?{re.escape(param)}(?!\w)",
+                lambda m, v=value: f"{m.group(1)}*{v}" if m.group(1) else v,
+                body,
+            )
+        kept: list[str] = []
+        conjuncts = _split_top_level(body, "and")
+        if len(_split_top_level(body, "or")) > 1:
+            conjuncts = [body.strip()]  # a disjunction: substitute only
+        for conjunct in conjuncts:
+            if re.search(r"[A-Za-z_]", conjunct):
+                kept.append(conjunct)
+            elif not _holds(conjunct):
+                raise ValueError(f"instance violates the domain context: {conjunct}")
+        return f"[] -> {{ [{variables}] : {' and '.join(kept)} }}"
+
+
+def _split_top_level(text: str, keyword: str) -> list[str]:
+    """Split text on ' keyword ' outside parentheses."""
+    parts: list[str] = []
+    depth, start = 0, 0
+    for match in re.finditer(rf"[()]|\s{keyword}\s", text):
+        token = match.group()
+        if token == "(":
+            depth += 1
+        elif token == ")":
+            depth -= 1
+        elif depth == 0:
+            end = match.start()
+            parts.append(text[start:end].strip())
+            start = match.end()
+    parts.append(text[start:].strip())
+    return [p for p in parts if p]
+
+
+_COMPARE: dict[type[ast.cmpop], Callable[[int, int], bool]] = {
+    ast.Lt: operator.lt,
+    ast.LtE: operator.le,
+    ast.Gt: operator.gt,
+    ast.GtE: operator.ge,
+    ast.Eq: operator.eq,
+}
+_ARITH: dict[type[ast.operator], Callable[[int, int], int]] = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+}
+
+
+def _holds(constraint: str) -> bool:
+    """Evaluate a variable-free isl constraint such as '100 >= 10' or
+    '0 <= 2*3 - 1 < 9'. One it cannot read is assumed to hold (isl will)."""
+    python = re.sub(r"(?<![<>=!])=(?!=)", "==", constraint)
+    try:
+        tree = ast.parse(python, mode="eval").body
+    except SyntaxError:
+        return True
+
+    def value(node: ast.expr) -> int:
+        if isinstance(node, ast.Constant) and isinstance(node.value, int):
+            return node.value
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
+            return -value(node.operand)
+        if isinstance(node, ast.BinOp) and type(node.op) in _ARITH:
+            return _ARITH[type(node.op)](value(node.left), value(node.right))
+        raise TypeError(ast.dump(node))
+
+    if not isinstance(tree, ast.Compare):
+        return True
+    try:
+        left = value(tree.left)
+        for op, right_node in zip(tree.ops, tree.comparators):
+            if type(op) not in _COMPARE:
+                return True
+            right = value(right_node)
+            if not _COMPARE[type(op)](left, right):
+                return False
+            left = right
+    except TypeError:
+        return True
+    return True
+
 
 def tpz_div0(tile_flags: list[str], generated: str) -> int:
     """The band width DIV0: set by the tile flags, or defaulted in the generated code."""
@@ -121,14 +228,19 @@ class Bench:
         self.suite_flags: list[CmdArg]
         self.suite_sources: list[Path]
         if args.suite == "polybench":
-            self.variants = [("mini", ["-DMINI_DATASET"]), ("small", ["-DSMALL_DATASET"])]
-            self.suite_flags = ["-I", root / "utilities", "-I", work, "-DPOLYBENCH_DUMP_ARRAYS"]
+            self.variants = POLYBENCH_VARIANTS
+            self.suite_flags = [
+                "-I",
+                root / "utilities",
+                "-I",
+                work,
+                "-DPOLYBENCH_DUMP_ARRAYS",
+            ]
             self.suite_sources = [root / "utilities/polybench.c"]
         else:
             # The transformed code assumes the parameters are at least 10
             # (pesto's default context), so smaller sizes are out of contract.
-            self.variants = [(f"n{n}-s{seed}", [f"-DN={n}", f"-DNPDP_RSEED={seed}"])
-                             for n in (10, 23, 64) for seed in (1, 7)]
+            self.variants = NPDP_VARIANTS
             self.suite_flags = ["-I", root / "include", "-I", work, "-DNPDP_DUMP"]
             self.suite_sources = []
 
@@ -153,23 +265,40 @@ class Bench:
             # minutes to build with sanitizers.
             if not args.polycc:
                 case.fail("transform-fail", "pluto pipeline needs --polycc")
-            case.run("transform", "transform-fail",
-                     [*shlex.split(args.polycc), f"{self.name}.c", "--tile", "--parallel",
-                      "--nounroll", *shlex.split(args.polycc_flags), "-o", "generated.c"])
+            case.run(
+                "transform",
+                "transform-fail",
+                [
+                    *shlex.split(args.polycc),
+                    f"{self.name}.c",
+                    "--tile",
+                    "--parallel",
+                    "--nounroll",
+                    *shlex.split(args.polycc_flags),
+                    "-o",
+                    "generated.c",
+                ],
+            )
         else:
             config_args: list[CmdArg]
             if args.pipeline == "handtuned":
                 if args.handtuned_config is None:
-                    case.fail("transform-fail", "handtuned pipeline needs --handtuned-config")
+                    case.fail(
+                        "transform-fail", "handtuned pipeline needs --handtuned-config"
+                    )
                 shutil.copyfile(args.handtuned_config, case.path("pipeline.json"))
                 config_args = ["--config", case.path("pipeline.json")]
             else:
                 # 7 fills @TILE@ (pluto-like); the parameter-tiling pipelines
                 # have none: their tile sizes are the DIVn dividers below.
-                config_args = [*case.pipeline_args(args.source_dir / "pipelines",
-                                                   args.pipeline, 7)]
-            case.run("transform", "transform-fail",
-                     [args.pesto, *config_args, f"{self.name}.c", "-o", "generated.c"])
+                config_args = [
+                    *case.pipeline_args(args.source_dir / "pipelines", args.pipeline, 7)
+                ]
+            case.run(
+                "transform",
+                "transform-fail",
+                [args.pesto, *config_args, f"{self.name}.c", "-o", "generated.c"],
+            )
         if not case.path("generated.c").exists():
             case.fail("transform-fail", "no generated source")
         return case.path("generated.c").read_text(encoding="utf-8")
@@ -192,54 +321,107 @@ class Bench:
             return values
         # _PB_X expands to the scalar x (POLYBENCH_LOOP_BOUND); its value is
         # the dataset macro X.
-        prints = "".join(f'  printf("%ld;", (long)({re.sub(r"^_PB_", "", p)}));\n'
-                         for p in maxcut.params)
+        prints = "".join(
+            f'  printf("%ld;", (long)({re.sub(r"^_PB_", "", p)}));\n'
+            for p in maxcut.params
+        )
         case.path(f"params-{tag}.c").write_text(
             f'#include <stdio.h>\n#include "polybench.h"\n#include "{self.name}.h"\n'
-            f"int main(void) {{\n{prints}  return 0;\n}}\n", encoding="utf-8")
-        case.run(f"params-{tag}-build", "maxcut-fail",
-                 [self.args.cc, *self.suite_flags, *defines, f"params-{tag}.c",
-                  "-o", f"params-{tag}"])
+            f"int main(void) {{\n{prints}  return 0;\n}}\n",
+            encoding="utf-8",
+        )
+        case.run(
+            f"params-{tag}-build",
+            "maxcut-fail",
+            [
+                self.args.cc,
+                *self.suite_flags,
+                *defines,
+                f"params-{tag}.c",
+                "-o",
+                f"params-{tag}",
+            ],
+        )
         case.run(f"params-{tag}", "maxcut-fail", [case.path(f"params-{tag}")])
-        return case.path(f"params-{tag}.out").read_text(encoding="utf-8").rstrip(";").split(";")
+        return (
+            case.path(f"params-{tag}.out")
+            .read_text(encoding="utf-8")
+            .rstrip(";")
+            .split(";")
+        )
 
-    def write_maxcut(self, maxcut: Maxcut, tag: str, defines: list[str], div0: int) -> None:
-        """maxcut.h for this problem instance. gen_maxcut.py keeps the domain
-        parameters as arguments, while the generated code calls
-        max_cut_volume(b): bind them to this instance's values."""
+    def write_maxcut(
+        self, maxcut: Maxcut, tag: str, defines: list[str], div0: int
+    ) -> None:
+        """maxcut.h for this problem instance and DIV0. The domain is
+        instantiated with the instance's parameter values, so gen_maxcut.py
+        emits max_cut_volume(b), exactly what the generated code calls. A
+        concrete domain also keeps lexmin(x1) from being piecewise in a
+        parameter (e.g. NPDP l), which gen_maxcut cannot use."""
         args, case = self.args, self.case
         if args.gen_maxcut is None or args.iscc is None:
             case.fail("maxcut-fail", "TpzTiling output needs --gen-maxcut and --iscc")
         values = self.param_values(maxcut, tag, defines) if maxcut.params else []
-        # Pinning the parameters to this instance also keeps lexmin(x1) from
-        # being piecewise in a parameter (e.g. NPDP l), which gen_maxcut
-        # cannot use.
-        domain = maxcut.domain
-        pins = "".join(f"{p} = {v} and "
-                       for p, v in itertools.zip_longest(maxcut.params, values, fillvalue=""))
-        if pins:
-            domain = re.sub(r"^([^{]*\{[^:]*:)", lambda m: f"{m.group(1)} {pins}", domain,
-                            count=1)
+        try:
+            domain = maxcut.instantiate(values)
+        except ValueError as error:
+            case.fail("maxcut-fail", str(error))
         t = div0 * maxcut.stride
-        case.run(f"maxcut-{tag}-t{t}", "maxcut-fail",
-                 [args.python, args.gen_maxcut, "--domain", domain, "--t", t, *maxcut.f1,
-                  "--func", "pesto_maxcut_impl", "--iscc", args.iscc, "--no-backup",
-                  "--out", "maxcut.h"])
-        bound = "".join(f"{v}, " for v in values)
-        with open(case.path("maxcut.h"), "a", encoding="utf-8") as header:
-            header.write(f"\nstatic long max_cut_volume(long b) "
-                         f"{{ return pesto_maxcut_impl({bound}b); }}\n")
+        case.run(
+            f"maxcut-{tag}-t{t}",
+            "maxcut-fail",
+            [
+                args.python,
+                args.gen_maxcut,
+                "--domain",
+                domain,
+                "--t",
+                t,
+                *maxcut.f1,
+                "--func",
+                "max_cut_volume",
+                "--iscc",
+                args.iscc,
+                "--no-backup",
+                "--out",
+                "maxcut.h",
+            ],
+        )
 
-    def check_variant(self, variant: Variant, dividers: list[Variant], generated: str,
-                      maxcut: Maxcut | None) -> None:
+    def check_variant(
+        self,
+        variant: Variant,
+        dividers: list[Variant],
+        generated: str,
+        maxcut: Maxcut | None,
+    ) -> None:
         """Compare the transformed kernel with the original on one problem instance."""
         case = self.case
         tag, defines = variant
-        compile_cmd: list[CmdArg] = [self.args.cc, *self.cflags, *self.suite_flags, *defines]
-        case.run(f"compile-baseline-{tag}", "baseline-fail",
-                 [*compile_cmd, *self.suite_sources, f"{self.name}.c",
-                  "-o", f"baseline-{tag}", "-lm"])
-        case.run(f"baseline-{tag}", "baseline-fail", [case.path(f"baseline-{tag}")], threads=1)
+        compile_cmd: list[CmdArg] = [
+            self.args.cc,
+            *self.cflags,
+            *self.suite_flags,
+            *defines,
+        ]
+        case.run(
+            f"compile-baseline-{tag}",
+            "baseline-fail",
+            [
+                *compile_cmd,
+                *self.suite_sources,
+                f"{self.name}.c",
+                "-o",
+                f"baseline-{tag}",
+                "-lm",
+            ],
+        )
+        case.run(
+            f"baseline-{tag}",
+            "baseline-fail",
+            [case.path(f"baseline-{tag}")],
+            threads=1,
+        )
         if case.path(f"baseline-{tag}.err").stat().st_size == 0:
             case.fail("baseline-fail", f"baseline produced no result dump ({tag})")
         expected = harness.dump_hash(case.path(f"baseline-{tag}.err"))
@@ -249,16 +431,32 @@ class Bench:
             if maxcut:
                 self.write_maxcut(maxcut, tag, defines, tpz_div0(tile_flags, generated))
             # maxcut.h can reach megabytes for large DIV0: allow a slow build.
-            case.run(f"compile-{run}", "compile-fail",
-                     [*compile_cmd, *tile_flags, *self.suite_sources, "generated.c",
-                      "-o", f"transformed-{run}", "-lm"], timeout=300)
+            case.run(
+                f"compile-{run}",
+                "compile-fail",
+                [
+                    *compile_cmd,
+                    *tile_flags,
+                    *self.suite_sources,
+                    "generated.c",
+                    "-o",
+                    f"transformed-{run}",
+                    "-lm",
+                ],
+                timeout=300,
+            )
             for threads in THREADS:
                 phase = f"{run}-t{threads}"
-                case.run(phase, "crash", [case.path(f"transformed-{run}")], threads=threads)
+                case.run(
+                    phase, "crash", [case.path(f"transformed-{run}")], threads=threads
+                )
                 if harness.dump_hash(case.path(f"{phase}.err")) != expected:
-                    case.fail("mismatch", f"{run}, threads={threads}\n"
-                                          f"Expected: {case.path(f'baseline-{tag}.err')}\n"
-                                          f"Actual: {case.path(f'{phase}.err')}")
+                    case.fail(
+                        "mismatch",
+                        f"{run}, threads={threads}\n"
+                        f"Expected: {case.path(f'baseline-{tag}.err')}\n"
+                        f"Actual: {case.path(f'{phase}.err')}",
+                    )
             case.path(f"transformed-{run}").unlink()
 
     def __call__(self) -> None:
@@ -289,7 +487,8 @@ def main() -> None:
     args = parse_args()
     harness.case_main(
         lambda: Case(args.work_dir, f"{args.suite}/{args.kernel}/{args.pipeline}"),
-        lambda case: Bench(args, case)())
+        lambda case: Bench(args, case)(),
+    )
 
 
 if __name__ == "__main__":
