@@ -15,6 +15,8 @@
 #include <pesto/utils/Process.hpp>
 #include <pesto/utils/TemporaryDirectory.hpp>
 
+#include <spdlog/fmt/ranges.h>
+
 #include <cstring>
 #include <fstream>
 

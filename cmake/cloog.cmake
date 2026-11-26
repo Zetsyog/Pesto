@@ -28,7 +28,7 @@ file(MAKE_DIRECTORY ${CLOOG_PREFIX}/install/include)
 externalproject_add(
     cloog-src
     GIT_REPOSITORY https://github.com/periscop/cloog.git
-    GIT_TAG cloog-0.21.1 #
+    GIT_TAG 059654afb0a7b2716073167423afd06002886cad #
     GIT_SUBMODULES "" #
     PREFIX ${CLOOG_PREFIX}
     SOURCE_DIR ${CLOOG_PREFIX}/src
@@ -52,11 +52,6 @@ externalproject_add(
     --with-osl=system --with-osl-prefix=${OSL_PREFIX}/install
     --with-gmp=system
     --disable-shared
-    PATCH_COMMAND
-    ${CMAKE_COMMAND} -E echo "Applying ${CLOOG_PATCH_CLAST_USER_VEC}" && #
-    patch -p1 < ${CLOOG_PATCH_CLAST_USER_VEC} && #
-    ${CMAKE_COMMAND} -E echo "Applying ${CLOOG_PATCH_CONFIGURE_FIX}" && #
-    patch -p1 < ${CLOOG_PATCH_CONFIGURE_FIX}
     BUILD_COMMAND ${CMAKE_MAKE_PROGRAM} -j${PESTO_BUILD_JOBS}
     INSTALL_COMMAND ${CMAKE_MAKE_PROGRAM} install
     LOG_CONFIGURE ON
