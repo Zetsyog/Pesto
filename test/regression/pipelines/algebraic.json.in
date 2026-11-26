@@ -8,18 +8,23 @@
       "options": {
         "tile": true,
         "parallel": true,
-        "prevector": true,
+        "prevector": false,
         "intratileopt": true,
         "unrolljam": false,
         "identity": false,
-        "silent": true
+        "check_legality": true,
+        "silent": false
       }
     },
     {
       "uuid": "param-tiling",
       "gen-trahrhe": true,
       "trahrhe-use-dichotomy": true,
-      "bound-compute-method": "fill-last"
+      "bound-compute-method": "fill-last",
+      "types": [
+        "algebraic"
+      ],
+      "boundCorrectionStrategy": "shout-and-die"
     },
     {
       "uuid": "clast-custom-vec-pragma",

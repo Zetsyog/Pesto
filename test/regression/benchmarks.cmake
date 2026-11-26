@@ -206,19 +206,16 @@ foreach(kernel IN ITEMS
 endforeach()
 
 # NPDP, trapezoidal class (the "handtuned" configuration is the trapezoidal one).
+pesto_bench(npdp counting PIPELINES default pluto-like handtuned)
+pesto_bench(npdp counting_im PIPELINES default pluto-like handtuned)
 pesto_bench(npdp knuth PIPELINES default pluto-like handtuned)
 pesto_bench(npdp nussinov PIPELINES default pluto-like handtuned)
-pesto_bench(npdp counting PIPELINES default pluto-like)
-pesto_bench(npdp counting_im PIPELINES default pluto-like)
-pesto_bench(npdp mcc PIPELINES default pluto-like)
-foreach(kernel IN ITEMS mcm nw sw triang)
-    pesto_bench(npdp ${kernel} PIPELINES pluto-like)
-endforeach()
-# Excluded: mcm, nw, sw, triang default (wrong result with 4 threads; Pluto's
-# own polycc output is correct); counting/handtuned (pesto's context assumes
-# l >= 10, the kernel runs with l = 0); mcc/handtuned (tpz finds no loop to tile
-# and still exits 0; the skewed output is wrong); counting_im, mcm, nw, sw,
-# triang kernel (wrong result, mostly with 2+ threads).
+pesto_bench(npdp mcc PIPELINES default pluto-like handtuned)
+pesto_bench(npdp mcm PIPELINES default pluto-like handtuned)
+pesto_bench(npdp triang PIPELINES default pluto-like handtuned)
+pesto_bench(npdp nw PIPELINES default pluto-like handtuned)
+pesto_bench(npdp sw PIPELINES default pluto-like handtuned)
+
 # -----------------------------------------------------------------------------
 get_property(allowlist DIRECTORY PROPERTY PESTO_BENCH_ALLOWLIST)
 list(JOIN allowlist "\n" allowlist)
