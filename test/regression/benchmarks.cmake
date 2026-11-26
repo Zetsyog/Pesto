@@ -31,13 +31,6 @@ if(NOT EXISTS "${pesto_polybench_SOURCE_DIR}/utilities/polybench.c"
     return()
 endif()
 
-find_package(Python3 COMPONENTS Interpreter)
-if(Python3_Interpreter_FOUND)
-    set(PESTO_BENCH_PYTHON "${Python3_EXECUTABLE}")
-else()
-    set(PESTO_BENCH_PYTHON python3)
-endif()
-
 set(PESTO_BENCH_PROBE_DIR "${CMAKE_BINARY_DIR}/bench-probe")
 set(PESTO_BENCH_CONFIG_DIR "${PROJECT_SOURCE_DIR}/utilities/configuration files")
 
@@ -84,17 +77,17 @@ function(_pesto_bench_command suite kernel pipeline work_dir var)
         set(root "${pesto_npdp_SOURCE_DIR}")
         set(config "${PESTO_BENCH_CONFIG_DIR}/NPDP/${name}.json")
     endif()
+    # gen_maxcut.py needs sympy: run it without -I, so site packages are visible.
     set(${var}
-        "${CMAKE_COMMAND}"
-        "-DPESTO=$<TARGET_FILE:pesto-cli>" "-DCC=${CMAKE_C_COMPILER}"
-        "-DSANITIZERS=${PESTO_REGRESSION_SANITIZERS}"
-        "-DSUITE=${suite}" "-DKERNEL=${kernel}" "-DBENCH_ROOT=${root}"
-        "-DPIPELINE=${pipeline}" "-DKERNEL_CONFIG=${config}"
-        "-DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}" "-DWORK_DIR=${work_dir}"
-        "-DPYTHON=${PESTO_BENCH_PYTHON}" "-DGEN_MAXCUT=${PROJECT_SOURCE_DIR}/utilities/gen_maxcut.py"
-        "-DISCC=${BARVINOK_INSTALL_DIR}/bin/iscc" "-DPOLYCC=${PESTO_BENCH_POLYCC}"
-        "-DPOLYCC_FLAGS=${PESTO_BENCH_POLYCC_FLAGS_${name}}"
-        -P "${CMAKE_CURRENT_SOURCE_DIR}/bench.cmake"
+        ${PESTO_TEST_PYTHON} "${PESTO_TEST_HARNESS_DIR}/run_bench.py"
+        --pesto "$<TARGET_FILE:pesto-cli>" --cc "${CMAKE_C_COMPILER}"
+        --sanitizers "${PESTO_REGRESSION_SANITIZERS}"
+        --suite "${suite}" --kernel "${kernel}" --bench-root "${root}"
+        --pipeline "${pipeline}" --kernel-config "${config}"
+        --source-dir "${CMAKE_CURRENT_SOURCE_DIR}" --work-dir "${work_dir}"
+        --python "${Python3_EXECUTABLE}" --gen-maxcut "${PROJECT_SOURCE_DIR}/utilities/gen_maxcut.py"
+        --iscc "${BARVINOK_INSTALL_DIR}/bin/iscc" "--polycc=${PESTO_BENCH_POLYCC}"
+        "--polycc-flags=${PESTO_BENCH_POLYCC_FLAGS_${name}}"
         PARENT_SCOPE)
 endfunction()
 
@@ -171,10 +164,9 @@ _pesto_bench_probe()
 
 cmake_host_system_information(RESULT PESTO_BENCH_PROBE_JOBS QUERY NUMBER_OF_LOGICAL_CORES)
 add_custom_target(check-bench-probe
-    COMMAND ${CMAKE_COMMAND}
-        -DCTEST=${CMAKE_CTEST_COMMAND} -DPROBE_DIR=${PESTO_BENCH_PROBE_DIR}
-        -DJOBS=${PESTO_BENCH_PROBE_JOBS}
-        -P ${CMAKE_CURRENT_SOURCE_DIR}/probe_report.cmake
+    COMMAND ${PESTO_TEST_PYTHON} ${PESTO_TEST_HARNESS_DIR}/probe_report.py
+        --ctest ${CMAKE_CTEST_COMMAND} --probe-dir ${PESTO_BENCH_PROBE_DIR}
+        --jobs ${PESTO_BENCH_PROBE_JOBS}
     DEPENDS pesto-cli
     USES_TERMINAL
     COMMENT "Probing every PolyBench/NPDP kernel through every pipeline")

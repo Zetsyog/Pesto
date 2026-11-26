@@ -2,7 +2,9 @@
 
 Pesto's correctness tests are differential: a program and its transformed version
 are compiled with the same flags, run on the same inputs, and their full result
-dumps must be byte-identical. Everything runs through CTest.
+dumps must be byte-identical. Everything runs through CTest: CMake registers the
+cases, and each case runs a Python script from `test/harness/` (Python >= 3.8,
+standard library only; `gen_maxcut.py` additionally needs `sympy`).
 
 | Suite | Label | Content | Run with |
 | --- | --- | --- | --- |
@@ -18,16 +20,23 @@ CI merge gate. The probe is a report, not a gate: it runs on scheduled pipelines
 ## Layout
 
 ```text
-test/regression/
-  harness.cmake        shared helpers: run a phase, classify failures, hash dumps
-  run.cmake            one fixture through one pipeline
-  bench.cmake          one PolyBench/NPDP kernel through one pipeline
+test/harness/          what a case does at run time (Python)
+  harness.py           shared helpers: run a phase, classify failures, hash dumps
+  run_fixture.py       one fixture through one pipeline
+  run_bench.py         one PolyBench/NPDP kernel through one pipeline
+  reject.py            inputs pesto must reject
+  workflow.py          CLI behaviour (workflow suite)
+  probe_report.py      runs the probe and writes the report
+test/regression/       which cases exist (CMake)
+  CMakeLists.txt       fixture x pipeline matrix, rejections
   benchmarks.cmake     source fetches, kernel classes, allowlist, probe target
-  probe_report.cmake   runs the probe and writes the report
   pipelines/*.json.in  pesto configurations (@TILE@ is substituted)
   polycc-docker.sh     polycc from docker/pluto.dockerfile (Pluto reference)
-  fixtures/            synthetic kernels for run.cmake
+  fixtures/            synthetic kernels for run_fixture.py
 ```
+
+Every script takes its inputs as command-line options (`--help` lists them);
+`ctest -V -R <name>` prints the exact command line of a case.
 
 ## The harness
 
@@ -46,8 +55,10 @@ by hand. The first failure is classified and written to `result.txt`:
 | `timeout` | a phase exceeded its limit, or CTest killed the case |
 | `mismatch` | the result dump differs from the original's |
 | `pass` / `pass-untiled` | identical results; `pass-untiled` means a parameter-tiling pipeline produced no `DIV` macro |
+| `harness-error` | the test script itself raised an exception (a harness bug, traceback in the CTest output) |
 
-Commands run under GNU `timeout`, which also kills processes forked by pesto.
+Each command runs in its own process group; on timeout the whole group is
+killed, including processes forked by pesto.
 Phases have a 60 s limit (300 s for compiling transformed code, as `maxcut.h` can
 reach megabytes).
 
@@ -183,7 +194,7 @@ the report without running everything:
 
 ```bash
 ctest --test-dir build/bench-probe -R 'seidel-2d' --parallel 4
-cmake -DPROBE_DIR=$PWD/build/bench-probe -DREPORT_ONLY=ON -P test/regression/probe_report.cmake
+python3 test/harness/probe_report.py --probe-dir build/bench-probe --report-only
 ```
 
 ### Pluto reference
@@ -203,7 +214,7 @@ rootless Docker (files written by the container then belong to the caller).
 
 ## Adding things
 
-- **A fixture**: add `fixtures/<name>.c` (see `fixture.h`: `argv[1]` is the size,
+- **A fixture**: add `test/regression/fixtures/<name>.c` (see `fixture.h`: `argv[1]` is the size,
   `argv[2]` the seed, results on stdout) and a `pesto_regression()` line in
   `test/regression/CMakeLists.txt`.
 - **A pipeline**: add `pipelines/<name>.json.in`, then list it in the kernel

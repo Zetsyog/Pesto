@@ -20,13 +20,12 @@ function(pesto_regression fixture pipeline tile)
         string(APPEND name -${tile})
     endif()
     add_test(NAME ${name}
-        COMMAND ${CMAKE_COMMAND}
-            -DPESTO=$<TARGET_FILE:pesto-cli> -DCC=${CMAKE_C_COMPILER}
-            -DFIXTURE=${fixture} -DPIPELINE=${pipeline} -DTILE=${tile}
-            -DSANITIZERS=${PESTO_REGRESSION_SANITIZERS}
-            -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
-            -DWORK_DIR=${PESTO_REGRESSION_ARTIFACT_DIR}/${name}
-            -P ${CMAKE_CURRENT_SOURCE_DIR}/run.cmake)
+        COMMAND ${PESTO_TEST_PYTHON} ${PESTO_TEST_HARNESS_DIR}/run_fixture.py
+            --pesto $<TARGET_FILE:pesto-cli> --cc ${CMAKE_C_COMPILER}
+            --fixture ${fixture} --pipeline ${pipeline} --tile ${tile}
+            --sanitizers ${PESTO_REGRESSION_SANITIZERS}
+            --source-dir ${CMAKE_CURRENT_SOURCE_DIR}
+            --work-dir ${PESTO_REGRESSION_ARTIFACT_DIR}/${name})
     set_tests_properties(${name} PROPERTIES LABELS regression TIMEOUT 120 PROCESSORS 4)
 endfunction()
 
@@ -45,10 +44,9 @@ endforeach()
 pesto_regression(guarded_stride codegen 1)
 
 add_test(NAME regression-rejections
-    COMMAND ${CMAKE_COMMAND} -DPESTO=$<TARGET_FILE:pesto-cli>
-        -DSOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
-        -DWORK_DIR=${PESTO_REGRESSION_ARTIFACT_DIR}/regression-rejections
-        -P ${CMAKE_CURRENT_SOURCE_DIR}/reject.cmake)
+    COMMAND ${PESTO_TEST_PYTHON} ${PESTO_TEST_HARNESS_DIR}/reject.py --pesto $<TARGET_FILE:pesto-cli>
+        --source-dir ${CMAKE_CURRENT_SOURCE_DIR}
+        --work-dir ${PESTO_REGRESSION_ARTIFACT_DIR}/regression-rejections)
 set_tests_properties(regression-rejections PROPERTIES LABELS regression TIMEOUT 90)
 
 add_custom_target(check-regressions
