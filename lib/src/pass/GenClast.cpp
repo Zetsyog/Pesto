@@ -7,6 +7,7 @@
 
 #include <iostream>
 
+#include <pesto/ParamConstraint.hpp>
 #include <pesto/clast_support.h>
 #include <pesto/ir/ClastIR.hpp>
 #include <pesto/ir/OpenScopIR.hpp>
@@ -21,7 +22,7 @@ using namespace pesto;
 
 GenClastPass::GenClastPass()
 	: IPass("clast-gen")
-	, codegenContext(-1)
+	, codegenContext(0)
 	, cloogL(-1)
 	, cloogF(1)
 	, cloogStop(-1)
@@ -142,23 +143,7 @@ Bundle GenClastPass::apply(Bundle &&bundle) {
 	cloogOptions->openscop = 1;
 	cloogOptions->language = CLOOG_LANGUAGE_C;
 
-	if (this->codegenContext != -1) {
-		for (int i = 0; i < scop->context->nb_parameters; i += 1) {
-			osl_relation_insert_blank_row(scop->context, -1);
-			osl_int_set_si(scop->context->precision, &scop->context->m[scop->context->nb_rows - 1][0], 1);
-			osl_int_set_si(scop->context->precision,
-						   &scop->context->m[scop->context->nb_rows - 1][1 + scop->context->nb_input_dims +
-																		 scop->context->nb_local_dims +
-																		 scop->context->nb_output_dims + i],
-						   1);
-			osl_int_set_si(scop->context->precision,
-						   &scop->context->m[scop->context->nb_rows - 1]
-											[1 + scop->context->nb_input_dims + scop->context->nb_local_dims +
-											 scop->context->nb_output_dims + scop->context->nb_parameters],
-
-						   -this->codegenContext);
-		}
-	}
+	applyParamConstraint(scop, this->codegenContext);
 
 	CloogInput *input = cloog_input_from_osl_scop(cloogState, scop);
 	// input is freed by cloog_clast_create_from_input

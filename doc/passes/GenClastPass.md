@@ -17,7 +17,7 @@ Full and detailed json configuration optionss for this pass with default values.
             "firstUnrollDimension": -1,
             "spreadEqualities": true,
             "backtrack": false,
-            "codegenContext": -1
+            "codegenContext": 0
         },
         ...
     ]
@@ -67,9 +67,26 @@ Corresponds to the `-backtrack` option of Cloog.
 
 ### `codegenContext`
 
-*Integer*. Default is `-1`.
-Bound the parameters to a minimum value.
-`-1` means no bound.
+Default is `0`. Constraint on the global parameters, added to the scop context
+before code generation. Cloog then drops the guards it implies, so **the
+generated code is only correct for parameter values that satisfy it**. Accepted
+forms:
+
+| Value | Meaning |
+| --- | --- |
+| `null` | no constraint |
+| integer `v` | every parameter `P >= v` |
+| `{"N": 11, "M": 26}` | `N >= 11`, `M >= 26`; parameters not listed get `>= 0` |
+| `"N > 10 and M > 25 and M >= N"` | any affine constraint on the parameters, in isl syntax |
+
+The string form must be convex (no `or`) and must not need existential
+variables (no `%`, no `floor`). Unknown parameter names and unsatisfiable
+constraints are errors.
+
+`-1` is the deprecated spelling of `null`: it is still read as "no constraint"
+and logs a warning. Use the [`param-context`](ParamContextPass.md) pass instead
+to make the constraint visible to every pass of the pipeline, not only to code
+generation.
 
 ### `stopLevel`
 

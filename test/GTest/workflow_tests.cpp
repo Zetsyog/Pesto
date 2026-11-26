@@ -1,11 +1,20 @@
 #include <gtest/gtest.h>
 
+#include <pesto/Logging.hpp>
 #include <pesto/Options.hpp>
+#include <pesto/ParamConstraint.hpp>
 #include <pesto/PassManager.hpp>
 #include <pesto/Pluto.hpp>
 #include <pesto/ir/OpenScopIR.hpp>
 #include <pesto/pass/SkewPass.hpp>
 #include <pesto/pass/clast/GenClast.hpp>
+#include <pesto/passbuilder/ParamConstraintJson.hpp>
+
+#include <osl/generic.h>
+#include <osl/macros.h>
+#include <osl/relation.h>
+#include <osl/strings.h>
+#include <osl/util.h>
 
 namespace {
 
@@ -99,6 +108,106 @@ TEST(GenClast, RejectsStatementsWithoutBodies) {
 	pesto::Bundle bundle(std::make_unique<pesto::ir::OpenScopIR>(scop));
 	pesto::pass::GenClastPass pass;
 	EXPECT_THROW(pass.apply(std::move(bundle)), std::runtime_error);
+}
+
+
+// A scop with parameters N and M and an unconstrained context.
+osl_scop_p makeParamScop() {
+	osl_scop_p scop = osl_scop_malloc();
+	scop->context = osl_relation_pmalloc(osl_util_get_precision(), 0, 4);
+	osl_relation_set_attributes(scop->context, 0, 0, 0, 2);
+	osl_relation_set_type(scop->context, OSL_TYPE_CONTEXT);
+	char *names[] = {(char *)"N", (char *)"M", nullptr};
+	osl_strings_p strings = osl_strings_malloc();
+	for (char **n = names; *n; ++n) {
+		osl_strings_add(strings, *n);
+	}
+	scop->parameters = osl_generic_shell(strings, osl_strings_interface());
+	return scop;
+}
+
+// Evaluates every context row at (N, M).
+bool contextHolds(osl_scop_p scop, long n, long m) {
+	osl_relation_p rel = scop->context;
+	for (int r = 0; r < rel->nb_rows; r += 1) {
+		long v = osl_int_get_si(rel->precision, rel->m[r][1]) * n + osl_int_get_si(rel->precision, rel->m[r][2]) * m +
+				 osl_int_get_si(rel->precision, rel->m[r][3]);
+		bool eq = osl_int_zero(rel->precision, rel->m[r][0]);
+		if (eq ? v != 0 : v < 0) {
+			return false;
+		}
+	}
+	return true;
+}
+
+struct ScopGuard {
+	osl_scop_p scop = makeParamScop();
+	~ScopGuard() { osl_scop_free(scop); }
+};
+
+TEST(ParamConstraint, DefaultIsNonNegativeParameters) {
+	ScopGuard g;
+	pesto::applyParamConstraint(g.scop, pesto::ParamConstraint());
+	EXPECT_TRUE(contextHolds(g.scop, 0, 0));
+	EXPECT_FALSE(contextHolds(g.scop, -1, 0));
+	EXPECT_FALSE(contextHolds(g.scop, 0, -1));
+}
+
+TEST(ParamConstraint, NoneLeavesContextUntouched) {
+	ScopGuard g;
+	pesto::applyParamConstraint(g.scop, pesto::ParamConstraint::none());
+	EXPECT_EQ(g.scop->context->nb_rows, 0);
+}
+
+TEST(ParamConstraint, PerParameterBoundsDefaultOthersToZero) {
+	ScopGuard g;
+	pesto::applyParamConstraint(g.scop, pesto::ParamConstraint(pesto::ParamConstraint::PerParam{{"N", 11}}));
+	EXPECT_TRUE(contextHolds(g.scop, 11, 0));
+	EXPECT_FALSE(contextHolds(g.scop, 10, 0));
+	EXPECT_FALSE(contextHolds(g.scop, 11, -1));
+}
+
+TEST(ParamConstraint, IslExpression) {
+	ScopGuard g;
+	pesto::applyParamConstraint(g.scop, pesto::ParamConstraint(std::string("N > 10 and M > 25 and M >= N")));
+	EXPECT_TRUE(contextHolds(g.scop, 11, 26));
+	EXPECT_FALSE(contextHolds(g.scop, 10, 26));
+	EXPECT_FALSE(contextHolds(g.scop, 11, 25));
+	EXPECT_FALSE(contextHolds(g.scop, 30, 29));
+	// negative values are expressible now
+	ScopGuard h;
+	pesto::applyParamConstraint(h.scop, pesto::ParamConstraint(std::string("N = -3")));
+	EXPECT_TRUE(contextHolds(h.scop, -3, -100));
+	EXPECT_FALSE(contextHolds(h.scop, -2, 0));
+}
+
+TEST(ParamConstraint, RejectsUnsupportedConstraints) {
+	using PC = pesto::ParamConstraint;
+	for (const PC &c : {PC(PC::PerParam{{"K", 1}}), PC(std::string("K > 3")), PC(std::string("N < 0 or N > 5")),
+						PC(std::string("N % 2 = 0")), PC(std::string("N >")), PC(std::string("N > 3 and N < 2"))}) {
+		ScopGuard g;
+		EXPECT_THROW(pesto::applyParamConstraint(g.scop, c), std::invalid_argument) << c.str();
+	}
+}
+
+TEST(ParamConstraint, ParsesJsonForms) {
+	auto logger = pesto::log::get_logger("test");
+	using pesto::builder::parseParamConstraint;
+	EXPECT_TRUE(parseParamConstraint(nullptr, "k", *logger).isNone());
+	EXPECT_TRUE(parseParamConstraint(-1, "k", *logger).isNone());
+	EXPECT_EQ(std::get<int>(parseParamConstraint(10, "k", *logger).spec), 10);
+	EXPECT_EQ(std::get<int>(parseParamConstraint(-2, "k", *logger).spec), -2);
+	auto per = parseParamConstraint(json{{"N", 11}, {"M", 26}}, "k", *logger);
+	EXPECT_EQ((std::get<pesto::ParamConstraint::PerParam>(per.spec)), (pesto::ParamConstraint::PerParam{{"N", 11}, {"M", 26}}));
+	EXPECT_EQ(std::get<std::string>(parseParamConstraint("N > 10", "k", *logger).spec), "N > 10");
+	EXPECT_THROW(parseParamConstraint(true, "k", *logger), std::invalid_argument);
+	EXPECT_THROW(parseParamConstraint(json{{"N", "x"}}, "k", *logger), std::invalid_argument);
+	EXPECT_THROW(parseParamConstraint(json::array({1}), "k", *logger), std::invalid_argument);
+}
+
+TEST(GenClast, DefaultCodegenContextIsZero) {
+	pesto::pass::GenClastPass pass;
+	EXPECT_EQ(std::get<int>(pass.codegenContext.spec), 0);
 }
 
 TEST(PlutoOptions, RejectsInvalidTileSizesWithoutChangingTheConfiguration) {

@@ -7,6 +7,7 @@
 
 #include <pesto/pass/clast/GenClast.hpp>
 #include <pesto/passbuilder/GenClastPB.hpp>
+#include <pesto/passbuilder/ParamConstraintJson.hpp>
 
 using namespace pesto::builder;
 
@@ -18,9 +19,14 @@ GenClastPB::~GenClastPB() {}
 
 std::unique_ptr<pesto::pass::IPass> GenClastPB::build(PassManagerBuilder &builder, const json &j) {
 	(void)builder;
-	(void)j;
 
 	auto pass = std::make_unique<pass::GenClastPass>();
+	this->configure(*pass, j);
+	return pass;
+}
+
+void GenClastPB::configure(pass::GenClastPass &passRef, const json &j) {
+	auto *pass = &passRef;
 
 	// TODO: cleaner parsing
 	for (auto &[key, val] : j.items()) {
@@ -135,11 +141,7 @@ std::unique_ptr<pesto::pass::IPass> GenClastPB::build(PassManagerBuilder &builde
 			continue;
 		}
 		if (key == "codegenContext") {
-			if (!val.is_number_integer()) {
-				logger->error("{} must be an integer.", key.c_str());
-				throw std::invalid_argument(key + " must be an integer");
-			}
-			pass->codegenContext = val.get<int>();
+			pass->codegenContext = parseParamConstraint(val, key, *logger);
 			continue;
 		}
 		if (key == "spreadEqualities") {
@@ -154,6 +156,4 @@ std::unique_ptr<pesto::pass::IPass> GenClastPB::build(PassManagerBuilder &builde
 		logger->error("Invalid option: {}", key.c_str());
 		throw std::invalid_argument("Invalid option: " + key);
 	}
-
-	return pass;
 }

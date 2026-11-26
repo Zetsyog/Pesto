@@ -12,6 +12,7 @@
 # ##################################################################################################
 
 set(PESTO_SOURCES
+    src/ParamConstraint.cpp
     src/PassManager.cpp
     src/PlutoWrapper.cpp
     src/atile/TpzMaxCut.cpp

@@ -47,7 +47,9 @@ using pesto::Bundle;
 using pesto::pass::TpzTilingPass;
 using pesto::pass::ptile::ClastTilingPair;
 
-TpzTilingPass::TpzTilingPass() : IPass("tpz-tiling") {
+TpzTilingPass::TpzTilingPass() : IPass("tpz-tiling"), genClastPass(std::make_unique<GenClastPass>()) {
+	this->genClastPass->cloogF = -1;
+	this->genClastPass->cloogL = 1;
 	this->ctx = isl_ctx_alloc();
 	isl_options_set_on_error(this->ctx, ISL_ON_ERROR_ABORT);
 	this->printer = isl_printer_to_str(this->ctx);
@@ -58,6 +60,13 @@ TpzTilingPass::~TpzTilingPass() {
 	isl_ctx_free(this->ctx);
 }
 
+void TpzTilingPass::setGenClastPass(std::unique_ptr<GenClastPass> pass) {
+	if (!pass) {
+		throw std::invalid_argument("TpzTilingPass: cannot use a null GenClastPass");
+	}
+	this->genClastPass = std::move(pass);
+}
+
 namespace pesto::pass {} // namespace pesto::pass
 
 static bool hasScalarWrite(osl_statement_p stmt);
@@ -65,10 +74,13 @@ static void collectScalarWrites(osl_scop_p scop, std::vector<std::string> &names
 static bool containsReductionLoop(struct clast_stmt *s, const char *redIt);
 
 static std::string clastExprToString(CloogOptions *opt, struct clast_expr *e) {
-	if (!e) return "";
-	char *buf = nullptr; size_t len = 0;
+	if (!e)
+		return "";
+	char *buf = nullptr;
+	size_t len = 0;
 	FILE *fp = open_memstream(&buf, &len);
-	if (!fp) return "";
+	if (!fp)
+		return "";
 	clast_pprint_expr(opt, fp, e);
 	fclose(fp);
 	std::string s = buf ? buf : "";
@@ -80,12 +92,16 @@ static struct clast_for *findLoopOn(struct clast_stmt *s, const char *it) {
 	for (; s; s = s->next) {
 		if (CLAST_STMT_IS_A(s, stmt_for)) {
 			struct clast_for *f = (struct clast_for *)s;
-			if (f->iterator && it && strcmp(f->iterator, it) == 0) return f;
-			if (struct clast_for *r = findLoopOn(f->body, it)) return r;
+			if (f->iterator && it && strcmp(f->iterator, it) == 0)
+				return f;
+			if (struct clast_for *r = findLoopOn(f->body, it))
+				return r;
 		} else if (CLAST_STMT_IS_A(s, stmt_guard)) {
-			if (struct clast_for *r = findLoopOn(((struct clast_guard *)s)->then, it)) return r;
+			if (struct clast_for *r = findLoopOn(((struct clast_guard *)s)->then, it))
+				return r;
 		} else if (CLAST_STMT_IS_A(s, stmt_block)) {
-			if (struct clast_for *r = findLoopOn(((struct clast_block *)s)->body, it)) return r;
+			if (struct clast_for *r = findLoopOn(((struct clast_block *)s)->body, it))
+				return r;
 		}
 	}
 	return nullptr;
@@ -116,13 +132,7 @@ Bundle TpzTilingPass::apply(Bundle &&bundle) {
 	this->logger->debug("Trapezoidal tiling slope: {}", slope->y / slope->x);
 
 	// Generate a Cloog ast from the scop
-	GenClastPass genClastPass;
-	genClastPass.cloogF = -1;
-	genClastPass.cloogL = 1;
-	// TODO: should not be hardcoded
-	genClastPass.codegenContext = 10; // simplify ast
-
-	bundle = genClastPass.apply(std::move(bundle));
+	bundle = this->genClastPass->apply(std::move(bundle));
 	if (bundle.empty()) {
 		logger->error("Clast generation failed");
 		throw std::runtime_error("Clast generation failed");
@@ -583,9 +593,12 @@ std::vector<pesto::pass::ptile::ClastTilingPair> TpzTilingPass::computeTilingPai
 			struct clast_for *point = clastTilingPairs[1].innerFor;
 			const char *redIt = clastTilingPairs[2].innerFor->iterator;
 			for (struct clast_stmt *s = point->body; s != NULL; s = s->next)
-				if (!containsReductionLoop(s, redIt)) { bodyNeedsSplit = true; break; }
+				if (!containsReductionLoop(s, redIt)) {
+					bodyNeedsSplit = true;
+					break;
+				}
 		}
-		
+
 		if (!this->tileReduction_) {
 			// Choix de configuration : sans tuilage de la reduction, pas de
 			// scission, donc le corps du point reste d'un seul tenant et ses
@@ -728,8 +741,8 @@ void TpzTilingPass::insertOuterForLoop(Bundle &bundle, std::vector<ptile::ClastT
 			if (it->underGap) {
 				struct clast_for *rf = findLoopOn(&(target->stmt), it->innerFor->iterator);
 				if (rf)
-					it->redBounds.push_back({clastExprToString(cloogOptions, rf->LB),
-											 clastExprToString(cloogOptions, rf->UB)});
+					it->redBounds.push_back(
+						{clastExprToString(cloogOptions, rf->LB), clastExprToString(cloogOptions, rf->UB)});
 				else
 					it->redBounds.push_back({"", ""});
 			}
@@ -836,7 +849,10 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 		std::string f1Arg;
 		{
 			isl_pw_aff *mn = isl_set_dim_min(isl_set_copy(innerDomain), 0);
-			struct C { long v; bool ok; } c{0, false};
+			struct C {
+				long v;
+				bool ok;
+			} c{0, false};
 			if (mn) {
 				isl_pw_aff_foreach_piece(
 					mn,
@@ -862,9 +878,11 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 		std::string maxcutCmd = "/* max_cut_volume() comes from maxcut.h.\n"
 								" * Regenerate it for THIS transformed domain (set --t to your DIV0 value):\n"
 								"    python3 gen_maxcut.py \\\n"
-								"      --domain \"" + domainStr + "\" \\\n"
-								"      --t " + tArg + " \\\n"
-								+ f1Arg +
+								"      --domain \"" +
+								domainStr +
+								"\" \\\n"
+								"      --t " +
+								tArg + " \\\n" + f1Arg +
 								"      --func max_cut_volume \\\n"
 								"      --out maxcut.h\n"
 								" * The --f1 above is min(x1) on this domain; it changes with the domain.\n"
@@ -1071,17 +1089,17 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 					   " + 1) && (" + pair.outerFor->iterator + " != " + nameHelper.outerForUBName() + ") && (" +
 					   nameHelper.outerForUBName() + " > 1)) {";
 			stmtStr += "fprintf(stderr, \"Warning: target volume too small.\\n(" + //
-					   nameHelper.targetVolName() + ", " +						 // target volume
-					   rootHelper.innerForLBName() + ", " +						 // d0 inner lower bound
-					   rootHelper.innerForUBName() + ", " +						 // d0 inner upper bound
-					   nameHelper.innerForLBName() + ", " +						 // d1 inner lower bound
-					   nameHelper.innerForUBName() +							 // d1 inner upper bound
-					   ") = (%ld, %ld, %ld, %ld, %ld)\\n\", " +					 //
-					   nameHelper.targetVolName() + ", " +						 // target volume
-					   rootHelper.innerForLBName() + ", " +						 // d0 inner lower bound
-					   rootHelper.innerForUBName() + ", " +						 // d0 inner upper bound
-					   nameHelper.innerForLBName() + ", " +						 // d1 inner lower bound
-					   nameHelper.innerForUBName() +							 // d1 inner upper bound
+					   nameHelper.targetVolName() + ", " +						   // target volume
+					   rootHelper.innerForLBName() + ", " +						   // d0 inner lower bound
+					   rootHelper.innerForUBName() + ", " +						   // d0 inner upper bound
+					   nameHelper.innerForLBName() + ", " +						   // d1 inner lower bound
+					   nameHelper.innerForUBName() +							   // d1 inner upper bound
+					   ") = (%ld, %ld, %ld, %ld, %ld)\\n\", " +					   //
+					   nameHelper.targetVolName() + ", " +						   // target volume
+					   rootHelper.innerForLBName() + ", " +						   // d0 inner lower bound
+					   rootHelper.innerForUBName() + ", " +						   // d0 inner upper bound
+					   nameHelper.innerForLBName() + ", " +						   // d1 inner lower bound
+					   nameHelper.innerForUBName() +							   // d1 inner upper bound
 					   ");";
 			// Plus d'exit(1) : au sommet du domaine la bande n'a pas assez de
 			// colonnes pour DIV1 tranches de DIV0 colonnes, et aucun reglage n'y
@@ -1110,7 +1128,7 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 		// for depth > 1 we do rectangular tiling
 		if (pair.depth > 1) {
 			if (pair.underGap) {
-				std::string gapIt   = clastTilingPairs[0].innerFor->iterator;
+				std::string gapIt = clastTilingPairs[0].innerFor->iterator;
 				std::string pointIt = clastTilingPairs[1].innerFor->iterator;
 
 				// Repli : plage couvrant les deux formes de plafond, utilisee
@@ -1123,19 +1141,20 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 				// expression affine ; un min/max d'expressions de sens contraires
 				// ne l'est pas, d'ou le repli.
 				auto affine = [](const std::string &e) {
-					return !e.empty() &&
-						   e.find("min(") == std::string::npos &&
-						   e.find("max(") == std::string::npos &&
-						   e.find("floord(") == std::string::npos &&
-						   e.find("ceild(") == std::string::npos;
+					return !e.empty() && e.find("min(") == std::string::npos && e.find("max(") == std::string::npos &&
+						   e.find("floord(") == std::string::npos && e.find("ceild(") == std::string::npos;
 				};
 				auto subst = [](std::string e, const std::string &from, const std::string &to) {
-					std::string out; size_t i = 0;
+					std::string out;
+					size_t i = 0;
 					while (i < e.size()) {
 						size_t p = e.find(from, i);
-						if (p == std::string::npos) { out += e.substr(i); break; }
+						if (p == std::string::npos) {
+							out += e.substr(i);
+							break;
+						}
 						size_t q = p + from.size();
-						bool lok = (p == 0) || (!isalnum((unsigned char)e[p-1]) && e[p-1] != '_');
+						bool lok = (p == 0) || (!isalnum((unsigned char)e[p - 1]) && e[p - 1] != '_');
 						bool rok = (q >= e.size()) || (!isalnum((unsigned char)e[q]) && e[q] != '_');
 						out += e.substr(i, p - i);
 						out += (lok && rok) ? to : from;
@@ -1150,28 +1169,24 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 				for (size_t ni = 0; ni < pair.outerHeaderStmts.size(); ++ni) {
 					std::string zlo = wideLo, zhi = wideHi;
 					std::string lb, ub;
-					bool tight = ni < pair.redBounds.size() &&
-								 affine(pair.redBounds[ni].first) &&
+					bool tight = ni < pair.redBounds.size() && affine(pair.redBounds[ni].first) &&
 								 affine(pair.redBounds[ni].second);
 					if (tight) {
 						lb = pair.redBounds[ni].first;
 						ub = pair.redBounds[ni].second;
-						zlo = "min(" + subst(lb, pointIt, "_tpzlb") + ", "
-									 + subst(lb, pointIt, "_tpzub") + ")";
-						zhi = "max(" + subst(ub, pointIt, "_tpzlb") + ", "
-									 + subst(ub, pointIt, "_tpzub") + ")";
+						zlo = "min(" + subst(lb, pointIt, "_tpzlb") + ", " + subst(lb, pointIt, "_tpzub") + ")";
+						zhi = "max(" + subst(ub, pointIt, "_tpzlb") + ", " + subst(ub, pointIt, "_tpzub") + ")";
 					}
 
 					std::string hdr = nameHelper.outerForLBName() + " = 0;";
-					hdr += nameHelper.outerForUBName() + " = ceild((" + zhi + ") - ("
-						 + zlo + ") + 1, " + nameHelper.divName() + ") - 1;";
-					macroData.defineFunc(
-						"S" + std::to_string(pair.outerHeaderStmts[ni]->statement->number), "", hdr);
+					hdr += nameHelper.outerForUBName() + " = ceild((" + zhi + ") - (" + zlo + ") + 1, " +
+						   nameHelper.divName() + ") - 1;";
+					macroData.defineFunc("S" + std::to_string(pair.outerHeaderStmts[ni]->statement->number), "", hdr);
 
-					std::string bdy = nameHelper.innerForLBName() + " = " + pair.outerFor->iterator
-									+ " * " + nameHelper.divName() + " + (" + zlo + ");";
-					bdy += nameHelper.innerForUBName() + " = min((" + pair.outerFor->iterator
-						 + " + 1) * " + nameHelper.divName() + " - 1 + (" + zlo + "), " + zhi + ");";
+					std::string bdy = nameHelper.innerForLBName() + " = " + pair.outerFor->iterator + " * " +
+									  nameHelper.divName() + " + (" + zlo + ");";
+					bdy += nameHelper.innerForUBName() + " = min((" + pair.outerFor->iterator + " + 1) * " +
+						   nameHelper.divName() + " - 1 + (" + zlo + "), " + zhi + ");";
 
 					if (tight) {
 						const std::string LZ = nameHelper.innerForLBName();
@@ -1191,19 +1206,22 @@ void TpzTilingPass::codegen(Bundle &bundle, std::vector<pesto::pass::ptile::Clas
 						bdy += "_tpzw = _tpzub - _tpzlb;";
 						bdy += "_tpzlb2 = _tpzlb; _tpzub2 = _tpzub;";
 						bdy += "if (_zub_hi - _zub_lo == _tpzw) "
-							   "_tpzlb2 = max(_tpzlb2, _tpzlb + " + LZ + " - _zub_lo);";
+							   "_tpzlb2 = max(_tpzlb2, _tpzlb + " +
+							   LZ + " - _zub_lo);";
 						bdy += "else if (_zub_hi - _zub_lo == -_tpzw) "
-							   "_tpzub2 = min(_tpzub2, _tpzlb + _zub_lo - " + LZ + ");";
+							   "_tpzub2 = min(_tpzub2, _tpzlb + _zub_lo - " +
+							   LZ + ");";
 						bdy += "if (_zlb_hi - _zlb_lo == _tpzw) "
-							   "_tpzub2 = min(_tpzub2, _tpzlb + " + UZ + " - _zlb_lo);";
+							   "_tpzub2 = min(_tpzub2, _tpzlb + " +
+							   UZ + " - _zlb_lo);";
 						bdy += "else if (_zlb_hi - _zlb_lo == -_tpzw) "
-							   "_tpzlb2 = max(_tpzlb2, _tpzlb + _zlb_lo - " + UZ + ");";
+							   "_tpzlb2 = max(_tpzlb2, _tpzlb + _zlb_lo - " +
+							   UZ + ");";
 					} else {
 						bdy += "_tpzlb2 = _tpzlb;";
 						bdy += "_tpzub2 = _tpzub;";
 					}
-					macroData.defineFunc(
-						"S" + std::to_string(pair.outerBodyStmts[ni]->statement->number), "", bdy);
+					macroData.defineFunc("S" + std::to_string(pair.outerBodyStmts[ni]->statement->number), "", bdy);
 				}
 
 				varDeclData.addVar(nameHelper.outerForLBName());
@@ -1345,12 +1363,18 @@ __isl_give isl_set *TpzTilingPass::computeInnerDomain(pesto::ir::ClastIR &clastI
 		// Mesure sur nw, ou le travail est pourtant constant le long du front :
 		// les largeurs vont de 83 a 6, et le thread le plus charge fait douze fois
 		// le moins charge.
-		struct Deep { isl_set *acc; int maxDim; } dp{nullptr, maxDim};
+		struct Deep {
+			isl_set *acc;
+			int maxDim;
+		} dp{nullptr, maxDim};
 		isl_union_set_foreach_set(
 			domain,
 			+[](__isl_take isl_set *s, void *user) -> isl_stat {
 				auto *dp = static_cast<Deep *>(user);
-				if (isl_set_dim(s, isl_dim_set) != dp->maxDim) { isl_set_free(s); return isl_stat_ok; }
+				if (isl_set_dim(s, isl_dim_set) != dp->maxDim) {
+					isl_set_free(s);
+					return isl_stat_ok;
+				}
 				s = isl_set_set_tuple_name(s, nullptr);
 				dp->acc = dp->acc ? isl_set_union(dp->acc, s) : s;
 				return isl_stat_ok;
@@ -1383,10 +1407,10 @@ __isl_give isl_set *TpzTilingPass::computeInnerDomain(pesto::ir::ClastIR &clastI
 				int nd = isl_set_dim(set, isl_dim_set);
 				for (int k = 0; k < nd; k++) {
 					std::string nm = "d" + std::to_string(k);
-					set  = isl_set_set_dim_name(set,  isl_dim_set, k, nm.c_str());
+					set = isl_set_set_dim_name(set, isl_dim_set, k, nm.c_str());
 					deep = isl_set_set_dim_name(deep, isl_dim_set, k, nm.c_str());
 				}
-				set  = isl_set_set_tuple_name(set,  "T");
+				set = isl_set_set_tuple_name(set, "T");
 				deep = isl_set_set_tuple_name(deep, "T");
 				isl_set *inter = isl_set_intersect(isl_set_copy(set), deep);
 				if (inter) {
@@ -1408,7 +1432,8 @@ __isl_give isl_set *TpzTilingPass::computeInnerDomain(pesto::ir::ClastIR &clastI
 				set = isl_set_add_constraint(set, hi);
 			}
 		} else {
-			if (dp.acc) isl_set_free(dp.acc);
+			if (dp.acc)
+				isl_set_free(dp.acc);
 		}
 	}
 

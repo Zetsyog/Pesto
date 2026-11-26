@@ -6,6 +6,7 @@
  */
 
 #include <pesto/pass/ParamContext.hpp>
+#include <pesto/passbuilder/ParamConstraintJson.hpp>
 #include <pesto/passbuilder/ParamContextPB.hpp>
 
 using namespace pesto::builder;
@@ -19,13 +20,18 @@ ParamContextPB::~ParamContextPB() {}
 std::unique_ptr<pesto::pass::IPass> ParamContextPB::build(PassManagerBuilder &builder, const json &j) {
 	(void)builder;
 
-	// TODO Parse the JSON object and build the pass
 	if (!j.contains("value")) {
 		logger->error("Missing option \"value\" for ParamContextPass");
 		throw std::invalid_argument("Missing option \"value\" for ParamContextPass");
 	}
 
-	auto pass = std::make_unique<pesto::pass::ParamContextPass>(j["value"]);
+	for (auto &[key, val] : j.items()) {
+		if (key != "uuid" && key != "value") {
+			logger->warn("Unknown option {} in param-context pass. Ignoring.", key.c_str());
+		}
+	}
+
+	auto pass = std::make_unique<pesto::pass::ParamContextPass>(parseParamConstraint(j["value"], "value", *logger));
 
 	return pass;
 }

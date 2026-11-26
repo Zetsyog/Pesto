@@ -8,8 +8,8 @@
 #pragma once
 
 #include <filesystem>
-#include <optional>
 #include <map>
+#include <optional>
 #include <vector>
 
 #include <pesto/codegen/ParamTiling.hpp>
@@ -40,7 +40,7 @@ enum class VolumeCheckTrigger {
 struct TilingData {
 	int id;
 	struct clast_for *outer_for;
-	struct clast_for *inner_for;   /* representative: inner_fors.front() */
+	struct clast_for *inner_for; /* representative: inner_fors.front() */
 	/**
 	 * All point loops on this tiled dimension.
 	 * Pluto's intra-tile optimisation can fission the tile body, leaving several
@@ -92,12 +92,12 @@ struct StmtGroup {
 	 * A vector of TilingData
 	 */
 	std::vector<std::unique_ptr<TilingData>> tilingData;
-	
+
 	/** TilingData owned by another group but enclosing this group's statements.
 	 *  Their constraints must be dropped and their lb/ub added as parameters,
 	 *  exactly like our own — otherwise Trahrhe emits Pluto's raw tile index. */
 	std::vector<TilingData *> borrowedTilingData;
-	
+
 	/** Owned + borrowed. Every tiling dimension that ENCLOSES this group's
 	 *  statements, regardless of which group owns its partition.
 	 *  Use this everywhere the tiling STRUCTURE is inspected. Use tilingData
@@ -156,6 +156,10 @@ class ClastParamTilingPass : public IPass {
 	void pushTilingType(pesto::ParamTilingType type);
 
 	void setGenClastPass(std::unique_ptr<GenClastPass> pass);
+	/** Clast generation used before tiling (preset with optFirstLevel=-1, optLastLevel=1). */
+	GenClastPass &getGenClastPass() {
+		return *this->gen_clast_pass;
+	}
 
 	/**
 	 * @brief clear the list of tiling types
@@ -182,7 +186,7 @@ class ClastParamTilingPass : public IPass {
 	std::vector<std::shared_ptr<std::string>> names; /* those string should survive till the end of pesto */
 
 	std::vector<std::pair<int, std::string>> trahrheDomainList_; /* trahrhe domains */
-	
+
 	/**
 	 * Tiling dimensions already claimed, keyed by their tile loop.
 	 * Non-owning: the TilingData lives in the owning group's vector.

@@ -23,14 +23,14 @@ Full and detailed json configuration optionss for this pass with default values.
                 "threshold": "DIV0 * 10"
             },
             "clast": {
-                "optLastLevel": -1,
-                "optFirstLevel": 0,
+                "optLastLevel": 1,
+                "optFirstLevel": -1,
                 "stopLevel": -1,
                 "simpleHulls": false,
                 "firstUnrollDimension": -1,
                 "spreadEqualities": true,
                 "backtrack": false,
-                "codegenContext": -1
+                "codegenContext": 0
             }
         },
         ...
@@ -131,6 +131,13 @@ Allowed `strategy` values:
 - `check-and-warn`: if volume is lower than threshold, then warn. Program execution continues. _Might lead to incorrect program, or crash later_
 - `no-tile-until-threshold`: no tiling will be done until the volume reaches the given `threshold`
 - `dynamic-tile-until-threshold`: when target volume is under `threshold`, it will increase progressively the divider until it reaches the required volume.
+
+### `clast`
+
+Options of the clast generation run before tiling, see
+[GenClastPass](GenClastPass.md). They are applied on top of this pass's presets
+(`optFirstLevel: -1`, `optLastLevel: 1`, `codegenContext: 0`), so only the options
+to change need to be given, e.g. `"clast": {"codegenContext": {"N": 16}}`.
 
 ### Deprecated options
 

@@ -22,6 +22,7 @@
 #include <pesto/metadata/Macro.hpp>
 #include <pesto/metadata/VarDecl.hpp>
 #include <pesto/pass/Pass.hpp>
+#include <pesto/pass/clast/GenClast.hpp>
 
 namespace pesto::pass {
 
@@ -29,15 +30,15 @@ namespace ptile {
 class ClastTilingPair {
   public:
 	unsigned int depth; // tiling depth
-	
+
 	bool underGap = false; // tile loop placed inside t2 instead of at the top
 
 	struct clast_for *innerFor;
 	struct clast_for *outerFor;
-	
-	std::vector<struct clast_for *>   outerFors;          // une enveloppe par nid
-	std::vector<clast_user_stmt *>    outerHeaderStmts;   // lbzt3/ubzt3, avant chaque enveloppe
-	std::vector<clast_user_stmt *>    outerBodyStmts;     // lbt3/ubt3, dans chaque enveloppe
+
+	std::vector<struct clast_for *> outerFors;		 // une enveloppe par nid
+	std::vector<clast_user_stmt *> outerHeaderStmts; // lbzt3/ubzt3, avant chaque enveloppe
+	std::vector<clast_user_stmt *> outerBodyStmts;	 // lbt3/ubt3, dans chaque enveloppe
 
 	struct clast_user_stmt *outerHeaderStmt = nullptr;
 	struct clast_user_stmt *outerBodyStmt = nullptr;
@@ -68,9 +69,19 @@ class TpzTilingPass : public IPass {
 	void setUseMinVolume(bool use) {
 		this->useMinVolume = use;
 	}
-	
-	void setReductionAboveGap(bool v) { reductionAboveGap_ = v; }
-	void setTileReduction(bool v) { this->tileReduction_ = v; }
+
+	void setReductionAboveGap(bool v) {
+		reductionAboveGap_ = v;
+	}
+	void setTileReduction(bool v) {
+		this->tileReduction_ = v;
+	}
+
+	/** Clast generation used before tiling (preset with optFirstLevel=-1, optLastLevel=1). */
+	GenClastPass &getGenClastPass() {
+		return *this->genClastPass;
+	}
+	void setGenClastPass(std::unique_ptr<GenClastPass> pass);
 
   private:
 	isl_ctx *ctx;
@@ -81,6 +92,7 @@ class TpzTilingPass : public IPass {
 
 	/* options */
 	bool useMinVolume = false;
+	std::unique_ptr<GenClastPass> genClastPass;
 	/* end options*/
 
 	void tileClastFor(Bundle &bundle, struct clast_for *clastFor, pesto::maths::Vec2i slope);
@@ -102,26 +114,26 @@ class TpzTilingPass : public IPass {
 	std::pair<std::string, std::string> computeInnerMinMaxStr(isl_set *innerDomain, unsigned dimIdx);
 
 	void insertOmpPragmas(pesto::ir::ClastIR &clastIR, std::vector<ptile::ClastTilingPair> &clastTilingPairs);
-	
+
 	std::optional<pesto::maths::Vec2i> computeDepDistanceVector(osl_scop_p scop);
-	
-    	bool zTileable_ = true;
-    	bool isReductionTileable(osl_scop_p scop);
-    	bool hoistingLegal_ = true;
+
+	bool zTileable_ = true;
+	bool isReductionTileable(osl_scop_p scop);
+	bool hoistingLegal_ = true;
 	bool isHoistingLegal(osl_scop_p scop);
 	bool underGapLegal_ = true;
 	bool hasReduction_ = false;
-	
-	std::optional<bool> reductionAboveGap_;   // non renseigné = automatique
-	
+
+	std::optional<bool> reductionAboveGap_; // non renseigné = automatique
+
 	bool tileReduction_ = true;
-	
+
 	bool isCanonicalLayout(__isl_keep isl_union_set *deltas);
-	
+
 	struct clast_stmt *diagTail_ = nullptr;
-	
+
 	bool scalarInReduction_ = false;
-	
+
 	std::vector<std::string> scalarWrites_;
 };
 

@@ -92,9 +92,6 @@ disables it.
 | Dump | `-DPOLYBENCH_DUMP_ARRAYS` (stderr) | `-DNPDP_DUMP` (stderr) |
 | Extra sources | `utilities/polybench.c` | headers in `include/` |
 
-NPDP sizes start at 10 because pesto's parameter context assumes every parameter
-is at least 10.
-
 For each instance, the transformed program is built with several tile divider
 sets and run with 1, 2, and 4 OpenMP threads. Parameter tiling (`algebraic`,
 `hybrid`, `tpz`) leaves tile sizes symbolic: pesto never sees them, the generated
@@ -253,8 +250,6 @@ Pesto:
 - PolyBench nussinov and trisolv (`tpz`): pesto aborts.
 - NPDP mcc (`handtuned`): TpzTiling logs "No for loop found to tile" as an error but
   pesto exits 0; the skewed, untiled output is already wrong.
-- NPDP counting (`handtuned`): the parameter context assumes `l >= 10`, while the
-  kernel runs with `l = 0`; the transformed code is out of contract.
 - `max_cut_volume()`: signature mismatch between the generated call and
   `gen_maxcut.py` (worked around by the harness, see above).
 

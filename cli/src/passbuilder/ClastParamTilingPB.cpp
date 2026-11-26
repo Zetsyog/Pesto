@@ -171,13 +171,8 @@ std::unique_ptr<pesto::pass::IPass> ClastParamTilingPB::build(PassManagerBuilder
 							  "generated. Make sure to register the correct builder ");
 				throw std::runtime_error("'" + GenClastPB::getID() + "' pass builder not found");
 			}
-			std::unique_ptr<pass::GenClastPass> clastPass = std::unique_ptr<pass::GenClastPass>(
-				static_cast<pass::GenClastPass *>(clastPB->get().build(builder, val).release()));
-			if (!clastPass) {
-				logger->error("Could not create clast pass for 'clast' options");
-				throw std::runtime_error("Could not create clast pass for 'clast' options");
-			}
-			pass->setGenClastPass(std::move(clastPass));
+			// Apply on the preset pass so defaults not given in 'clast' are kept.
+			static_cast<GenClastPB &>(clastPB->get()).configure(pass->getGenClastPass(), val);
 			continue;
 		}
 

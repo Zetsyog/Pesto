@@ -7,26 +7,23 @@
 
 #pragma once
 
+#include <pesto/ParamConstraint.hpp>
 #include <pesto/PassManager.hpp>
 #include <pesto/ir/OpenScopIR.hpp>
 #include <pesto/pass/Pass.hpp>
-
-#include <map>
-#include <unordered_map>
-
-#include <muParser.h>
 
 namespace pesto {
 
 namespace pass {
 
 /**
- * A pass that adds a minimal value to global parameters of each scop of the
- * program
+ * A pass that adds a constraint on the global parameters to the scop context.
+ * Unlike GenClastPass::codegenContext, the constraint is visible to every
+ * later pass (e.g. Pluto), not only to code generation.
  */
 class ParamContextPass : public IPass {
   public:
-	ParamContextPass(int contextValue);
+	explicit ParamContextPass(ParamConstraint constraint);
 	virtual ~ParamContextPass();
 
 	virtual Bundle apply(Bundle &&bundle) override;
@@ -38,7 +35,7 @@ class ParamContextPass : public IPass {
 	};
 
   private:
-	int contextValue;
+	ParamConstraint constraint;
 };
 
 } // namespace pass

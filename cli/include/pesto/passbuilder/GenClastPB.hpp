@@ -9,6 +9,8 @@
 
 #include <pesto/PassBuilder.hpp>
 
+#include <pesto/pass/clast/GenClast.hpp>
+
 #include <memory>
 #include <string>
 
@@ -27,6 +29,12 @@ class GenClastPB : public IPassBuilder {
 	virtual ~GenClastPB();
 
 	virtual std::unique_ptr<pesto::pass::IPass> build(PassManagerBuilder &builder, const json &j);
+
+	/**
+	 * Applies the options of j on an existing pass. Options absent from j keep
+	 * their current value, so passes embedding a GenClastPass can preset it.
+	 */
+	void configure(pesto::pass::GenClastPass &pass, const json &j);
 };
 
 } // namespace builder
