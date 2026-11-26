@@ -1,0 +1,4 @@
+{"passes":[
+  {"uuid":"pluto","options":{"tile":true,"parallel":true,"prevector":false,"unrolljam":false,"tile-sizes":[@TILE@,@TILE@,@TILE@]}},
+  {"uuid":"codegen-cloog"}
+]}
