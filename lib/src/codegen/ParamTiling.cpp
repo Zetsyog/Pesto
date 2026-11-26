@@ -232,8 +232,14 @@ void ParamTilingCodegen::genHeaderStmtAlgebraic(std::ostream &os) {
 	if (this->volumeCheckStrategy != VolumeCheckStrategy::NO_CHECK) {
 		os << ";" << this->endline;
 		// TODO: volume treshold should be a parameter
-		os << "if(" << this->nameHelper.targetVolName() << " <= " << this->volumeCheckThreshold << ") {"
-		   << this->endline;
+		// Skip on an empty enclosing slice: pcmax is 0 there, so the check would
+		// fire, and the dynamic strategies would reset ub to >= 0 and re-enable a
+		// loop the guard above disabled (Trahrhe then gets lb > ub).
+		os << "if(";
+		if (!nonEmpty.empty()) {
+			os << ok << " && ";
+		}
+		os << this->nameHelper.targetVolName() << " <= " << this->volumeCheckThreshold << ") {" << this->endline;
 
 		if (this->volumeCheckStrategy == VolumeCheckStrategy::CHECK_AND_WARN ||
 			this->volumeCheckStrategy == VolumeCheckStrategy::CHECK_AND_DIE) {
@@ -332,13 +338,18 @@ void ParamTilingCodegen::genBodyStmtAlgebraic(std::ostream &os) {
 
 	if (this->boundCorrectionStrategy != BoundCorrectionStrategy::NO_CORRECTION) {
 		os << ";" << this->endline;
-		os << "if(" << this->nameHelper.innerForLBName() << " > " << this->nameHelper.innerForUBName() << ") {"
+		// An empty slice (lb == ub + 1) is legitimate: a slice thinner than one
+		// column has both ends on the same column. Trahrhe is non-decreasing, so
+		// slice t+1 still starts at ub_t + 1 and the partition stays exact. Only
+		// lb > ub + 1 (a gap) means the bounds are wrong.
+		os << "if(" << this->nameHelper.innerForLBName() << " > " << this->nameHelper.innerForUBName() << " + 1) {"
 		   << this->endline;
 		if (this->boundCorrectionStrategy == BoundCorrectionStrategy::SHOUT_AND_CONTINUE ||
 			this->boundCorrectionStrategy == BoundCorrectionStrategy::SHOUT_AND_DIE) {
 			os << "\tfprintf(stderr, \"Error: computed bounds are incorrects (" << this->nameHelper.innerForLBName()
 			   << " > " << this->nameHelper.innerForUBName()
-			   << ").\\nTry with smaller divider or bigger parameters to increase tile volume.\\n\");" << this->endline;
+			   << " + 1).\\nTry with smaller divider or bigger parameters to increase tile volume.\\n\");"
+			   << this->endline;
 			if (this->boundCorrectionStrategy == BoundCorrectionStrategy::SHOUT_AND_DIE) {
 				os << "\texit(1);" << this->endline;
 			}

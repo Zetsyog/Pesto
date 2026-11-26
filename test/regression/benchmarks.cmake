@@ -268,11 +268,18 @@ foreach(
 		hybrid
 	)
 endforeach()
-pesto_bench(polybench linear-algebra/solvers/gramschmidt PIPELINES default pluto-like hybrid)
+pesto_bench(
+	polybench
+	linear-algebra/solvers/gramschmidt
+	PIPELINES
+	default
+	pluto-like
+	algebraic
+	hybrid
+)
 # Excluded: bicg/default (the i loop is marked parallel while s[j] accumulates over i: intermittent
 # wrong result with 4 threads).
 pesto_bench(polybench linear-algebra/kernels/bicg PIPELINES pluto-like algebraic hybrid)
-# Excluded: gramschmidt/algebraic (runtime "computed bounds are incorrects (lbt9 > ubt9)").
 # 2mm and 3mm fuse an outer tile loop across groups (borrowed tiling data).
 foreach(kernel IN ITEMS linear-algebra/kernels/2mm linear-algebra/kernels/3mm)
 	pesto_bench(
