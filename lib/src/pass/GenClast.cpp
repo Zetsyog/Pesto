@@ -11,6 +11,10 @@
 #include <set>
 #include <string>
 
+#include <cloog/isl/backend.h>
+#include <isl/ctx.h>
+#include <isl/options.h>
+
 #include <pesto/ParamConstraint.hpp>
 #include <pesto/clast_support.h>
 #include <pesto/ir/ClastIR.hpp>
@@ -165,6 +169,14 @@ Bundle GenClastPass::apply(Bundle &&bundle) {
 	}
 
 	CloogState *cloogState = cloog_state_malloc();
+	{
+		// isl has no public setter for its convex hull algorithm: go through its
+		// option parser, as the isl command-line tools do.
+		const char *argv[] = {"pesto", this->convexHullFM ? "--convex-hull=fm" : "--convex-hull=wrap"};
+		if (isl_ctx_parse_options(cloogState->backend->ctx, 2, (char **)argv, ISL_ARG_ALL) < 0) {
+			logger->warn("could not set the isl convex hull algorithm, keeping isl's default");
+		}
+	}
 	CloogOptions *cloogOptions = cloog_options_malloc(cloogState);
 
 	unsigned int stmtsNb = osl_statement_number(scop->statement);

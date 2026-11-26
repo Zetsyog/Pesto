@@ -140,6 +140,14 @@ void GenClastPB::configure(pass::GenClastPass &passRef, const json &j) {
 			pass->cloogBacktrack = val.get<bool>() ? 1 : 0;
 			continue;
 		}
+		if (key == "convexHull") {
+			if (!val.is_string() || (val.get<std::string>() != "fm" && val.get<std::string>() != "wrap")) {
+				logger->error("{} must be \"fm\" or \"wrap\".", key.c_str());
+				throw std::invalid_argument(key + " must be \"fm\" or \"wrap\"");
+			}
+			pass->convexHullFM = val.get<std::string>() == "fm";
+			continue;
+		}
 		if (key == "codegenContext") {
 			pass->codegenContext = parseParamConstraint(val, key, *logger);
 			continue;

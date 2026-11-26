@@ -38,6 +38,11 @@ class GenClastPass : public IPass {
 	int cloogBacktrack;				// 1 to use backtrack
 	int cloogNoSimplify;			// 1 to not simplify the polyhedra
 	int cloogEsp;
+	/** isl convex hull algorithm used by CLooG: true = Fourier-Motzkin, false =
+	 *  wrapping (isl's default). Both are exact; wrapping blows up on the
+	 *  high-dimensional unions of tiled multi-statement schedules (3mm: 50 s
+	 *  vs 0.5 s, identical code). */
+	bool convexHullFM = true;
 	// last level to optimize, statement-wise.
 	std::vector<int> stmtLastOptLevel;
 	// first level to optimize, statement-wise.
