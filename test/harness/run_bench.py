@@ -4,8 +4,8 @@ The original and the transformed kernel are compiled with the same flags and
 run on several problem sizes; the transformed one with several tile divider
 sets and thread counts. Result dumps (stderr) must hash identically.
 
---pipeline is a pipelines/*.json.in name, "default", "kernel" (with
---kernel-config), or "pluto" (with --polycc [--polycc-flags]).
+--pipeline is a pipelines/*.json.in name, "default", "handtuned" (with
+--handtuned-config), or "pluto" (with --polycc [--polycc-flags]).
 """
 
 import itertools
@@ -41,7 +41,7 @@ def parse_args():
     parser.add_argument("--kernel", required=True, help="path inside --bench-root")
     parser.add_argument("--bench-root", required=True, type=Path)
     parser.add_argument("--pipeline", required=True)
-    parser.add_argument("--kernel-config", type=Path)
+    parser.add_argument("--handtuned-config", type=Path)
     parser.add_argument("--polycc", default="")
     parser.add_argument("--polycc-flags", default="")
     parser.add_argument("--python", default=sys.executable)
@@ -118,10 +118,12 @@ class Bench:
                      [*shlex.split(args.polycc), f"{self.name}.c", "--tile", "--parallel", "--nounroll",
                       *shlex.split(args.polycc_flags), "-o", "generated.c"])
         else:
-            if args.pipeline == "kernel":
-                shutil.copyfile(args.kernel_config, case.path("pipeline.json"))
+            if args.pipeline == "handtuned":
+                shutil.copyfile(args.handtuned_config, case.path("pipeline.json"))
                 config_args = ["--config", case.path("pipeline.json")]
             else:
+                # 7 fills @TILE@ (pluto-like); the parameter-tiling pipelines
+                # have none: their tile sizes are the DIVn dividers below.
                 config_args = case.pipeline_args(args.source_dir / "pipelines", args.pipeline, 7)
             case.run("transform", "transform-fail",
                      [args.pesto, *config_args, f"{self.name}.c", "-o", "generated.c"])
@@ -220,7 +222,7 @@ class Bench:
                                               f"Actual: {case.path(f'{phase}.err')}")
                 case.path(f"transformed-{run}").unlink()
 
-        if args.pipeline in ("atiling", "hybrid-2d") and not param_tiled:
+        if args.pipeline in ("algebraic", "hybrid") and not param_tiled:
             case.passed("pass-untiled")
         else:
             case.passed()

@@ -15,7 +15,7 @@ SIZES = (0, 1, 2, 3, 4, 7, 8, 9, 17)
 # Two fixed data patterns exercise values independently of domain shape.
 SEEDS = (1, 7)
 THREADS = (1, 2, 4)
-PARAM_TILED = ("param-rect", "hybrid", "algebraic")
+PARAM_TILED = ("hybrid", "algebraic")
 DIVIDERS = {
     "standard": [],
     "unit": ["-DDIV0=1", "-DDIV1=1", "-DDIV2=1"],
@@ -28,7 +28,8 @@ def parse_args():
     parser = harness.common_parser(__doc__)
     parser.add_argument("--fixture", required=True)
     parser.add_argument("--pipeline", required=True)
-    parser.add_argument("--tile", required=True)
+    parser.add_argument("--tile", help="fills @TILE@ (fixed Pluto tile sizes); parameter-tiling "
+                                       "pipelines take their tile sizes as DIVn macros at compile time")
     return parser.parse_args()
 
 

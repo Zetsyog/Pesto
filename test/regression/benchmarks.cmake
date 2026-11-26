@@ -32,15 +32,16 @@ if(NOT EXISTS "${pesto_polybench_SOURCE_DIR}/utilities/polybench.c"
 endif()
 
 set(PESTO_BENCH_PROBE_DIR "${CMAKE_BINARY_DIR}/bench-probe")
-set(PESTO_BENCH_CONFIG_DIR "${PROJECT_SOURCE_DIR}/utilities/configuration files")
+# Hand-tuned configurations: pipelines/handtuned/<suite>/<kernel name>.json.
+set(PESTO_BENCH_HANDTUNED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/pipelines/handtuned")
 
 # Kernel classes decide which pipelines apply (see the probe report):
 # - algebraic: standard and hybrid algebraic tiling;
-# - trapezoidal: only trapezoidal tiling (generic tpz, or the per-kernel
-#   configuration; NPDP kernels need its skew), never algebraic tiling;
+# - trapezoidal: only trapezoidal tiling (generic tpz, or the hand-tuned
+#   per-kernel configuration; NPDP kernels need its skew), never algebraic tiling;
 # - unsupported: not pesto-compatible, only probed through Pluto (pluto
 #   pipeline, when PESTO_BENCH_POLYCC is set).
-# default/tiled (Pluto scheduling + rectangular tiling) are probed for every
+# default/pluto-like (Pluto scheduling + rectangular tiling) are probed for every
 # pesto-compatible kernel. NPDP mea, sw3d and zuker are deliberately ignored.
 set(PESTO_POLYBENCH_ALGEBRAIC
     datamining/correlation datamining/covariance
@@ -58,9 +59,9 @@ set(PESTO_POLYBENCH_UNSUPPORTED
 set(PESTO_NPDP_TRAPEZOIDAL
     counting counting_im mcm knuth triang nussinov mcc nw sw)
 
-set(PESTO_BENCH_ALGEBRAIC_PIPELINES default tiled atiling hybrid-2d)
-set(PESTO_BENCH_TRAPEZOIDAL_PIPELINES default tiled tpz)
-set(PESTO_BENCH_NPDP_PIPELINES default tiled)
+set(PESTO_BENCH_ALGEBRAIC_PIPELINES default pluto-like algebraic hybrid)
+set(PESTO_BENCH_TRAPEZOIDAL_PIPELINES default pluto-like tpz)
+set(PESTO_BENCH_NPDP_PIPELINES default pluto-like)
 set(PESTO_BENCH_POLYCC "" CACHE STRING
     "polycc command for the probe's Pluto reference pipeline (empty: disabled)")
 
@@ -72,10 +73,8 @@ function(_pesto_bench_command suite kernel pipeline work_dir var)
     get_filename_component(name "${kernel}" NAME)
     if(suite STREQUAL "polybench")
         set(root "${pesto_polybench_SOURCE_DIR}")
-        set(config "${PESTO_BENCH_CONFIG_DIR}/polybenchs/${name}.json")
     else()
         set(root "${pesto_npdp_SOURCE_DIR}")
-        set(config "${PESTO_BENCH_CONFIG_DIR}/NPDP/${name}.json")
     endif()
     # gen_maxcut.py needs sympy: run it without -I, so site packages are visible.
     set(${var}
@@ -83,7 +82,7 @@ function(_pesto_bench_command suite kernel pipeline work_dir var)
         --pesto "$<TARGET_FILE:pesto-cli>" --cc "${CMAKE_C_COMPILER}"
         --sanitizers "${PESTO_REGRESSION_SANITIZERS}"
         --suite "${suite}" --kernel "${kernel}" --bench-root "${root}"
-        --pipeline "${pipeline}" --kernel-config "${config}"
+        --pipeline "${pipeline}" --handtuned-config "${PESTO_BENCH_HANDTUNED_DIR}/${suite}/${name}.json"
         --source-dir "${CMAKE_CURRENT_SOURCE_DIR}" --work-dir "${work_dir}"
         --python "${Python3_EXECUTABLE}" --gen-maxcut "${PROJECT_SOURCE_DIR}/utilities/gen_maxcut.py"
         --iscc "${BARVINOK_INSTALL_DIR}/bin/iscc" "--polycc=${PESTO_BENCH_POLYCC}"
@@ -116,13 +115,13 @@ function(_pesto_bench_probe)
         list(APPEND cases "polybench|${kernel}|${algebraic}|")
     endforeach()
     foreach(kernel IN LISTS PESTO_POLYBENCH_TRAPEZOIDAL)
-        list(APPEND cases "polybench|${kernel}|${trapezoidal}|kernel")
+        list(APPEND cases "polybench|${kernel}|${trapezoidal}|handtuned")
     endforeach()
     foreach(kernel IN LISTS PESTO_POLYBENCH_UNSUPPORTED)
         list(APPEND cases "polybench|${kernel}||")
     endforeach()
     foreach(kernel IN LISTS PESTO_NPDP_TRAPEZOIDAL)
-        list(APPEND cases "npdp|${kernel}|${npdp}|kernel")
+        list(APPEND cases "npdp|${kernel}|${npdp}|handtuned")
     endforeach()
     foreach(case IN LISTS cases)
         string(REPLACE "|" ";" case "${case}")
@@ -132,13 +131,8 @@ function(_pesto_bench_probe)
         list(GET case 3 trapezoidal_config)
         string(REPLACE "," ";" pipelines "${pipelines}")
         get_filename_component(name "${kernel}" NAME)
-        if(suite STREQUAL "polybench")
-            set(config_dir "${PESTO_BENCH_CONFIG_DIR}/polybenchs")
-        else()
-            set(config_dir "${PESTO_BENCH_CONFIG_DIR}/NPDP")
-        endif()
-        if(trapezoidal_config AND EXISTS "${config_dir}/${name}.json")
-            list(APPEND pipelines kernel)
+        if(trapezoidal_config AND EXISTS "${PESTO_BENCH_HANDTUNED_DIR}/${suite}/${name}.json")
+            list(APPEND pipelines handtuned)
         endif()
         if(PESTO_BENCH_POLYCC)
             list(APPEND pipelines pluto)
@@ -182,47 +176,47 @@ foreach(kernel IN ITEMS
         linear-algebra/kernels/mvt linear-algebra/blas/gemm linear-algebra/blas/gemver
         linear-algebra/blas/gesummv linear-algebra/blas/syr2k linear-algebra/blas/syrk
         linear-algebra/blas/trmm medley/deriche)
-    pesto_bench(polybench ${kernel} PIPELINES default tiled atiling hybrid-2d)
+    pesto_bench(polybench ${kernel} PIPELINES default pluto-like algebraic hybrid)
 endforeach()
-pesto_bench(polybench linear-algebra/solvers/gramschmidt PIPELINES default tiled hybrid-2d)
+pesto_bench(polybench linear-algebra/solvers/gramschmidt PIPELINES default pluto-like hybrid)
 # Excluded: bicg/default (the i loop is marked parallel while s[j] accumulates
 # over i: intermittent wrong result with 4 threads).
-pesto_bench(polybench linear-algebra/kernels/bicg PIPELINES tiled atiling hybrid-2d)
-# Excluded: gramschmidt/atiling (pesto aborts); 2mm/atiling, 3mm/atiling
-# (pesto aborts); 2mm/hybrid-2d (runtime crash in the generated code);
-# 3mm/hybrid-2d (wrong result).
-pesto_bench(polybench linear-algebra/kernels/2mm PIPELINES default tiled)
-pesto_bench(polybench linear-algebra/kernels/3mm PIPELINES default tiled)
+pesto_bench(polybench linear-algebra/kernels/bicg PIPELINES pluto-like algebraic hybrid)
+# Excluded: gramschmidt/algebraic (pesto aborts); 2mm/algebraic, 3mm/algebraic
+# (pesto aborts); 2mm/hybrid (runtime crash in the generated code);
+# 3mm/hybrid (wrong result).
+pesto_bench(polybench linear-algebra/kernels/2mm PIPELINES default pluto-like)
+pesto_bench(polybench linear-algebra/kernels/3mm PIPELINES default pluto-like)
 
 # PolyBench, trapezoidal class.
 foreach(kernel IN ITEMS stencils/fdtd-2d stencils/heat-3d stencils/jacobi-1d stencils/jacobi-2d)
-    pesto_bench(polybench ${kernel} PIPELINES default tiled tpz)
+    pesto_bench(polybench ${kernel} PIPELINES default pluto-like tpz)
 endforeach()
-pesto_bench(polybench stencils/seidel-2d PIPELINES default tiled tpz kernel)
-pesto_bench(polybench linear-algebra/blas/symm PIPELINES default tiled tpz kernel)
-# Excluded: lu tpz/kernel (wrong result with 2+ threads); cholesky tpz/kernel
+pesto_bench(polybench stencils/seidel-2d PIPELINES default pluto-like tpz handtuned)
+pesto_bench(polybench linear-algebra/blas/symm PIPELINES default pluto-like tpz handtuned)
+# Excluded: lu tpz/handtuned (wrong result with 2+ threads); cholesky tpz/handtuned
 # (wrong result, even with 1 thread); nussinov/tpz (pesto aborts) and
-# nussinov/kernel (wrong result with 4 threads, Pluto itself is wrong on
-# nussinov too); trisolv/tpz (pesto aborts) and trisolv/kernel (skew: 'j' is
+# nussinov/handtuned (wrong result with 4 threads, Pluto itself is wrong on
+# nussinov too); trisolv/tpz (pesto aborts) and trisolv/handtuned (skew: 'j' is
 # not an iterator of every statement of the upstream source).
 foreach(kernel IN ITEMS
         linear-algebra/solvers/lu linear-algebra/solvers/cholesky
         medley/nussinov linear-algebra/solvers/trisolv)
-    pesto_bench(polybench ${kernel} PIPELINES default tiled)
+    pesto_bench(polybench ${kernel} PIPELINES default pluto-like)
 endforeach()
 
-# NPDP, trapezoidal class (the "kernel" configuration is the trapezoidal one).
-pesto_bench(npdp knuth PIPELINES default tiled kernel)
-pesto_bench(npdp nussinov PIPELINES default tiled kernel)
-pesto_bench(npdp counting PIPELINES default tiled)
-pesto_bench(npdp counting_im PIPELINES default tiled)
-pesto_bench(npdp mcc PIPELINES default tiled)
+# NPDP, trapezoidal class (the "handtuned" configuration is the trapezoidal one).
+pesto_bench(npdp knuth PIPELINES default pluto-like handtuned)
+pesto_bench(npdp nussinov PIPELINES default pluto-like handtuned)
+pesto_bench(npdp counting PIPELINES default pluto-like)
+pesto_bench(npdp counting_im PIPELINES default pluto-like)
+pesto_bench(npdp mcc PIPELINES default pluto-like)
 foreach(kernel IN ITEMS mcm nw sw triang)
-    pesto_bench(npdp ${kernel} PIPELINES tiled)
+    pesto_bench(npdp ${kernel} PIPELINES pluto-like)
 endforeach()
 # Excluded: mcm, nw, sw, triang default (wrong result with 4 threads; Pluto's
-# own polycc output is correct); counting/kernel (pesto's context assumes
-# l >= 10, the kernel runs with l = 0); mcc/kernel (tpz finds no loop to tile
+# own polycc output is correct); counting/handtuned (pesto's context assumes
+# l >= 10, the kernel runs with l = 0); mcc/handtuned (tpz finds no loop to tile
 # and still exits 0; the skewed output is wrong); counting_im, mcm, nw, sw,
 # triang kernel (wrong result, mostly with 2+ threads).
 # -----------------------------------------------------------------------------

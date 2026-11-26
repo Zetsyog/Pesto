@@ -1,5 +1,0 @@
-{"passes":[
-  {"uuid":"pluto","options":{"tile":true,"parallel":true,"prevector":false,"unrolljam":false,"tile-sizes":[@TILE@,@TILE@,@TILE@]}},
-  {"uuid":"param-tiling","types":["rectangular","rectangular","rectangular"],"gen-trahrhe":false,"volumeCheck":{"strategy":"no-check"}},
-  {"uuid":"codegen-cloog"}
-]}

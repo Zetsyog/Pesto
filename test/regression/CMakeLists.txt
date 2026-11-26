@@ -14,15 +14,22 @@ if(PESTO_REGRESSION_SANITIZERS)
     endif()
 endif()
 
-function(pesto_regression fixture pipeline tile)
+# pesto_regression(<fixture> <pipeline> [TILE <size>]): TILE fills @TILE@ in
+# pipelines with fixed Pluto tile sizes. Parameter-tiling pipelines (algebraic,
+# hybrid) take none: their tile sizes are the DIVn macros of the generated code,
+# set at compile time by the harness.
+function(pesto_regression fixture pipeline)
+    cmake_parse_arguments(PARSE_ARGV 2 arg "" "TILE" "")
     set(name regression-${fixture}-${pipeline})
-    if(pipeline STREQUAL "tiled")
-        string(APPEND name -${tile})
+    set(tile_args)
+    if(DEFINED arg_TILE)
+        string(APPEND name -${arg_TILE})
+        set(tile_args --tile ${arg_TILE})
     endif()
     add_test(NAME ${name}
         COMMAND ${PESTO_TEST_PYTHON} ${PESTO_TEST_HARNESS_DIR}/run_fixture.py
             --pesto $<TARGET_FILE:pesto-cli> --cc ${CMAKE_C_COMPILER}
-            --fixture ${fixture} --pipeline ${pipeline} --tile ${tile}
+            --fixture ${fixture} --pipeline ${pipeline} ${tile_args}
             --sanitizers ${PESTO_REGRESSION_SANITIZERS}
             --source-dir ${CMAKE_CURRENT_SOURCE_DIR}
             --work-dir ${PESTO_REGRESSION_ARTIFACT_DIR}/${name})
@@ -30,18 +37,15 @@ function(pesto_regression fixture pipeline tile)
 endfunction()
 
 foreach(fixture IN ITEMS pointwise triangle scalar reduction multi_statement stencil guarded negative_bounds)
-    pesto_regression(${fixture} default 32)
-    pesto_regression(${fixture} tiled 3)
-    pesto_regression(${fixture} tiled 64)
-endforeach()
-foreach(fixture IN ITEMS pointwise triangle reduction)
-    pesto_regression(${fixture} param-rect 3)
+    pesto_regression(${fixture} default)
+    pesto_regression(${fixture} pluto-like TILE 3)
+    pesto_regression(${fixture} pluto-like TILE 64)
 endforeach()
 foreach(fixture IN ITEMS pointwise triangle)
-    pesto_regression(${fixture} hybrid 3)
-    pesto_regression(${fixture} algebraic 3)
+    pesto_regression(${fixture} hybrid)
+    pesto_regression(${fixture} algebraic)
 endforeach()
-pesto_regression(guarded_stride codegen 1)
+pesto_regression(guarded_stride codegen)
 
 add_test(NAME regression-rejections
     COMMAND ${PESTO_TEST_PYTHON} ${PESTO_TEST_HARNESS_DIR}/reject.py --pesto $<TARGET_FILE:pesto-cli>

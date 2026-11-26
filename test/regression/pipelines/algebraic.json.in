@@ -1,5 +1,32 @@
-{"passes":[
-  {"uuid":"pluto","options":{"tile":true,"parallel":true,"prevector":false,"unrolljam":false,"tile-sizes":[@TILE@,@TILE@,@TILE@]}},
-  {"uuid":"param-tiling","types":["algebraic","algebraic","algebraic"],"gen-trahrhe":true,"volumeCheck":{"strategy":"no-check"}},
-  {"uuid":"codegen-cloog"}
-]}
+{
+  "options": {
+    "input-format": "c"
+  },
+  "passes": [
+    {
+      "uuid": "pluto",
+      "options": {
+        "tile": true,
+        "parallel": true,
+        "prevector": true,
+        "intratileopt": true,
+        "unrolljam": false,
+        "identity": false,
+        "silent": true
+      }
+    },
+    {
+      "uuid": "param-tiling",
+      "gen-trahrhe": true,
+      "trahrhe-use-dichotomy": true,
+      "bound-compute-method": "fill-last"
+    },
+    {
+      "uuid": "clast-custom-vec-pragma",
+      "pragma": "GCC ivdep"
+    },
+    {
+      "uuid": "codegen-cloog"
+    }
+  ]
+}

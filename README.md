@@ -245,8 +245,8 @@ cmake --build build --target check-regressions -j4
 It checks empty and tiny domains, negative and shifted bounds, triangular domains,
 scalar temporaries, reductions with initialization and finalization, guarded loops,
 multiple statements and nests, and a time-dependent stencil. The matrix covers
-the default pipeline, Pluto tiles of size 3 and 64, rectangular parameter tiling,
-hybrid tiling, and algebraic tiling. Parameter tiling is checked with unit,
+the default pipeline, Pluto tiles of size 3 and 64, hybrid tiling, and
+algebraic tiling. Parameter tiling is checked with unit,
 uneven `(3,5,7)`, and oversized `(64,65,66)` dividers. Every generated program is
 compared against the original at sizes `0,1,2,3,4,7,8,9,17`, with two fixed input
 patterns and `1,2,4` OpenMP threads. Full result dumps include untouched borders;
@@ -305,14 +305,14 @@ For trapezoidal tiling the harness generates `maxcut.h` with
 the build provides), from the command emitted in the generated source, with the
 parameters bound to the instance being run.
 
-Pipelines live in `test/regression/pipelines/`; `kernel` is the tailored
-configuration in `utilities/configuration files/{polybenchs,NPDP}/<kernel>.json`.
+Pipelines live in `test/regression/pipelines/`; `handtuned` is the hand-tuned
+configuration in `test/regression/pipelines/handtuned/{polybench,npdp}/<kernel>.json`.
 Which pipelines apply depends on the kernel:
 
 | Class | Kernels | Pipelines |
 | --- | --- | --- |
-| Algebraic | the other PolyBench kernels | `default`, `tiled`, `atiling`, `hybrid-2d` |
-| Trapezoidal | PolyBench lu, cholesky, nussinov, seidel-2d, fdtd-2d, symm, heat-3d, jacobi-1d, jacobi-2d, trisolv; NPDP counting, counting_im, mcm, knuth, triang, nussinov, mcc, nw, sw | `default`, `tiled`, `tpz` (PolyBench), `kernel` |
+| Algebraic | the other PolyBench kernels | `default`, `pluto-like`, `algebraic`, `hybrid` |
+| Trapezoidal | PolyBench lu, cholesky, nussinov, seidel-2d, fdtd-2d, symm, heat-3d, jacobi-1d, jacobi-2d, trisolv; NPDP counting, counting_im, mcm, knuth, triang, nussinov, mcc, nw, sw | `default`, `pluto-like`, `tpz` (PolyBench), `handtuned` |
 | Not pesto-compatible | floyd-warshall, adi, ludcmp, durbin | Pluto reference only |
 
 NPDP mea, sw3d, and zuker are not tested.

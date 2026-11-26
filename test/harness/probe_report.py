@@ -18,7 +18,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-PIPELINES = ("default", "tiled", "atiling", "hybrid-2d", "tpz", "kernel", "pluto")
+PIPELINES = ("default", "pluto-like", "algebraic", "hybrid", "tpz", "handtuned", "pluto")
 
 
 def parse_args():

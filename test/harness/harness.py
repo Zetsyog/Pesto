@@ -151,11 +151,17 @@ class Case:
 
     def pipeline_args(self, pipeline_dir, name, tile):
         """Instantiate pipelines/<name>.json.in into the work dir; return the
-        --config arguments (none for the default pipeline)."""
+        --config arguments (none for the default pipeline). <tile> fills
+        @TILE@; parameter-tiling pipelines have none, their tile sizes are the
+        DIVn macros of the generated code."""
         if name == "default":
             return []
         template = (Path(pipeline_dir) / f"{name}.json.in").read_text()
-        self.path("pipeline.json").write_text(template.replace("@TILE@", str(tile)))
+        if "@TILE@" in template:
+            if tile is None:
+                raise ValueError(f"pipeline {name} has fixed tile sizes (@TILE@): pass a tile size")
+            template = template.replace("@TILE@", str(tile))
+        self.path("pipeline.json").write_text(template)
         return ["--config", str(self.path("pipeline.json"))]
 
 

@@ -30,7 +30,8 @@ test/harness/          what a case does at run time (Python)
 test/regression/       which cases exist (CMake)
   CMakeLists.txt       fixture x pipeline matrix, rejections
   benchmarks.cmake     source fetches, kernel classes, allowlist, probe target
-  pipelines/*.json.in  pesto configurations (@TILE@ is substituted)
+  pipelines/*.json.in  pesto configurations (@TILE@: fixed Pluto tile size)
+  pipelines/handtuned/ hand-tuned per-kernel configurations, <suite>/<kernel>.json
   polycc-docker.sh     polycc from docker/pluto.dockerfile (Pluto reference)
   fixtures/            synthetic kernels for run_fixture.py
 ```
@@ -95,7 +96,10 @@ NPDP sizes start at 10 because pesto's parameter context assumes every parameter
 is at least 10.
 
 For each instance, the transformed program is built with several tile divider
-sets and run with 1, 2, and 4 OpenMP threads:
+sets and run with 1, 2, and 4 OpenMP threads. Parameter tiling (`algebraic`,
+`hybrid`, `tpz`) leaves tile sizes symbolic: pesto never sees them, the generated
+code reads them from the `DIVn` macros, set here with `-DDIVn=...` at compile
+time. Only `pluto-like` has fixed tile sizes, through `@TILE@`.
 
 | Generated code | Divider sets |
 | --- | --- |
@@ -134,24 +138,24 @@ while `gen_maxcut.py` emits `max_cut_volume(params..., b)`.
 | Pipeline | Configuration |
 | --- | --- |
 | `default` | no `--config` |
-| `tiled` | Pluto tiling (tile size 7) + CLooG |
-| `atiling` | Pluto + algebraic parameter tiling (`pipelines/atiling.json.in`) |
-| `hybrid-2d` | Pluto + algebraic/rectangular parameter tiling |
+| `pluto-like` | Pluto tiling (tile size 7 for benchmarks) + CLooG |
+| `algebraic` | Pluto + algebraic parameter tiling |
+| `hybrid` | Pluto + algebraic/rectangular parameter tiling |
 | `tpz` | Pluto diamond tiling + TpzTiling |
-| `kernel` | the tailored configuration `utilities/configuration files/{polybenchs,NPDP}/<kernel>.json` |
+| `handtuned` | the hand-tuned configuration `test/regression/pipelines/handtuned/<suite>/<kernel>.json` |
 | `pluto` | Pluto's `polycc --tile --parallel --nounroll` (reference, probe only) |
 
 Which pipelines apply depends on the kernel:
 
 | Class | Kernels | Pipelines |
 | --- | --- | --- |
-| Algebraic | PolyBench correlation, covariance, 2mm, 3mm, atax, bicg, doitgen, mvt, gemm, gemver, gesummv, syr2k, syrk, trmm, gramschmidt, deriche | `default`, `tiled`, `atiling`, `hybrid-2d` |
-| Trapezoidal | PolyBench lu, cholesky, nussinov, seidel-2d, fdtd-2d, symm, heat-3d, jacobi-1d, jacobi-2d, trisolv | `default`, `tiled`, `tpz`, `kernel` (if present) |
-| Trapezoidal | NPDP counting, counting_im, mcm, knuth, triang, nussinov, mcc, nw, sw | `default`, `tiled`, `kernel` |
+| Algebraic | PolyBench correlation, covariance, 2mm, 3mm, atax, bicg, doitgen, mvt, gemm, gemver, gesummv, syr2k, syrk, trmm, gramschmidt, deriche | `default`, `pluto-like`, `algebraic`, `hybrid` |
+| Trapezoidal | PolyBench lu, cholesky, nussinov, seidel-2d, fdtd-2d, symm, heat-3d, jacobi-1d, jacobi-2d, trisolv | `default`, `pluto-like`, `tpz`, `handtuned` (if present) |
+| Trapezoidal | NPDP counting, counting_im, mcm, knuth, triang, nussinov, mcc, nw, sw | `default`, `pluto-like`, `handtuned` |
 | Not pesto-compatible | PolyBench floyd-warshall, adi, ludcmp, durbin | `pluto` only |
 
 Trapezoidal kernels are never valid with algebraic tiling. NPDP kernels need the
-skew of their tailored configuration before trapezoidal tiling, so the generic
+skew of their hand-tuned configuration before trapezoidal tiling, so the generic
 `tpz` pipeline does not apply to them. NPDP mea, sw3d, and zuker are not tested.
 
 Per-kernel `polycc` flags go in `PESTO_BENCH_POLYCC_FLAGS_<kernel>` (heat-3d uses
@@ -162,15 +166,15 @@ Per-kernel `polycc` flags go in `PESTO_BENCH_POLYCC_FLAGS_<kernel>` (heat-3d use
 The bottom of `test/regression/benchmarks.cmake` registers the CTest cases:
 
 ```cmake
-pesto_bench(polybench linear-algebra/blas/gemm PIPELINES default tiled atiling hybrid-2d)
+pesto_bench(polybench linear-algebra/blas/gemm PIPELINES default pluto-like algebraic hybrid)
 ```
 
-creates `bench-polybench-gemm-default`, `bench-polybench-gemm-tiled`, and so on.
+creates `bench-polybench-gemm-default`, `bench-polybench-gemm-pluto-like`, and so on.
 Every excluded pair has its reason in a comment. Replay one case with:
 
 ```bash
-ctest --test-dir build --output-on-failure -R '^bench-polybench-gemm-atiling$'
-# artifacts: build/test/regression/cases/bench-polybench-gemm-atiling/
+ctest --test-dir build --output-on-failure -R '^bench-polybench-gemm-algebraic$'
+# artifacts: build/test/regression/cases/bench-polybench-gemm-algebraic/
 ```
 
 ## The probe
@@ -216,12 +220,15 @@ rootless Docker (files written by the container then belong to the caller).
 
 - **A fixture**: add `test/regression/fixtures/<name>.c` (see `fixture.h`: `argv[1]` is the size,
   `argv[2]` the seed, results on stdout) and a `pesto_regression()` line in
-  `test/regression/CMakeLists.txt`.
+  `test/regression/CMakeLists.txt`: `pesto_regression(<fixture> <pipeline>
+  [TILE <size>])`, where `TILE` only applies to pipelines with `@TILE@`.
+  Fixtures run parameter-tiled code with unit `(1,1,1)`, uneven `(3,5,7)`, and
+  oversized `(64,65,66)` `DIV0..DIV2`.
 - **A pipeline**: add `pipelines/<name>.json.in`, then list it in the kernel
   class variables of `benchmarks.cmake`.
-- **A tailored configuration**: add
-  `utilities/configuration files/{polybenchs,NPDP}/<kernel>.json`; the probe picks
-  it up as the `kernel` pipeline for trapezoidal kernels.
+- **A hand-tuned configuration**: add
+  `pipelines/handtuned/{polybench,npdp}/<kernel>.json`; the probe picks it up as
+  the `handtuned` pipeline for trapezoidal kernels.
 - **An allowlist entry**: run the probe, then move the pair from the excluded
   comments to a `pesto_bench()` call.
 
@@ -238,22 +245,22 @@ Pesto:
   In bicg, the `i` loop is marked `omp parallel for` while `s[j]` accumulates over
   `i`. These races are intermittent: a single probe run can miss them (bicg passed
   the probe and failed the next run).
-- Algebraic tiling: 2mm, 3mm, gramschmidt (`atiling`) abort; 2mm (`hybrid-2d`)
-  crashes at run time; 3mm (`hybrid-2d`) gives wrong results.
+- Algebraic tiling: 2mm, 3mm, gramschmidt (`algebraic`) abort; 2mm (`hybrid`)
+  crashes at run time; 3mm (`hybrid`) gives wrong results.
 - Trapezoidal tiling, wrong results: lu, cholesky (even with 1 thread), PolyBench
-  nussinov (`kernel`); NPDP counting_im, mcm, nw, sw, triang (mostly with 2+
+  nussinov (`handtuned`); NPDP counting_im, mcm, nw, sw, triang (mostly with 2+
   threads).
 - PolyBench nussinov and trisolv (`tpz`): pesto aborts.
-- NPDP mcc (`kernel`): TpzTiling logs "No for loop found to tile" as an error but
+- NPDP mcc (`handtuned`): TpzTiling logs "No for loop found to tile" as an error but
   pesto exits 0; the skewed, untiled output is already wrong.
-- NPDP counting (`kernel`): the parameter context assumes `l >= 10`, while the
+- NPDP counting (`handtuned`): the parameter context assumes `l >= 10`, while the
   kernel runs with `l = 0`; the transformed code is out of contract.
 - `max_cut_volume()`: signature mismatch between the generated call and
   `gen_maxcut.py` (worked around by the harness, see above).
 
 Configurations and sources:
 
-- PolyBench trisolv (`kernel`): the tailored skew names `j`, which is not an
+- PolyBench trisolv (`handtuned`): the hand-tuned skew names `j`, which is not an
   iterator of every statement of the upstream source.
 - PolyBench adi: clan cannot parse `(DATA_TYPE)_PB_N`; Pluto fails the same way.
 
