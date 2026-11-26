@@ -56,3 +56,5 @@ add_custom_target(check-regressions
     DEPENDS pesto-cli pesto_gtest WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     VERBATIM
     COMMENT "Running fast compiler correctness regressions")
+
+include(${CMAKE_CURRENT_SOURCE_DIR}/benchmarks.cmake)
