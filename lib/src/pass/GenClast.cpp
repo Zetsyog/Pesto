@@ -5,7 +5,11 @@
  * Copyright (c) 2024 Clément Rossetti
  */
 
+#include <cstring>
 #include <iostream>
+#include <regex>
+#include <set>
+#include <string>
 
 #include <pesto/ParamConstraint.hpp>
 #include <pesto/clast_support.h>
@@ -19,6 +23,86 @@
 
 using namespace pesto::pass;
 using namespace pesto;
+
+namespace {
+
+/**
+ * Rename scattering dimensions whose name clashes with an identifier of the SCoP.
+ *
+ * Clan names scalar scattering dimensions b0, b1, ... and every scattering name
+ * is declared as a long int local of the generated block. A program variable of
+ * the same name (deriche has DATA_TYPE b1, b2) is then shadowed: `b1 = 0.5`
+ * silently becomes `b1 = 0`. A statement's own iterators are not clashes: the
+ * statement macro takes them as arguments.
+ */
+void renameClashingScatnames(osl_scop_p scop, std::shared_ptr<spdlog::logger> &logger) {
+	osl_scatnames_p scatnames = (osl_scatnames_p)osl_generic_lookup(scop->extension, OSL_URI_SCATNAMES);
+	if (scatnames == nullptr || scatnames->names == nullptr) {
+		return;
+	}
+
+	std::set<std::string> used;
+	auto addIdentifiers = [&](const std::string &text, const std::set<std::string> &except) {
+		static const std::regex ident("[A-Za-z_][A-Za-z0-9_]*");
+		for (auto it = std::sregex_iterator(text.begin(), text.end(), ident); it != std::sregex_iterator(); ++it) {
+			if (except.count(it->str()) == 0) {
+				used.insert(it->str());
+			}
+		}
+	};
+
+	if (scop->parameters != nullptr) {
+		osl_strings_p params = (osl_strings_p)scop->parameters->data;
+		for (size_t i = 0; params != nullptr && i < osl_strings_size(params); i++) {
+			used.insert(params->string[i]);
+		}
+	}
+	// Not the arrays extension: Clan lists loop iterators there too. The bodies
+	// hold every identifier the generated code can actually refer to.
+	for (osl_statement_p st = scop->statement; st != nullptr; st = st->next) {
+		osl_body_p body = (osl_body_p)osl_generic_lookup(st->extension, OSL_URI_BODY);
+		if (body == nullptr) {
+			continue;
+		}
+		std::set<std::string> iterators;
+		for (size_t i = 0; body->iterators != nullptr && i < osl_strings_size(body->iterators); i++) {
+			iterators.insert(body->iterators->string[i]);
+		}
+		char *expr = osl_strings_sprint(body->expression);
+		addIdentifiers(expr, iterators);
+		free(expr);
+	}
+
+	std::set<std::string> taken(used);
+	for (size_t i = 0; i < osl_strings_size(scatnames->names); i++) {
+		taken.insert(scatnames->names->string[i]);
+	}
+
+	osl_loop_p loops = (osl_loop_p)osl_generic_lookup(scop->extension, OSL_URI_LOOP);
+	for (size_t i = 0; i < osl_strings_size(scatnames->names); i++) {
+		std::string name = scatnames->names->string[i];
+		if (used.count(name) == 0) {
+			continue;
+		}
+		std::string fresh = "__pesto_" + name;
+		while (taken.count(fresh) != 0) {
+			fresh += "_";
+		}
+		taken.insert(fresh);
+		logger->debug("scattering dimension '{}' clashes with a program identifier, renamed '{}'", name, fresh);
+
+		for (osl_loop_p l = loops; l != nullptr; l = l->next) {
+			if (l->iter != nullptr && name == l->iter) {
+				free(l->iter);
+				l->iter = strdup(fresh.c_str());
+			}
+		}
+		free(scatnames->names->string[i]);
+		scatnames->names->string[i] = strdup(fresh.c_str());
+	}
+}
+
+} // namespace
 
 GenClastPass::GenClastPass()
 	: IPass("clast-gen")
@@ -40,6 +124,8 @@ Bundle GenClastPass::apply(Bundle &&bundle) {
 	auto &macro = bundle.metadata.get<pesto::bundle::metadata::Macro>();
 
 	osl_scop_p scop = scopIR->c_scop();
+
+	renameClashingScatnames(scop, this->logger);
 
 	// Declare scatterting iterators as variables
 	osl_scatnames_p scatnames = (osl_scatnames_p)osl_generic_lookup(scop->extension, OSL_URI_SCATNAMES);

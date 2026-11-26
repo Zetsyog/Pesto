@@ -124,13 +124,13 @@ PlutoPass::PlutoPass() : IPass("pluto"), pluto() {
 					  .quiet(!PLUTO_DEBUG)
 					  .debug(PLUTO_DEBUG)
 					  .moreDebug(PLUTO_DEBUG)
-					  .identity(0)
-					  .islDep(1)
-					  .tile(0)
-					  .diamondTile(0)
-					  .parallel(0)
-					  .prevector(0)
-					  .unrollJam(0);
+					  .identity(false)
+					  .islDep(true)
+					  .tile(false)
+					  .diamondTile(false)
+					  .parallel(false)
+					  .prevector(false)
+					  .unrollJam(false);
 }
 
 PlutoPass::~PlutoPass() {

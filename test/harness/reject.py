@@ -64,8 +64,11 @@ def body(args: Args) -> None:
 
     # CLooG supports these domains (a positive regression exercises that path),
     # while Pluto's importer cannot represent their existential local dimensions.
+    # The default pipeline no longer runs Pluto: ask for it explicitly.
     shutil.copyfile(fixtures / "guarded_stride.c", work / "stride.c")
-    reject("stride", "Pluto does not support local dimensions", "stride.c")
+    pluto_config = {"passes": [{"uuid": "pluto"}, {"uuid": "codegen-cloog"}]}
+    (work / "pluto.json").write_text(json.dumps(pluto_config), encoding="utf-8")
+    reject("stride", "Pluto does not support local dimensions", "--config", "pluto.json", "stride.c")
 
     source = (work / "input.c").read_text(encoding="utf-8").replace(
         "#pragma endscop",

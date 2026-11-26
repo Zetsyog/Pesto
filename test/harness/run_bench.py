@@ -294,6 +294,7 @@ class Bench:
                 config_args = [
                     *case.pipeline_args(args.source_dir / "pipelines", args.pipeline, 7)
                 ]
+            config_args += ["-i"]
             case.run(
                 "transform",
                 "transform-fail",
