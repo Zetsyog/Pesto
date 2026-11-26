@@ -67,24 +67,26 @@ test:compiler-regressions:
     paths:
       - compiler-regressions/
     expire_in: 1 week
-test:polybench:algebraic:
+# Every PolyBench/NPDP kernel through every pipeline; report only, never a
+# merge gate (allowlisted pairs already run in test:compiler-regressions).
+test:bench-probe:
   extends: .test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "web"
+      when: manual
+  allow_failure: true
   script:
     - |
-      docker run --rm "$DOCKER_IMAGE" cmake --build build/ --target test-polybench-algebraic
-test:polybench:hybrid:
-  extends: .test
-  script:
-    - |
-      docker run --rm "$DOCKER_IMAGE" cmake --build build/ --target test-polybench-hybrid
-test:polybench:dynschedule:
-  extends: .test
-  script:
-    - |
-      docker run --rm "$DOCKER_IMAGE" cmake --build build/ --target test-polybench-dynschedule
-test:polybench:tpz:
-  extends: .test
-  script:
-    - |
-      docker run --rm "$DOCKER_IMAGE" cmake --build build/ --target test-polybench-tpz
-
+      mkdir -p bench-probe
+      docker run --rm -v "$CI_PROJECT_DIR/bench-probe:/bench-probe-report" "$DOCKER_IMAGE" sh -c '
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DPESTO_ENABLE_BENCHMARKS=OFF &&
+          cmake --build build/ --target check-bench-probe -j4;
+          status=$?;
+          cp build/bench-probe/probe-report.md build/bench-probe/probe-report.csv /bench-probe-report/;
+          exit $status'
+  artifacts:
+    when: always
+    paths:
+      - bench-probe/
+    expire_in: 4 weeks

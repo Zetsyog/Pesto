@@ -6,7 +6,8 @@ RUN apt-get update && apt-get install -y \
     pkgconf libtool autoconf automake\
     libyaml-dev libgmp3-dev \ 
     bison libbison-dev libfl-dev mpc libmpc-dev \
-    libntl-dev bzip2 texinfo libglpk-dev &&\    
+    libntl-dev bzip2 texinfo libglpk-dev \
+    python3 python3-sympy &&\
     rm -rf /var/lib/apt/lists/*
 
 # install sbcl
