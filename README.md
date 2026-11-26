@@ -48,9 +48,9 @@ Note: the `install` command is untested and can be unpredictable.
 The supported CMake options are the following:
 
 - `PESTO_BUILD_JOBS`: define the number of threads/jobs that will be used to build subprojects (i.e. it will call `make -j ${PESTO_BUILD_JOBS})
-- `PESTO_TEST_POLYBENCH_DATASET`: for PolyBench tests, set which dataset will be used
-- `PESTO_TEST_POLYBENCH_TILE_DIVIDER_MIN`: for PolyBench tests with random tile sizes, set the minimum tile divider/size
-- `PESTO_TEST_POLYBENCH_TILE_DIVIDER_MAX`: for PolyBench tests with random tile sizes, set the maximum tile divider/size
+- `PESTO_ENABLE_BENCH_REGRESSIONS` (default `ON`): run PolyBench and NPDP kernels as regression tests (fetches their pinned sources)
+- `PESTO_BENCH_POLYCC`: `polycc` command for the benchmark probe's Pluto reference column (empty: disabled)
+- `PESTO_ENABLE_BENCHMARKS` (default `ON`): fetch the pesto-bench performance repository
 
 ```bash
 mkdir build
@@ -268,8 +268,8 @@ safety and undefined behavior, rather than leaks in the dependency stack.
 Restore the ordinary build with
 `-DPESTO_ENABLE_SANITIZERS=OFF`.
 
-The suite has 47 CTest entries including the workflow tests and usually takes
-tens of seconds after building. The target uses a CTest processor budget of 8;
+The synthetic suite has 47 CTest entries including the workflow tests and usually
+takes tens of seconds after building. The target uses a CTest processor budget of 8;
 individual matrix tests reserve 4 for their OpenMP runs. To replay a failure:
 
 ```bash
@@ -283,59 +283,62 @@ artifacts when a test fails. No random sampling or timing thresholds are used.
 
 The strided-loop fixture goes directly through CLooG; Pluto's importer cannot
 handle its local dimensions and has a separate diagnostic regression. Nonpositive
-tile sizes and multiple SCoP regions must also fail cleanly. Trapezoidal tiling
-and its domain-specific `maxcut.h` generation remain in the benchmark workflows.
-To configure only the fast checks, use `-DPESTO_ENABLE_BENCHMARKS=OFF`; this avoids
-fetching the external performance benchmark repositories.
+tile sizes and multiple SCoP regions must also fail cleanly.
+
+### Benchmark regressions (PolyBench and NPDP)
+
+Details, kernel classes, and the known issues are in [doc/testing.md](doc/testing.md).
+
+`check-regressions` also runs real kernels: [PolyBench/C 4.2.1](https://sourceforge.net/projects/polybench/)
+(official tarball, SHA256-pinned) and [NPDP Bench](https://github.com/Zetsyog/NPDP_Bench)
+(pinned commit), both fetched at configure time. Each allowlisted (kernel, pipeline)
+pair is a CTest case labelled `bench` (`ctest --test-dir build -L bench`). The
+original and the transformed kernel are compiled with the same flags (ASan/UBSan,
+`-ffp-contract=off`), and their result dumps must be identical:
+
+- PolyBench at `MINI` and `SMALL` datasets, NPDP at `N = 10, 23, 64` with two seeds;
+- three tile divider sets (TPZ: `DIV0 >= 2`, `DIV2 >= 4`, as in the performance runs);
+- `1, 2, 4` OpenMP threads.
+
+For trapezoidal tiling the harness generates `maxcut.h` with
+`utilities/gen_maxcut.py` (needs Python 3, `sympy`, and barvinok's `iscc`, which
+the build provides), from the command emitted in the generated source, with the
+parameters bound to the instance being run.
+
+Pipelines live in `test/regression/pipelines/`; `kernel` is the tailored
+configuration in `utilities/configuration files/{polybenchs,NPDP}/<kernel>.json`.
+Which pipelines apply depends on the kernel:
+
+| Class | Kernels | Pipelines |
+| --- | --- | --- |
+| Algebraic | the other PolyBench kernels | `default`, `tiled`, `atiling`, `hybrid-2d` |
+| Trapezoidal | PolyBench lu, cholesky, nussinov, seidel-2d, fdtd-2d, symm, heat-3d, jacobi-1d, jacobi-2d, trisolv; NPDP counting, counting_im, mcm, knuth, triang, nussinov, mcc, nw, sw | `default`, `tiled`, `tpz` (PolyBench), `kernel` |
+| Not pesto-compatible | floyd-warshall, adi, ludcmp, durbin | Pluto reference only |
+
+NPDP mea, sw3d, and zuker are not tested.
+
+The allowlist in `test/regression/benchmarks.cmake` holds the pairs that pass,
+with the reason for every excluded pair. To review it, run the probe: every
+kernel through every pipeline that applies, in a separate CTest directory that a
+plain `ctest` never runs:
 
 ```bash
-# Unit tests (wip)
-cmake --build build --target unit-tests
-# polybench
-cmake --build build --target test-polybench-hybrid
-cmake --build build --target test-polybench-tpz
+cmake --build build --target check-bench-probe
+# report: build/bench-probe/probe-report.md (and .csv)
 ```
 
-### Tested benchmarks
+The report lists passing pairs that are not allowlisted yet, and fails if an
+allowlisted pair fails. CI runs it on scheduled pipelines. A Pluto reference
+column helps tell pesto bugs from kernels the toolchain cannot handle:
 
-Polybench benchmarks status:
-
-| Benchmark                            | Algebraic Tiling   | Hybrid Tiling      | Trapezoidal Tiling | Status                                   |
-|--------------------------------------|--------------------|--------------------|--------------------|------------------------------------------|
-| `datamining/correlation`             | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
-| `datamining/covariance`              | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
-| `linear-algebra/blas/gemm`           | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
-| `linear-algebra/blas/gemver`         | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
-| `linear-algebra/blas/gesummv`        | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
-| `linear-algebra/blas/symm`           | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
-| `linear-algebra/blas/syr2k`          | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
-| `linear-algebra/blas/syrk`           | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
-| `linear-algebra/blas/trmm`           | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
-| `linear-algebra/kernels/2mm`         | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
-| `linear-algebra/kernels/3mm`         | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
-| `linear-algebra/kernels/atax`        | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
-| `linear-algebra/kernels/bicg`        | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
-| `linear-algebra/kernels/doitgen`     | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
-| `linear-algebra/kernels/mvt`         | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
-| `linear-algebra/solvers/cholesky`    | :x:                | :x:                | :grey_question:    | :hole: unsupported                       |
-| `linear-algebra/solvers/durbin`      | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
-| `linear-algebra/solvers/gramschmidt` | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
-| `linear-algebra/solvers/lu`          | :x:                | :x:                | :grey_question:    | :hole: unsupported                       |
-| `linear-algebra/solvers/ludcmp`      | :x:                | :x:                | :grey_question:    | :hole: unsupported                       |
-| `linear-algebra/solvers/trisolv`     | :x:                | :x:                | :grey_question:    | :hole: unsupported                       |
-| `medley/deriche`                     | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
-| `medley/floyd-warshall`              | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK (dynamic schedule) |
-| `medley/nussinov`                    | :x:                | :x:                | :grey_question:    | :hole: unsupported                       |
-| `stencils/adi`                       | :heavy_check_mark: | :heavy_check_mark: | :grey_question:    | :white_check_mark: OK                    |
-| `stencils/fdtd-2d`                   | :grey_question:    | :grey_question:    | :heavy_check_mark: | :white_check_mark: OK (tpz)              |
-| `stencils/heat-3d`                   | :grey_question:    | :grey_question:    | :heavy_check_mark: | :white_check_mark: OK (tpz)              |
-| `stencils/jacobi-1d`                 | :grey_question:    | :grey_question:    | :heavy_check_mark: | :white_check_mark: OK (tpz)              |
-| `stencils/jacobi-2d`                 | :grey_question:    | :grey_question:    | :heavy_check_mark: | :white_check_mark: OK (tpz)              |
-| `stencils/seidel-2d`                 | :grey_question:    | :grey_question:    | :heavy_check_mark: | :white_check_mark: OK (tpz)              |
+```bash
+docker build -t pesto-pluto-ref:0.13.0 -f docker/pluto.dockerfile docker
+cmake -B build -DPESTO_BENCH_POLYCC=$PWD/test/regression/polycc-docker.sh
+```
 
 ## Build for development
 
 ```bash
-cmake -B build -DPESTO_BUILD_JOBS=16 -DPESTO_TEST_POLYBENCH_DATASET=MEDIUM_DATASET -DPESTO_TEST_POLYBENCH_TILE_DIVIDER_MAX=16 -DCMAKE_BUILD_TYPE=Debug -DPESTO_TEST_POLYBENCH_RUNS_PER_BENCH=1 -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+cmake -B build -DPESTO_BUILD_JOBS=16 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 cmake --build build -j
 ```
