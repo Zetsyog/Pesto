@@ -31,7 +31,7 @@ Variant = tuple[str, list[str]]
 THREADS = (1, 2, 4)
 PARAM_DIVIDERS: list[Variant] = [
     ("uneven", ["-DDIV0=3", "-DDIV1=5", "-DDIV2=7", "-DDIV3=11"]),
-    ("oversized", ["-DDIV0=64", "-DDIV1=65", "-DDIV2=66", "-DDIV3=67"]),
+    ("oversized", ["-DDIV0=31", "-DDIV1=33", "-DDIV2=35", "-DDIV3=37"]),
 ]
 # TpzTiling: DIV0 is the band (gap) width, DIV2 the inner tile size; DIV1 keeps
 # its generated default. Ranges follow the pesto-bench TPZ runs (DIV0 >= 2,

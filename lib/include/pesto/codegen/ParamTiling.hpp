@@ -122,6 +122,9 @@ class ParamTilingCodegen {
 	NameHelper &nameHelper;
 	NameHelper &trahrheNameHelper;
 
+	/** Tiling data (owned or borrowed) enclosing this group at the given depth, or nullptr. */
+	TilingData *findTilingDataAtDepth(std::size_t depth) const;
+
 	void genStmtRectangular(std::ostream &os, StmtType type);
 	void genStmtAlgebraic(std::ostream &os, StmtType type);
 	void genStmtScheduled(std::ostream &os, StmtType type);

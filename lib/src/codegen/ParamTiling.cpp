@@ -54,11 +54,8 @@ ParamTilingCodegen::ParamTilingCodegen(StmtGroup &group, TilingData &data, int n
 	// of its group a column is a single point, so the floor is 1 and the check is
 	// vacuous — where DIV0 * 1000 was an arbitrary constant.
 	{
-		auto nextIt = std::find_if(this->group.tilingData.begin(), this->group.tilingData.end(),
-								   [this](const std::unique_ptr<TilingData> &d) {
-									   return static_cast<size_t>(d->tiling_depth) == this->tilingDepth + 1;
-								   });
-		if (nextIt == this->group.tilingData.end()) {
+		TilingData *next = this->findTilingDataAtDepth(this->tilingDepth + 1);
+		if (next == nullptr) {
 			this->volumeCheckThreshold = "1";
 		} else {
 			std::string paramList;
@@ -68,12 +65,23 @@ ParamTilingCodegen::ParamTilingCodegen(StmtGroup &group, TilingData &data, int n
 					paramList += ", ";
 				paramList += isl_set_get_dim_name(this->innerDomain, isl_dim_param, i);
 			}
-			this->volumeCheckThreshold = (*nextIt)->trahrheNameHelper->ehrhartMaxFnName() + "(" + paramList + ")";
+			this->volumeCheckThreshold = next->trahrheNameHelper->ehrhartMaxFnName() + "(" + paramList + ")";
 		}
 	}
 
 	this->logger = pesto::log::get_logger("param-tiling-codegen");
 	this->logger = pesto::log::get_logger("param-tiling-codegen");
+}
+
+pesto::TilingData *ParamTilingCodegen::findTilingDataAtDepth(std::size_t depth) const {
+	// Borrowed levels count too: a group may own only inner levels of a tile
+	// loop nest whose outer levels are shared with (and owned by) another group.
+	for (TilingData *d : this->group.allTilingData()) {
+		if (static_cast<std::size_t>(d->tiling_depth) == depth) {
+			return d;
+		}
+	}
+	return nullptr;
 }
 
 ParamTilingCodegen::~ParamTilingCodegen() {
@@ -194,13 +202,8 @@ void ParamTilingCodegen::genHeaderStmtAlgebraic(std::ostream &os) {
 
 	std::string nonEmpty, boundArgs;
 	for (std::size_t i = 0; i < this->tilingDepth; i += 1) {
-		auto dataIt = std::find_if(this->group.tilingData.begin(), this->group.tilingData.end(),
-								   [i](const std::unique_ptr<TilingData> &d) {
-									   size_t depth = static_cast<size_t>(d->tiling_depth);
-									   return depth == i;
-								   });
-		assert(dataIt != this->group.tilingData.end());
-		auto &data = *dataIt;
+		TilingData *data = this->findTilingDataAtDepth(i);
+		assert(data != nullptr);
 		boundArgs += ", " + data->nameHelper->innerForLBName();
 		boundArgs += ", " + data->nameHelper->innerForUBName();
 		if (!nonEmpty.empty())
@@ -292,13 +295,8 @@ void ParamTilingCodegen::genBodyStmtAlgebraic(std::ostream &os) {
 	}
 
 	for (size_t i = 0; i < this->tilingDepth; i += 1) {
-		auto dataIt = std::find_if(this->group.tilingData.begin(), this->group.tilingData.end(),
-								   [i](const std::unique_ptr<TilingData> &d) {
-									   size_t depth = static_cast<size_t>(d->tiling_depth);
-									   return depth == i;
-								   });
-		assert(dataIt != this->group.tilingData.end());
-		auto &data = *dataIt;
+		TilingData *data = this->findTilingDataAtDepth(i);
+		assert(data != nullptr);
 		os << ", " << data->nameHelper->innerForLBName();
 		os << ", " << data->nameHelper->innerForUBName();
 	}
@@ -315,13 +313,8 @@ void ParamTilingCodegen::genBodyStmtAlgebraic(std::ostream &os) {
 		os << ", " << isl_set_get_dim_name(this->innerDomain, isl_dim_param, i);
 	}
 	for (std::size_t i = 0; i < this->tilingDepth; i += 1) {
-		auto dataIt = std::find_if(this->group.tilingData.begin(), this->group.tilingData.end(),
-								   [i](const std::unique_ptr<TilingData> &d) {
-									   size_t depth = static_cast<size_t>(d->tiling_depth);
-									   return depth == i;
-								   });
-		assert(dataIt != this->group.tilingData.end());
-		auto &data = *dataIt;
+		TilingData *data = this->findTilingDataAtDepth(i);
+		assert(data != nullptr);
 		os << ", " << data->nameHelper->innerForLBName();
 		os << ", " << data->nameHelper->innerForUBName();
 	}
@@ -386,17 +379,12 @@ void ParamTilingCodegen::genHeaderStmtScheduled(std::ostream &os) {
 		os << this->nameHelper.outerForUBName() << " = " << scheduleName << ".len - 1;" << this->endline;
 	}
 	if (this->tilingDepth == 1) {
-		auto dataIt = std::find_if(this->group.tilingData.begin(), this->group.tilingData.end(),
-								   [](const std::unique_ptr<TilingData> &d) {
-									   size_t depth = static_cast<size_t>(d->tiling_depth);
-									   return depth == 0;
-								   });
-		assert(dataIt != this->group.tilingData.end());
-		auto &data = *dataIt;
+		TilingData *data = this->findTilingDataAtDepth(0);
+		assert(data != nullptr);
 		std::string tileArrayName = data->trahrheNameHelper->tileArrayName();
 		std::string scheduleName = data->trahrheNameHelper->scheduleName();
 		os << this->nameHelper.outerForUBName() << " = " << scheduleName << ".fronts["
-		   << this->group.tilingData[0]->outer_for->iterator << "].len - 1;" << this->endline;
+		   << data->outer_for->iterator << "].len - 1;" << this->endline;
 	}
 }
 
@@ -409,13 +397,8 @@ void ParamTilingCodegen::genBodyStmtScheduled(std::ostream &os) {
 		return;
 	}
 
-	auto dataIt = std::find_if(this->group.tilingData.begin(), this->group.tilingData.end(),
-							   [](const std::unique_ptr<TilingData> &d) {
-								   size_t depth = static_cast<size_t>(d->tiling_depth);
-								   return depth == 0;
-							   });
-	assert(dataIt != this->group.tilingData.end());
-	auto &outerData = *dataIt;
+	TilingData *outerData = this->findTilingDataAtDepth(0);
+		assert(outerData != nullptr);
 	std::string tileArrayName = outerData->trahrheNameHelper->tileArrayName();
 	std::string scheduleName = outerData->trahrheNameHelper->scheduleName();
 

@@ -98,6 +98,18 @@ struct StmtGroup {
 	 *  exactly like our own — otherwise Trahrhe emits Pluto's raw tile index. */
 	std::vector<TilingData *> borrowedTilingData;
 
+	/** This group's own point loop for each tiling dimension (owned or borrowed).
+	 *  A shared TilingData's inner_for is the OWNER's point loop; in a borrowing
+	 *  group the point loop of the same tile loop may sit on another scattering
+	 *  dimension (2mm: t7 in the owner, t9 in the borrower). */
+	std::map<const TilingData *, struct clast_for *> innerForOf;
+
+	/** The point loop of `d` as seen from this group's statements. */
+	struct clast_for *innerFor(const TilingData *d) const {
+		auto it = innerForOf.find(d);
+		return it != innerForOf.end() ? it->second : d->inner_for;
+	}
+
 	/** Owned + borrowed. Every tiling dimension that ENCLOSES this group's
 	 *  statements, regardless of which group owns its partition.
 	 *  Use this everywhere the tiling STRUCTURE is inspected. Use tilingData

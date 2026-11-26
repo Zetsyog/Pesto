@@ -10,6 +10,7 @@
 #include <fstream>
 #include <memory>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -699,6 +700,7 @@ void ClastParamTilingPass::associateTilingFor(struct clast_root *root, StmtGroup
 
 			auto shared = this->sharedTilingData_.find(outer_for);
 			if (shared != this->sharedTilingData_.end()) {
+				group.innerForOf.emplace(shared->second, current_for);
 				auto &fors = shared->second->inner_fors;
 				if (std::find(fors.begin(), fors.end(), current_for) == fors.end()) {
 					fors.push_back(current_for);
@@ -723,6 +725,7 @@ void ClastParamTilingPass::associateTilingFor(struct clast_root *root, StmtGroup
 			data->inner_fors.push_back(current_for);
 
 			this->sharedTilingData_[outer_for] = data.get();
+			group.innerForOf.emplace(data.get(), current_for);
 			group.tilingData.push_back(std::move(data));
 		}
 	}
@@ -937,59 +940,90 @@ void ClastParamTilingPass::declareGroupVariables(StmtGroup &group) {
 }
 
 void ClastParamTilingPass::updateOmpPragma(StmtGroup &group) {
-	struct clast_for *parallel_for = nullptr;
-	int tiling_depth = -1;
-	for (auto &data : group.tilingData) {
+	// The parallel tile loop may be owned by another group (fused outer tile
+	// loops): look at every enclosing level, and pick the outermost parallel one.
+	TilingData *parallel_data = nullptr;
+	for (auto *data : group.allTilingData()) {
 		struct clast_for *outer_for = data->outer_for;
 		logger->debug("group {} depth {}: outer_for '{}' parallel={}", group.id, data->tiling_depth,
 					  outer_for->iterator ? outer_for->iterator : "?",
 					  (outer_for->parallel & CLAST_PARALLEL_OMP) ? "yes" : "no");
-		if (outer_for->parallel & CLAST_PARALLEL_OMP) {
-			parallel_for = outer_for;
-			tiling_depth = data->tiling_depth;
-			break;
+		if ((outer_for->parallel & CLAST_PARALLEL_OMP) &&
+			(parallel_data == nullptr || data->tiling_depth < parallel_data->tiling_depth)) {
+			parallel_data = data;
 		}
 	}
 
 	// we could be doing sequential tiling
-	if (parallel_for == nullptr) {
+	if (parallel_data == nullptr) {
 		return;
 	}
 
-	// then we need to update the pragma so it can handle custom directives
-	parallel_for->parallel = CLAST_PARALLEL_OMP | CLAST_PARALLEL_USER;
-	auto &nameHelper = group.tilingData[tiling_depth]->nameHelper; /* [0] en dur actuellement */
+	struct clast_for *parallel_for = parallel_data->outer_for;
+	int tiling_depth = parallel_data->tiling_depth;
+	bool owned = std::any_of(group.tilingData.begin(), group.tilingData.end(),
+							 [&](const std::unique_ptr<TilingData> &d) { return d.get() == parallel_data; });
 
-	std::string userDirectiveStr = "omp parallel for firstprivate(";
-	userDirectiveStr += nameHelper->outerForUBName();
-	if (this->getTilingType(tiling_depth) != ParamTilingType::RECTANGULAR) {
-		userDirectiveStr += ", " + nameHelper->pcMaxName();
-		userDirectiveStr += ", " + nameHelper->targetVolName();
+	// The owner of the parallel level emits the directive; a borrowing group only
+	// adds its own (deeper) variables to the private list of that same loop.
+	if (owned) {
+		parallel_for->parallel = CLAST_PARALLEL_OMP | CLAST_PARALLEL_USER;
+		auto &nameHelper = parallel_data->nameHelper;
+
+		std::string userDirectiveStr = "omp parallel for firstprivate(";
+		userDirectiveStr += nameHelper->outerForUBName();
+		if (this->getTilingType(tiling_depth) != ParamTilingType::RECTANGULAR) {
+			userDirectiveStr += ", " + nameHelper->pcMaxName();
+			userDirectiveStr += ", " + nameHelper->targetVolName();
+		}
+		userDirectiveStr += ") \\\n";
+
+		parallel_for->user_directive = strdup(userDirectiveStr.c_str());
 	}
-	userDirectiveStr += ") \\\n";
-
-	parallel_for->user_directive = strdup(userDirectiveStr.c_str());
 
 	// private variables
-	std::string privateVarsStr = std::string(parallel_for->private_vars);
-
-	// now we can free old private vars
+	std::string privateVarsStr = parallel_for->private_vars ? std::string(parallel_for->private_vars) : "";
 	free(parallel_for->private_vars);
 	parallel_for->private_vars = nullptr;
 
-	if (privateVarsStr != "") {
-		privateVarsStr += ", ";
+	// Several groups can append to the same loop, and they share some names
+	// (e.g. ub<outer it>, TARGET_VOL_L<depth>): OpenMP rejects duplicates.
+	std::vector<std::string> present;
+	{
+		std::stringstream ss(privateVarsStr);
+		std::string tok;
+		while (std::getline(ss, tok, ',')) {
+			tok.erase(0, tok.find_first_not_of(" \t"));
+			tok.erase(tok.find_last_not_of(" \t") + 1);
+			if (!tok.empty()) {
+				present.push_back(tok);
+			}
+		}
 	}
-	auto &parallelNameHelper = group.tilingData[tiling_depth]->nameHelper;
+	auto addPrivate = [&](const std::string &var) {
+		if (std::find(present.begin(), present.end(), var) != present.end()) {
+			return;
+		}
+		present.push_back(var);
+		if (!privateVarsStr.empty()) {
+			privateVarsStr += ", ";
+		}
+		privateVarsStr += var;
+	};
 
-	privateVarsStr += parallelNameHelper->innerForLBName();
-	privateVarsStr += ", " + parallelNameHelper->innerForUBName();
+	if (owned) {
+		addPrivate(parallel_data->nameHelper->innerForLBName());
+		addPrivate(parallel_data->nameHelper->innerForUBName());
 
-	if (this->getTilingType(tiling_depth) == ParamTilingType::SCHEDULED &&
-		this->getTilingType(tiling_depth - 1) == ParamTilingType::SCHEDULED) {
-		auto &outerHelper = group.tilingData[tiling_depth - 1]->nameHelper;
-		privateVarsStr += ", " + outerHelper->innerForLBName();
-		privateVarsStr += ", " + outerHelper->innerForUBName();
+		if (this->getTilingType(tiling_depth) == ParamTilingType::SCHEDULED &&
+			this->getTilingType(tiling_depth - 1) == ParamTilingType::SCHEDULED) {
+			auto all = group.allTilingData();
+			auto outerIt = std::find_if(all.begin(), all.end(),
+										[&](TilingData *d) { return d->tiling_depth == tiling_depth - 1; });
+			assert(outerIt != all.end());
+			addPrivate((*outerIt)->nameHelper->innerForLBName());
+			addPrivate((*outerIt)->nameHelper->innerForUBName());
+		}
 	}
 
 	for (auto &data : group.tilingData) {
@@ -997,11 +1031,11 @@ void ClastParamTilingPass::updateOmpPragma(StmtGroup &group) {
 			continue;
 		}
 		auto &nameHelper = *data->nameHelper;
-		privateVarsStr += ", " + nameHelper.outerForUBName();
-		privateVarsStr += ", " + nameHelper.pcMaxName();
-		privateVarsStr += ", " + nameHelper.targetVolName();
-		privateVarsStr += ", " + nameHelper.innerForLBName();
-		privateVarsStr += ", " + nameHelper.innerForUBName();
+		addPrivate(nameHelper.outerForUBName());
+		addPrivate(nameHelper.pcMaxName());
+		addPrivate(nameHelper.targetVolName());
+		addPrivate(nameHelper.innerForLBName());
+		addPrivate(nameHelper.innerForUBName());
 	}
 
 	parallel_for->private_vars = strdup(privateVarsStr.c_str());
@@ -1075,7 +1109,7 @@ __isl_give isl_set *ClastParamTilingPass::removeTilingDimensions(StmtGroup &grou
 		// look if this dimension corresponds to an inner tiling iterator
 		for (auto *itData : group.allTilingData()) {
 			int itOuterIdx = isl_map_find_dim_by_name(trans, isl_dim_in, itData->outer_for->iterator);
-			int itInnerIdx = isl_map_find_dim_by_name(trans, isl_dim_in, itData->inner_for->iterator);
+			int itInnerIdx = isl_map_find_dim_by_name(trans, isl_dim_in, group.innerFor(itData)->iterator);
 			if (itInnerIdx != -1 && itOuterIdx == i) {
 				inner_idx = itInnerIdx;
 				should_skip = false;
@@ -1149,7 +1183,7 @@ __isl_give isl_set *ClastParamTilingPass::moveNonTiledDimensionsToParameters(__i
 		// search if this dimension is tiled
 		for (auto *it_data : group.allTilingData()) {
 			int in_idx = -1;
-			in_idx = isl_set_find_dim_by_name(domain, isl_dim_set, it_data->inner_for->iterator);
+			in_idx = isl_set_find_dim_by_name(domain, isl_dim_set, group.innerFor(it_data)->iterator);
 
 			if (in_idx == i) {
 				should_move = false;
@@ -1267,7 +1301,7 @@ void ClastParamTilingPass::computeTilingDataBoundExpr(CloogProgram *cloogProgram
 			 * Fourier-Motzkin picks the right extremum from the sign; a rename cannot. */
 			auto all = group.allTilingData();
 			auto it = std::find_if(all.begin(), all.end(), [&](const TilingData *d) {
-				return isl_set_find_dim_by_name(domain, isl_dim_set, d->inner_for->iterator) == i;
+				return isl_set_find_dim_by_name(domain, isl_dim_set, group.innerFor(d)->iterator) == i;
 			});
 
 			if (it != all.end()) {
