@@ -11,6 +11,8 @@
 
 using namespace pesto::pass;
 
-IPass::IPass(std::string name) : name(name) { logger = log::get_logger("pass/" + name); }
+IPass::IPass(std::string name) : name(name) {
+	logger = log::get_logger("pass/" + name);
+}
 
 IPass::~IPass() {}

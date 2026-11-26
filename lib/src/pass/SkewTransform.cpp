@@ -1,7 +1,8 @@
 #include <pesto/pass/SkewTransform.hpp>
+
 #include <cctype>
-#include <sstream>
 #include <set>
+#include <sstream>
 
 namespace pesto::pass {
 
@@ -31,13 +32,17 @@ SkewTarget SkewTransform::parseLine(const std::string &line) {
 	std::string expr = rhs;
 	int sign = +1;
 	size_t i = 0;
-	auto skipws = [&]() { while (i < expr.size() && std::isspace((unsigned char)expr[i])) i++; };
+	auto skipws = [&]() {
+		while (i < expr.size() && std::isspace((unsigned char)expr[i]))
+			i++;
+	};
 
 	bool expectTerm = true;
 	bool sawAny = false;
 	while (i < expr.size()) {
 		skipws();
-		if (i >= expr.size()) break;
+		if (i >= expr.size())
+			break;
 
 		char c = expr[i];
 		if (c == '+' || c == '-') {
@@ -60,7 +65,10 @@ SkewTarget SkewTransform::parseLine(const std::string &line) {
 			coeff = val;
 			hasCoeff = true;
 			skipws();
-			if (i < expr.size() && expr[i] == '*') { i++; skipws(); }
+			if (i < expr.size() && expr[i] == '*') {
+				i++;
+				skipws();
+			}
 		}
 
 		skipws();
@@ -98,21 +106,20 @@ SkewTarget SkewTransform::parseLine(const std::string &line) {
 }
 
 SkewTransform SkewTransform::parse(const std::vector<std::string> &lines) {
-    SkewTransform tr;
-    for (const auto &l : lines)
-        tr.targets_.push_back(parseLine(l));
-    return tr;
+	SkewTransform tr;
+	for (const auto &l : lines)
+		tr.targets_.push_back(parseLine(l));
+	return tr;
 }
 
 std::vector<std::string> SkewTransform::originalIterators() const {
-    std::set<std::string> seen;
-    std::vector<std::string> order;
-    for (const auto &t : targets_)
-        for (const auto &kv : t.coeffs)
-            if (seen.insert(kv.first).second)
-                order.push_back(kv.first);
-    return order;
+	std::set<std::string> seen;
+	std::vector<std::string> order;
+	for (const auto &t : targets_)
+		for (const auto &kv : t.coeffs)
+			if (seen.insert(kv.first).second)
+				order.push_back(kv.first);
+	return order;
 }
 
 } // namespace pesto::pass
-

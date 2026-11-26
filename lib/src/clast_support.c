@@ -322,7 +322,7 @@ int clast_annotate_loops(osl_scop_p program, struct clast_stmt *root) {
 			free(claststmts);
 			claststmts = NULL;
 		}
-		
+
 		if (nclastloops == 0 && (loop->directive & CLAST_PARALLEL_OMP)) {
 			/* Pluto names the loop after its own scattering dimension for the
 			 * statement concerned; CLooG names by depth in the AST. The two
@@ -331,9 +331,12 @@ int clast_annotate_loops(osl_scop_p program, struct clast_stmt *root) {
 			 * band, which is the one Pluto's dimension 1 corresponds to. */
 			ClastFilter byStmts = {NULL, loop->stmt_ids, loop->nb_stmts, subset};
 			clast_filter(root, byStmts, &clastloops, &nclastloops, &claststmts, &nclaststmts);
-			if (claststmts) { free(claststmts); claststmts = NULL; }
+			if (claststmts) {
+				free(claststmts);
+				claststmts = NULL;
+			}
 			if (nclastloops > 1) {
-				clastloops[0] = clastloops[nclastloops - 1];   /* la plus externe */
+				clastloops[0] = clastloops[nclastloops - 1]; /* la plus externe */
 				nclastloops = 1;
 			}
 		}

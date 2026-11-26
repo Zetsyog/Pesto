@@ -32,9 +32,8 @@ class SkewPass : public pesto::pass::IPass {
 	bool haveTransform_ = false;
 
 	osl_relation_p skewStatementScattering(isl_ctx *ctx, osl_statement_p stmt,
-						const std::vector<std::string> &paramNames);
+										   const std::vector<std::string> &paramNames);
 	void checkCone(isl_ctx *ctx, osl_scop_p scop);
 };
 
 } // namespace pesto::pass
-

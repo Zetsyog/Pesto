@@ -1,6 +1,6 @@
-#include <pesto/pass/SkewPass.hpp>
 #include <pesto/ir/OpenScopIR.hpp>
 #include <pesto/ir/Scop2Isl.hpp>
+#include <pesto/pass/SkewPass.hpp>
 
 #include <isl/aff.h>
 #include <isl/constraint.h>
@@ -22,8 +22,12 @@ using namespace pesto::pass;
 SkewPass::SkewPass() : IPass("skew") {}
 SkewPass::~SkewPass() {}
 
-std::set<std::string> SkewPass::inputIR() const { return {pesto::ir::OpenScopIR::getID()}; }
-std::string SkewPass::outputIR() const { return pesto::ir::OpenScopIR::getID(); }
+std::set<std::string> SkewPass::inputIR() const {
+	return {pesto::ir::OpenScopIR::getID()};
+}
+std::string SkewPass::outputIR() const {
+	return pesto::ir::OpenScopIR::getID();
+}
 
 void SkewPass::setTransform(const std::vector<std::string> &lines) {
 	transform_ = SkewTransform::parse(lines);
@@ -51,8 +55,8 @@ osl_relation_p SkewPass::skewStatementScattering(isl_ctx *ctx, osl_statement_p s
 	osl_relation_p scat = osl_relation_clone(stmt->scattering);
 	int prec = scat->precision;
 
-	int nOut = scat->nb_output_dims;   // 7 for a 3-loop nest
-	int nIn = scat->nb_input_dims;     // = #iterators
+	int nOut = scat->nb_output_dims; // 7 for a 3-loop nest
+	int nIn = scat->nb_input_dims;	 // = #iterators
 	int nParam = scat->nb_parameters;
 
 	// Column layout of an osl relation row:
@@ -74,7 +78,7 @@ osl_relation_p SkewPass::skewStatementScattering(isl_ctx *ctx, osl_statement_p s
 
 	// The loop output dims are the odd positions (1,3,5,...). The k-th loop
 	// dim corresponds to the k-th target of the transform.
-// The loop output dims are the odd positions (1,3,...), but only as many as
+	// The loop output dims are the odd positions (1,3,...), but only as many as
 	// the statement has real iterators: a lower-dimensional statement (e.g. a 2-D
 	// init/prefix in a 3-D nest) has scalar zeros in the remaining odd slots, not
 	// loop dims. Applying a target that references an absent iterator (e.g. z=k on
@@ -100,7 +104,10 @@ osl_relation_p SkewPass::skewStatementScattering(isl_ctx *ctx, osl_statement_p s
 		int row = -1;
 		for (int r = 0; r < scat->nb_rows; r++) {
 			int v = osl_int_get_si(prec, scat->m[r][outBase + o]);
-			if (v != 0) { row = r; break; }
+			if (v != 0) {
+				row = r;
+				break;
+			}
 		}
 		if (row < 0) {
 			logger->error("skew: could not find the row defining output dim {}", o);
@@ -123,8 +130,7 @@ osl_relation_p SkewPass::skewStatementScattering(isl_ctx *ctx, osl_statement_p s
 		for (const auto &kv : t.coeffs) {
 			int idx = inputIndexOf(kv.first);
 			if (idx < 0) {
-				logger->error("skew: iterator '{}' is not a loop iterator of this statement",
-							  kv.first);
+				logger->error("skew: iterator '{}' is not a loop iterator of this statement", kv.first);
 				osl_relation_free(scat);
 				return nullptr;
 			}
@@ -142,9 +148,9 @@ void SkewPass::checkCone(isl_ctx *ctx, osl_scop_p scop) {
 	using pesto::ir::converter::Scop2Isl;
 	Scop2Isl irHelper(ctx);
 	irHelper.convert(scop);
-	
+
 	isl_union_map *schedules = irHelper.getSchedules();
-	
+
 	isl_union_map *reads = irHelper.getReads();
 	isl_union_map *writes = irHelper.getWrites();
 
@@ -154,7 +160,7 @@ void SkewPass::checkCone(isl_ctx *ctx, osl_scop_p scop) {
 	isl_union_flow *flow = isl_union_access_info_compute_flow(access);
 	isl_union_map *dep = isl_union_flow_get_must_dependence(flow);
 	isl_union_flow_free(flow);
-	
+
 	// Map dependences through the schedule so deltas are computed in the SKEWED
 	// scattering space, not the original (i,j,k) domain. Without this, the
 	// deltas reflect the un-skewed geometry.
@@ -163,7 +169,9 @@ void SkewPass::checkCone(isl_ctx *ctx, osl_scop_p scop) {
 
 	isl_union_set *deltas = isl_union_map_deltas(dep);
 
-	struct Acc { isl_set *set; } acc{nullptr};
+	struct Acc {
+		isl_set *set;
+	} acc{nullptr};
 	// After mapping through the schedule, deltas live in the 7-dim scattering
 	// space [0, x, 0, y, 0, z, 0]. The loop axes we want are dims 1 (x) and 3 (y).
 	isl_union_set_foreach_set(
@@ -171,7 +179,10 @@ void SkewPass::checkCone(isl_ctx *ctx, osl_scop_p scop) {
 		+[](__isl_take isl_set *d, void *user) -> isl_stat {
 			auto *a = static_cast<Acc *>(user);
 			int nd = isl_set_dim(d, isl_dim_set);
-			if (nd < 4) { isl_set_free(d); return isl_stat_ok; }
+			if (nd < 4) {
+				isl_set_free(d);
+				return isl_stat_ok;
+			}
 			d = isl_set_project_out(d, isl_dim_set, 4, nd - 4);
 			d = isl_set_project_out(d, isl_dim_set, 2, 1);
 			d = isl_set_project_out(d, isl_dim_set, 0, 1);
@@ -196,10 +207,10 @@ void SkewPass::checkCone(isl_ctx *ctx, osl_scop_p scop) {
 	isl_set *cone = isl_set_universe(isl_space_copy(sp));
 	isl_local_space *lls = isl_local_space_from_space(sp);
 	isl_constraint *c1 = isl_constraint_alloc_inequality(isl_local_space_copy(lls));
-	c1 = isl_constraint_set_coefficient_si(c1, isl_dim_set, 1, 1);      // dy >= 0
+	c1 = isl_constraint_set_coefficient_si(c1, isl_dim_set, 1, 1); // dy >= 0
 	cone = isl_set_add_constraint(cone, c1);
 	isl_constraint *c2 = isl_constraint_alloc_inequality(isl_local_space_copy(lls));
-	c2 = isl_constraint_set_coefficient_si(c2, isl_dim_set, 0, 1);      // dx - dy >= 0
+	c2 = isl_constraint_set_coefficient_si(c2, isl_dim_set, 0, 1); // dx - dy >= 0
 	c2 = isl_constraint_set_coefficient_si(c2, isl_dim_set, 1, -1);
 	cone = isl_set_add_constraint(cone, c2);
 	isl_local_space_free(lls);
@@ -209,14 +220,15 @@ void SkewPass::checkCone(isl_ctx *ctx, osl_scop_p scop) {
 	if (!empty) {
 		char *s = isl_set_to_str(outside);
 		std::string msg = std::string("skew: 2-D cone check found vectors outside (1,0)-(1,1) "
-									   "in the (x,y) projection: ") + (s ? s : "?")
-						+ " — this is expected for >2-D stencils (heat-3d); "
+									  "in the (x,y) projection: ") +
+						  (s ? s : "?") +
+						  " — this is expected for >2-D stencils (heat-3d); "
 						  "trapezoidal legality is verified downstream in computeDepDistanceVector.";
 		free(s);
 		isl_set_free(outside);
 		isl_set_free(acc.set);
 		logger->warn("{}", msg);
-		return;                       // ne bloque plus
+		return; // ne bloque plus
 	}
 	isl_set_free(outside);
 	isl_set_free(acc.set);
@@ -245,7 +257,7 @@ pesto::Bundle SkewPass::apply(pesto::Bundle &&bundle) {
 	}
 
 	isl_ctx *ctx = isl_ctx_alloc();
-	
+
 	for (osl_statement_p stmt = scop->statement; stmt; stmt = stmt->next) {
 		osl_relation_p newScat = skewStatementScattering(ctx, stmt, paramNames);
 		if (!newScat) {
@@ -255,10 +267,9 @@ pesto::Bundle SkewPass::apply(pesto::Bundle &&bundle) {
 		osl_relation_free(stmt->scattering);
 		stmt->scattering = newScat;
 	}
-	
+
 	checkCone(ctx, scop);
 
 	isl_ctx_free(ctx);
 	return std::move(bundle);
 }
-

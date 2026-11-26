@@ -92,9 +92,13 @@ void alloc_schedule(schedule_t *schedule) {
 	schedule->len = 0;
 }
 
-void free_tiles(tile_t **tiles) { free(tiles); }
+void free_tiles(tile_t **tiles) {
+	free(tiles);
+}
 
-void free_schedule(schedule_t *schedule) { free(schedule->fronts); }
+void free_schedule(schedule_t *schedule) {
+	free(schedule->fronts);
+}
 
 void _pesto_compute_schedule(schedule_t *schedule, tile_t (*tileArray)[DIV1]) {
 	long int sched_len = 0;
