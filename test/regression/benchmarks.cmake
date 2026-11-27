@@ -22,7 +22,7 @@ FetchContent_Declare(
 FetchContent_Declare(
 	pesto_npdp
 	GIT_REPOSITORY https://github.com/Zetsyog/NPDP_Bench.git
-	GIT_TAG a381435f705cb859f41769553add5fb3fd63f0c8
+	GIT_TAG d8770b55c5ecb9de0ae0ce142b57dd69947386d5
 	SOURCE_SUBDIR do-not-build
 	DOWNLOAD_EXTRACT_TIMESTAMP true
 )
