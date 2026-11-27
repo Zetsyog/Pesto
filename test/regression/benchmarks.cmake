@@ -1,10 +1,10 @@
 # PolyBench/C and NPDP kernels as differential regression tests.
 #
-# * Allowlisted (kernel, pipeline) pairs at the end of this file are ctest cases labelled
-#   "regression;bench", part of check-regressions.
-# * check-bench-probe runs EVERY kernel through EVERY pipeline (outside the normal ctest run) and
-#   writes bench-probe/probe-report.md: use it to grow the allowlist and to spot allowlisted cases
-#   that broke.
+# * benchmarks.txt lists every kernel, its class, and the pipelines tested by ctest (labels
+#   "regression;bench", part of check-regressions).
+# * check-bench-probe runs every kernel through every pipeline of its class (outside the normal
+#   ctest run) and writes bench-probe/probe-report.md: use it to grow the tested pipelines and to
+#   spot tested pairs that broke.
 option(PESTO_ENABLE_BENCH_REGRESSIONS "Run PolyBench and NPDP kernels as regression tests" ON)
 if(NOT PESTO_ENABLE_BENCH_REGRESSIONS)
 	return()
@@ -22,7 +22,7 @@ FetchContent_Declare(
 FetchContent_Declare(
 	pesto_npdp
 	GIT_REPOSITORY https://github.com/Zetsyog/NPDP_Bench.git
-	GIT_TAG a8c2cbf1e194f0fad575324aee6270bc5e628c48
+	GIT_TAG a381435f705cb859f41769553add5fb3fd63f0c8
 	SOURCE_SUBDIR do-not-build
 	DOWNLOAD_EXTRACT_TIMESTAMP true
 )
@@ -42,60 +42,18 @@ set(PESTO_BENCH_PROBE_DIR "${CMAKE_BINARY_DIR}/bench-probe")
 # Hand-tuned configurations: pipelines/handtuned/<suite>/<kernel name>.json.
 set(PESTO_BENCH_HANDTUNED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/pipelines/handtuned")
 
-# Kernel classes decide which pipelines apply (see the probe report): - algebraic: standard and
-# hybrid algebraic tiling; - trapezoidal: only trapezoidal tiling (generic tpz, or the hand-tuned
-# per-kernel configuration; NPDP kernels need its skew), never algebraic tiling; - unsupported: not
-# pesto-compatible, only probed through Pluto (pluto pipeline, when PESTO_BENCH_POLYCC is set).
-# default/pluto-like (Pluto scheduling + rectangular tiling) are probed for every pesto-compatible
-# kernel. NPDP mea, sw3d and zuker are deliberately ignored.
-set(PESTO_POLYBENCH_ALGEBRAIC
-	datamining/correlation
-	datamining/covariance
-	linear-algebra/kernels/2mm
-	linear-algebra/kernels/3mm
-	linear-algebra/kernels/atax
-	linear-algebra/kernels/bicg
-	linear-algebra/kernels/doitgen
-	linear-algebra/kernels/mvt
-	linear-algebra/blas/gemm
-	linear-algebra/blas/gemver
-	linear-algebra/blas/gesummv
-	linear-algebra/blas/syr2k
-	linear-algebra/blas/syrk
-	linear-algebra/blas/trmm
-	linear-algebra/solvers/gramschmidt
-	medley/deriche
-)
-set(PESTO_POLYBENCH_TRAPEZOIDAL
-	linear-algebra/solvers/lu
-	linear-algebra/solvers/cholesky
-	medley/nussinov
-	stencils/seidel-2d
-	stencils/fdtd-2d
-	linear-algebra/blas/symm
-	stencils/heat-3d
-	stencils/jacobi-1d
-	stencils/jacobi-2d
-	linear-algebra/solvers/trisolv
-)
-set(PESTO_POLYBENCH_UNSUPPORTED medley/floyd-warshall stencils/adi linear-algebra/solvers/ludcmp
-								linear-algebra/solvers/durbin
-)
-set(PESTO_NPDP_TRAPEZOIDAL
-	counting
-	counting_im
-	mcm
-	knuth
-	triang
-	nussinov
-	mcc
-	nw
-	sw
-)
+# The benchmark table: one row per kernel, see benchmarks.txt for the format.
+set(PESTO_BENCH_TABLE_FILE "${CMAKE_CURRENT_SOURCE_DIR}/benchmarks.txt")
+file(READ "${PESTO_BENCH_TABLE_FILE}" PESTO_BENCH_TABLE)
+# Re-configure when the table changes.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${PESTO_BENCH_TABLE_FILE}")
 
-set(PESTO_BENCH_ALGEBRAIC_PIPELINES default pluto-like algebraic hybrid)
-set(PESTO_BENCH_TRAPEZOIDAL_PIPELINES default pluto-like tpz)
-set(PESTO_BENCH_NPDP_PIPELINES default pluto-like)
+# Pipelines probed for each <suite>_<class>, before handtuned/pluto are added.
+set(PESTO_BENCH_CLASS_PIPELINES_polybench_algebraic default pluto-like algebraic hybrid)
+set(PESTO_BENCH_CLASS_PIPELINES_polybench_trapezoidal default pluto-like tpz)
+set(PESTO_BENCH_CLASS_PIPELINES_polybench_unsupported "")
+set(PESTO_BENCH_CLASS_PIPELINES_npdp_trapezoidal default pluto-like)
+
 set(PESTO_BENCH_POLYCC
 	""
 	CACHE STRING "polycc command for the probe's Pluto reference pipeline (empty: disabled)"
@@ -167,39 +125,70 @@ function(pesto_bench suite kernel)
 	endforeach()
 endfunction()
 
+# _pesto_bench_rows(<out-var>): the rows of PESTO_BENCH_TABLE, as
+# "suite|kernel|class|probed,pipelines|tested,pipelines" strings.
+function(_pesto_bench_rows var)
+	set(rows)
+	# Drop comments before splitting into lines: they may hold ';' or '[', which
+	# CMake lists would take as separators or brackets.
+	string(REGEX REPLACE "#[^\n]*" "" table "${PESTO_BENCH_TABLE}")
+	string(REPLACE "\n" ";" lines "${table}")
+	foreach(line IN LISTS lines)
+		string(STRIP "${line}" line)
+		if(line STREQUAL "")
+			continue()
+		endif()
+		string(REGEX REPLACE "[ \t]+" ";" fields "${line}")
+		list(LENGTH fields nfields)
+		if(nfields LESS 4)
+			message(FATAL_ERROR "benchmarks.txt: malformed row '${line}' "
+								"(expected: <suite> <kernel> <class> <tested pipelines...> or -)")
+		endif()
+		list(POP_FRONT fields suite kernel class)
+		if(NOT DEFINED PESTO_BENCH_CLASS_PIPELINES_${suite}_${class})
+			message(FATAL_ERROR "benchmarks.txt: unknown class '${class}' for suite '${suite}' "
+								"in row '${line}'")
+		endif()
+		get_filename_component(name "${kernel}" NAME)
+
+		set(probed ${PESTO_BENCH_CLASS_PIPELINES_${suite}_${class}})
+		if(class STREQUAL "trapezoidal" AND EXISTS "${PESTO_BENCH_HANDTUNED_DIR}/${suite}/${name}.json")
+			list(APPEND probed handtuned)
+		endif()
+		list(APPEND probed pluto) # filtered below when PESTO_BENCH_POLYCC is unset
+
+		set(tested)
+		if(NOT fields STREQUAL "-")
+			foreach(pipeline IN LISTS fields)
+				if(NOT pipeline IN_LIST probed)
+					message(FATAL_ERROR "benchmarks.txt: ${suite}/${name}: '${pipeline}' is not "
+										"probed for this kernel (probed: ${probed})")
+				endif()
+				list(APPEND tested ${pipeline})
+			endforeach()
+		endif()
+
+		if(NOT PESTO_BENCH_POLYCC)
+			list(REMOVE_ITEM probed pluto)
+			list(REMOVE_ITEM tested pluto)
+		endif()
+		list(JOIN probed "," probed)
+		list(JOIN tested "," tested)
+		list(APPEND rows "${suite}|${kernel}|${class}|${probed}|${tested}")
+	endforeach()
+	set(${var} "${rows}" PARENT_SCOPE)
+endfunction()
+
 # The probe lives in its own ctest directory, so plain `ctest` never runs it.
-function(_pesto_bench_probe)
+function(_pesto_bench_probe rows)
 	set(content "# Generated by test/regression/benchmarks.cmake\n")
-	list(JOIN PESTO_BENCH_ALGEBRAIC_PIPELINES "," algebraic)
-	list(JOIN PESTO_BENCH_TRAPEZOIDAL_PIPELINES "," trapezoidal)
-	list(JOIN PESTO_BENCH_NPDP_PIPELINES "," npdp)
-	set(cases)
-	foreach(kernel IN LISTS PESTO_POLYBENCH_ALGEBRAIC)
-		list(APPEND cases "polybench|${kernel}|${algebraic}|")
-	endforeach()
-	foreach(kernel IN LISTS PESTO_POLYBENCH_TRAPEZOIDAL)
-		list(APPEND cases "polybench|${kernel}|${trapezoidal}|handtuned")
-	endforeach()
-	foreach(kernel IN LISTS PESTO_POLYBENCH_UNSUPPORTED)
-		list(APPEND cases "polybench|${kernel}||")
-	endforeach()
-	foreach(kernel IN LISTS PESTO_NPDP_TRAPEZOIDAL)
-		list(APPEND cases "npdp|${kernel}|${npdp}|handtuned")
-	endforeach()
-	foreach(case IN LISTS cases)
-		string(REPLACE "|" ";" case "${case}")
-		list(GET case 0 suite)
-		list(GET case 1 kernel)
-		list(GET case 2 pipelines)
-		list(GET case 3 trapezoidal_config)
+	foreach(row IN LISTS rows)
+		string(REPLACE "|" ";" row "${row}")
+		list(GET row 0 suite)
+		list(GET row 1 kernel)
+		list(GET row 3 pipelines)
 		string(REPLACE "," ";" pipelines "${pipelines}")
 		get_filename_component(name "${kernel}" NAME)
-		if(trapezoidal_config AND EXISTS "${PESTO_BENCH_HANDTUNED_DIR}/${suite}/${name}.json")
-			list(APPEND pipelines handtuned)
-		endif()
-		if(PESTO_BENCH_POLYCC)
-			list(APPEND pipelines pluto)
-		endif()
 		foreach(pipeline IN LISTS pipelines)
 			set(test probe-${suite}-${name}-${pipeline})
 			_pesto_bench_command(
@@ -225,7 +214,9 @@ function(_pesto_bench_probe)
 		CONTENT "${content}"
 	)
 endfunction()
-_pesto_bench_probe()
+
+_pesto_bench_rows(PESTO_BENCH_ROWS)
+_pesto_bench_probe("${PESTO_BENCH_ROWS}")
 
 cmake_host_system_information(RESULT PESTO_BENCH_PROBE_JOBS QUERY NUMBER_OF_LOGICAL_CORES)
 add_custom_target(
@@ -238,103 +229,17 @@ add_custom_target(
 	COMMENT "Probing every PolyBench/NPDP kernel through every pipeline"
 )
 
-# --- Allowlist ---------------------------------------------------------------
-# Chosen from the probe report (2026-11-26). Leave a reason next to every excluded pair; promote it
-# once the probe shows it passing.
-
-# PolyBench, algebraic class.
-foreach(
-	kernel IN
-	ITEMS datamining/correlation
-		  datamining/covariance
-		  linear-algebra/kernels/atax
-		  linear-algebra/kernels/doitgen
-		  linear-algebra/kernels/mvt
-		  linear-algebra/blas/gemm
-		  linear-algebra/blas/gemver
-		  linear-algebra/blas/gesummv
-		  linear-algebra/blas/syr2k
-		  linear-algebra/blas/syrk
-		  linear-algebra/blas/trmm
-		  medley/deriche
-)
-	pesto_bench(
-		polybench
-		${kernel}
-		PIPELINES
-		default
-		pluto-like
-		algebraic
-		hybrid
-	)
+# Register the tested pipelines of every row.
+foreach(row IN LISTS PESTO_BENCH_ROWS)
+	string(REPLACE "|" ";" row "${row}")
+	list(GET row 0 suite)
+	list(GET row 1 kernel)
+	list(GET row 4 tested)
+	string(REPLACE "," ";" tested "${tested}")
+	if(tested)
+		pesto_bench(${suite} ${kernel} PIPELINES ${tested})
+	endif()
 endforeach()
-pesto_bench(
-	polybench
-	linear-algebra/solvers/gramschmidt
-	PIPELINES
-	default
-	pluto-like
-	algebraic
-	hybrid
-)
-# Excluded: bicg/default (the i loop is marked parallel while s[j] accumulates over i: intermittent
-# wrong result with 4 threads).
-pesto_bench(polybench linear-algebra/kernels/bicg PIPELINES pluto-like algebraic hybrid)
-# 2mm and 3mm fuse an outer tile loop across groups (borrowed tiling data).
-foreach(kernel IN ITEMS linear-algebra/kernels/2mm linear-algebra/kernels/3mm)
-	pesto_bench(
-		polybench
-		${kernel}
-		PIPELINES
-		default
-		pluto-like
-		algebraic
-		hybrid
-	)
-endforeach()
-
-# PolyBench, trapezoidal class.
-foreach(kernel IN ITEMS stencils/fdtd-2d stencils/heat-3d stencils/jacobi-1d stencils/jacobi-2d)
-	pesto_bench(polybench ${kernel} PIPELINES default pluto-like tpz)
-endforeach()
-pesto_bench(
-	polybench
-	stencils/seidel-2d
-	PIPELINES
-	default
-	pluto-like
-	tpz
-	handtuned
-)
-pesto_bench(
-	polybench
-	linear-algebra/blas/symm
-	PIPELINES
-	default
-	pluto-like
-	tpz
-	handtuned
-)
-# Excluded: lu tpz/handtuned (wrong result with 2+ threads); cholesky tpz/handtuned (wrong result,
-# even with 1 thread); nussinov/tpz (pesto aborts) and nussinov/handtuned (wrong result with 4
-# threads, Pluto itself is wrong on nussinov too); trisolv/tpz (pesto aborts) and trisolv/handtuned
-# (skew: 'j' is not an iterator of every statement of the upstream source).
-foreach(kernel IN ITEMS linear-algebra/solvers/lu linear-algebra/solvers/cholesky medley/nussinov
-						linear-algebra/solvers/trisolv
-)
-	pesto_bench(polybench ${kernel} PIPELINES default pluto-like)
-endforeach()
-
-# NPDP, trapezoidal class (the "handtuned" configuration is the trapezoidal one).
-pesto_bench(npdp counting PIPELINES pluto-like handtuned pluto)
-pesto_bench(npdp counting_im PIPELINES pluto-like handtuned pluto)
-pesto_bench(npdp knuth PIPELINES pluto-like handtuned pluto)
-pesto_bench(npdp nussinov PIPELINES pluto-like handtuned pluto)
-pesto_bench(npdp mcc PIPELINES pluto-like handtuned pluto)
-pesto_bench(npdp mcm PIPELINES pluto-like handtuned pluto)
-pesto_bench(npdp triang PIPELINES pluto-like handtuned pluto)
-pesto_bench(npdp nw PIPELINES pluto-like handtuned pluto)
-pesto_bench(npdp sw PIPELINES pluto-like handtuned pluto)
 
 # -----------------------------------------------------------------------------
 get_property(

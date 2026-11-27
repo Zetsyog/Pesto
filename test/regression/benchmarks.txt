@@ -1,0 +1,72 @@
+# PolyBench/NPDP regression benchmarks, read by benchmarks.cmake.
+#
+# One row per kernel. This is the only place to edit:
+#
+#   <suite>  <kernel>  <class>  <tested pipelines...>  [# why a pipeline is left out]
+#
+# * <class> decides what check-bench-probe runs (every pipeline of the class, see
+#   PESTO_BENCH_CLASS_PIPELINES_* in benchmarks.cmake):
+#     algebraic    standard and hybrid algebraic tiling;
+#     trapezoidal  trapezoidal tiling only (generic tpz, or the hand-tuned per-kernel
+#                  configuration in pipelines/handtuned/<suite>/<name>.json, which
+#                  NPDP kernels need for its skew), never algebraic tiling;
+#     unsupported  not pesto-compatible, only probed through Pluto.
+#   "handtuned" is probed when the kernel has a hand-tuned configuration, "pluto"
+#   when PESTO_BENCH_POLYCC is set.
+# * <tested pipelines> become ctest cases (labels "regression;bench", part of
+#   check-regressions). "-" means none. They must be pipelines the probe runs.
+#   "pluto" cases are only registered when PESTO_BENCH_POLYCC is set.
+# * Leaving a probed pipeline out of the tested ones needs a reason in a trailing
+#   comment. Promote it once the probe report shows it passing.
+#
+# Add a kernel: add a row. Stop testing a pair: drop the pipeline from its row and
+# say why. NPDP mea, sw3d and zuker are deliberately absent.
+# Last checked against the probe report: 2026-11-26.
+
+# suite    kernel                              class        tested pipelines
+# PolyBench, algebraic class.
+polybench  datamining/correlation              algebraic    default pluto-like algebraic hybrid pluto
+polybench  datamining/covariance               algebraic    default pluto-like algebraic hybrid pluto
+polybench  linear-algebra/kernels/2mm          algebraic    default pluto-like algebraic hybrid pluto
+polybench  linear-algebra/kernels/3mm          algebraic    default pluto-like algebraic hybrid pluto
+polybench  linear-algebra/kernels/atax         algebraic    default pluto-like algebraic hybrid pluto
+polybench  linear-algebra/kernels/bicg         algebraic    default pluto-like algebraic hybrid pluto
+polybench  linear-algebra/kernels/doitgen      algebraic    default pluto-like algebraic hybrid pluto
+polybench  linear-algebra/kernels/mvt          algebraic    default pluto-like algebraic hybrid pluto
+polybench  linear-algebra/blas/gemm            algebraic    default pluto-like algebraic hybrid pluto
+polybench  linear-algebra/blas/gemver          algebraic    default pluto-like algebraic hybrid pluto
+polybench  linear-algebra/blas/gesummv         algebraic    default pluto-like algebraic hybrid pluto
+polybench  linear-algebra/blas/syr2k           algebraic    default pluto-like algebraic hybrid pluto
+polybench  linear-algebra/blas/syrk            algebraic    default pluto-like algebraic hybrid pluto
+polybench  linear-algebra/blas/trmm            algebraic    default pluto-like algebraic hybrid pluto
+polybench  linear-algebra/solvers/gramschmidt  algebraic    default pluto-like algebraic hybrid pluto
+polybench  medley/deriche                      algebraic    default pluto-like algebraic hybrid pluto
+
+# PolyBench, trapezoidal class.
+polybench  stencils/fdtd-2d                    trapezoidal  default pluto-like tpz              pluto
+polybench  stencils/heat-3d                    trapezoidal  default pluto-like tpz              pluto
+polybench  stencils/jacobi-1d                  trapezoidal  default pluto-like tpz              pluto
+polybench  stencils/jacobi-2d                  trapezoidal  default pluto-like tpz              pluto
+polybench  stencils/seidel-2d                  trapezoidal  default pluto-like tpz  handtuned   pluto 
+polybench  linear-algebra/blas/symm            trapezoidal  default pluto-like tpz  handtuned   pluto 
+polybench  linear-algebra/solvers/lu           trapezoidal  default pluto-like tpz  handtuned   pluto 
+polybench  linear-algebra/solvers/cholesky     trapezoidal  default pluto-like tpz  handtuned   pluto 
+polybench  medley/nussinov                     trapezoidal  default pluto-like      handtuned   # tpz not supported, pluto is incorrect
+polybench  linear-algebra/solvers/trisolv      trapezoidal  default pluto-like                  pluto # tpz and handtuned needs patch to work
+
+# PolyBench, unsupported class (probed through Pluto only).
+polybench  medley/floyd-warshall               algebraic  -
+polybench  stencils/adi                        algebraic  -
+polybench  linear-algebra/solvers/ludcmp       algebraic  -
+polybench  linear-algebra/solvers/durbin       algebraic  -
+
+# NPDP, trapezoidal class (the "handtuned" configuration is the trapezoidal one).
+npdp       counting                            trapezoidal  default pluto-like handtuned pluto
+npdp       counting_im                         trapezoidal  default pluto-like handtuned pluto
+npdp       knuth                               trapezoidal  default pluto-like handtuned pluto
+npdp       nussinov                            trapezoidal  default pluto-like handtuned       # pluto is failing
+npdp       mcc                                 trapezoidal  default pluto-like handtuned pluto
+npdp       mcm                                 trapezoidal  default pluto-like handtuned pluto
+npdp       triang                              trapezoidal  default pluto-like           pluto # handtuned does not work for now
+npdp       nw                                  trapezoidal  default pluto-like handtuned pluto
+npdp       sw                                  trapezoidal  default pluto-like handtuned pluto

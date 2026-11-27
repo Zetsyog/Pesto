@@ -147,6 +147,9 @@ pesto --config opt.json 2mm.c -o 2mm.pesto.c
 
 ## Test (wip)
 
+How to run each test suite (unit, workflow, fixtures, benchmarks, probe) is in
+[doc/testing.md](doc/testing.md#running-the-tests).
+
 Run the fast workflow regressions (builds the CLI and unit tests first):
 
 ```bash

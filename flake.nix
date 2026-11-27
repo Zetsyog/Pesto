@@ -76,6 +76,8 @@
 
             gitlab-ci-local
 
+            gtest
+
             # utilities/gen_maxcut.py
             (python3.withPackages (ps: [ ps.sympy ]))
           ];

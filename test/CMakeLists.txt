@@ -37,11 +37,3 @@ option(PESTO_ENABLE_BENCHMARKS "Fetch the pesto-bench performance benchmark repo
 if(NOT PESTO_ENABLE_BENCHMARKS)
     return()
 endif()
-
-message(STATUS "Fetching pesto-bench repository")
-fetchcontent_populate(
-    pesto-bench
-    GIT_REPOSITORY https://github.com/Zetsyog/pesto-bench.git #
-    GIT_TAG 0b92b2d84c5faa8aa0e17c66cbc2e22768342e84
-    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/pesto-bench
-)

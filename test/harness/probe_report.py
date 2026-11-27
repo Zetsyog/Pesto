@@ -80,7 +80,7 @@ class Probe:
     def markdown(self) -> str:
         """The Markdown report."""
         md = [f"# Benchmark probe\n\n{self.passing}/{self.total} cases pass. "
-              "Bold cells are allowlisted in test/regression/benchmarks.cmake; "
+              "Bold cells are tested pipelines of test/regression/benchmarks.txt; "
               "`-` means the pipeline does not apply. "
               "Details: `cases/<suite>/<kernel>/<pipeline>/`.\n",
               "| kernel |" + "".join(f" {p} |" for p in PIPELINES),
